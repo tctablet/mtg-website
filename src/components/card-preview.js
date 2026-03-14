@@ -27,9 +27,13 @@ export function hidePreview() {
 }
 
 export function showMobilePreview(imageUri, cardName) {
-  // Remove existing overlay if any
+  // Close existing overlay with animation
   const existing = document.getElementById('mobile-card-overlay')
-  if (existing) { existing.remove(); return }
+  if (existing) {
+    existing.classList.add('closing')
+    existing.addEventListener('transitionend', () => existing.remove(), { once: true })
+    return
+  }
 
   const overlay = document.createElement('div')
   overlay.id = 'mobile-card-overlay'
@@ -39,6 +43,14 @@ export function showMobilePreview(imageUri, cardName) {
       <img src="${imageUri}" alt="${cardName || ''}" />
     </div>
   `
-  overlay.addEventListener('click', () => overlay.remove())
+
+  overlay.addEventListener('click', () => {
+    overlay.classList.add('closing')
+    overlay.addEventListener('transitionend', () => overlay.remove(), { once: true })
+  })
+
   document.body.appendChild(overlay)
+  // Trigger reflow before adding visible class for animation
+  overlay.offsetHeight
+  overlay.classList.add('visible')
 }
