@@ -3,15 +3,18 @@ let defaultImage = null
 export function setDefaultPreview(imageUri) {
   defaultImage = imageUri
   const el = document.getElementById('deck-card-preview')
-  if (el && imageUri) {
-    el.innerHTML = `<img src="${imageUri}" alt="Commander" />`
+  if (!el) return
+  ensureImg(el)
+  if (imageUri) {
+    el.querySelector('img').src = imageUri
   }
 }
 
 export function showPreview(imageUri) {
   const el = document.getElementById('deck-card-preview')
   if (!el || !imageUri) return
-  el.innerHTML = `<img src="${imageUri}" alt="Kartenvorschau" />`
+  const img = ensureImg(el)
+  img.src = imageUri
 }
 
 export function movePreview() {}
@@ -19,11 +22,18 @@ export function movePreview() {}
 export function hidePreview() {
   const el = document.getElementById('deck-card-preview')
   if (!el) return
-  if (defaultImage) {
-    el.innerHTML = `<img src="${defaultImage}" alt="Commander" />`
-  } else {
-    el.innerHTML = ''
+  const img = ensureImg(el)
+  img.src = defaultImage || ''
+}
+
+function ensureImg(container) {
+  let img = container.querySelector('img')
+  if (!img) {
+    img = document.createElement('img')
+    img.alt = 'Kartenvorschau'
+    container.appendChild(img)
   }
+  return img
 }
 
 export function showMobilePreview(imageUri, cardName) {
@@ -50,7 +60,6 @@ export function showMobilePreview(imageUri, cardName) {
   })
 
   document.body.appendChild(overlay)
-  // Trigger reflow before adding visible class for animation
   overlay.offsetHeight
   overlay.classList.add('visible')
 }
