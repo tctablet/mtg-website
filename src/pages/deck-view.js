@@ -255,7 +255,7 @@ function renderDeckStats(cards) {
       </div>
       <div class="legality-breakdown">${items.join(' · ')}</div>
       <div class="legality-card-list">
-        ${illegalCards.map(c => `<div class="legality-card-item"><span class="legality-badge legality-${c.commander_legality === 'not_legal' ? 'not-legal' : c.commander_legality}">${c.commander_legality === 'not_legal' ? 'not legal' : c.commander_legality}</span> ${c.name}</div>`).join('')}
+        ${illegalCards.map(c => `<div class="legality-card-item">${c.name}</div>`).join('')}
       </div>
     </div>`
   } else {

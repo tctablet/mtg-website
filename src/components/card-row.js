@@ -15,22 +15,14 @@ export function isEditMode() {
 export function createCardRow(card, onChanged) {
   const tr = document.createElement('tr')
   const isIllegal = card.commander_legality && card.commander_legality !== 'legal'
-  tr.className = `card-row${isIllegal ? ' card-row-illegal' : ''}`
+  tr.className = 'card-row'
 
   if (editMode) {
-    const editLegalityBadge = card.commander_legality === 'banned'
-      ? '<span class="legality-badge legality-banned" title="Banned in Commander">banned</span>'
-      : card.commander_legality === 'not_legal'
-        ? '<span class="legality-badge legality-not-legal" title="Nicht legal in Commander">not legal</span>'
-        : card.commander_legality === 'restricted'
-          ? '<span class="legality-badge legality-restricted" title="Restricted in Commander">restricted</span>'
-          : ''
-
     tr.innerHTML = `
       <td class="card-qty">
         <input type="number" class="qty-input" value="${card.quantity}" min="1" max="99" />
       </td>
-      <td class="card-name">${card.name}${editLegalityBadge ? ' ' + editLegalityBadge : ''}</td>
+      <td class="card-name${isIllegal ? ' card-name-illegal' : ''}">${card.name}</td>
       <td class="card-mana">${formatManaCost(card.mana_cost)}</td>
       <td class="card-price card-edit-actions">
         <button class="btn-delete-card" title="Karte entfernen">&times;</button>
@@ -55,17 +47,9 @@ export function createCardRow(card, onChanged) {
       }
     })
   } else {
-    const legalityBadge = card.commander_legality === 'banned'
-      ? '<span class="legality-badge legality-banned" title="Banned in Commander">banned</span>'
-      : card.commander_legality === 'not_legal'
-        ? '<span class="legality-badge legality-not-legal" title="Nicht legal in Commander">not legal</span>'
-        : card.commander_legality === 'restricted'
-          ? '<span class="legality-badge legality-restricted" title="Restricted in Commander">restricted</span>'
-          : ''
-
     tr.innerHTML = `
       <td class="card-qty">${card.quantity}</td>
-      <td class="card-name">${card.name}${legalityBadge ? ' ' + legalityBadge : ''}</td>
+      <td class="card-name${isIllegal ? ' card-name-illegal' : ''}">${card.name}</td>
       <td class="card-mana">${formatManaCost(card.mana_cost)}</td>
       <td class="card-price">${card.price_is_foil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(card.price_eur)}</td>
     `
