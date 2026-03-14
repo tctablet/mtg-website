@@ -86,7 +86,7 @@ export async function insertCards(cards) {
   if (error) throw error
 }
 
-export async function updateCardPrices(deckId, priceMap) {
+export async function updateCardPrices(deckId, priceMap, legalityMap = {}) {
   const now = new Date().toISOString()
   const entries = Object.entries(priceMap)
 
@@ -96,9 +96,13 @@ export async function updateCardPrices(deckId, priceMap) {
     await Promise.all(chunk.map(([cardId, info]) => {
       const price = typeof info === 'object' ? info.price : info
       const isFoil = typeof info === 'object' ? info.isFoil : false
+      const update = { price_eur: price, price_is_foil: isFoil, price_updated_at: now }
+      if (legalityMap[cardId]) {
+        update.commander_legality = legalityMap[cardId]
+      }
       return supabase
         .from('cards')
-        .update({ price_eur: price, price_is_foil: isFoil, price_updated_at: now })
+        .update(update)
         .eq('id', cardId)
     }))
   }

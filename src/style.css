@@ -705,6 +705,84 @@ a:hover { color: var(--accent-hover); }
   background: rgba(231, 76, 60, 0.1);
 }
 
+/* ===== Legality Badges ===== */
+.legality-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.legality-banned {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--error);
+}
+
+.legality-not-legal {
+  background: rgba(255, 165, 0, 0.15);
+  color: #e8a030;
+}
+
+.legality-restricted {
+  background: rgba(255, 200, 50, 0.15);
+  color: #d4a520;
+}
+
+.card-row-illegal {
+  background: rgba(231, 76, 60, 0.04);
+}
+
+.card-row-illegal:hover {
+  background: rgba(231, 76, 60, 0.08);
+}
+
+/* Legality Stats Section */
+.legality-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--error);
+  margin-bottom: 6px;
+}
+
+.legality-warning-icon {
+  font-size: 16px;
+}
+
+.legality-breakdown {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.legality-stat-banned { color: var(--error); }
+.legality-stat-notlegal { color: #e8a030; }
+.legality-stat-restricted { color: #d4a520; }
+
+.legality-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.legality-card-item {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.legality-ok {
+  font-size: 13px;
+  color: var(--success);
+  font-weight: 500;
+}
+
 .deck-preview-sticky img {
   width: 100%;
   border-radius: 12px;

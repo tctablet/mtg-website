@@ -233,6 +233,39 @@ function renderDeckStats(cards) {
     bracket.hasMLD ? 'MLD' : '',
   ].filter(Boolean).map(f => `<div class="bracket-detail bracket-flag">${f}</div>`).join('')
 
+  // Legality check
+  const illegalCards = cards.filter(c => c.commander_legality && c.commander_legality !== 'legal')
+  const bannedCards = illegalCards.filter(c => c.commander_legality === 'banned')
+  const notLegalCards = illegalCards.filter(c => c.commander_legality === 'not_legal')
+  const restrictedCards = illegalCards.filter(c => c.commander_legality === 'restricted')
+
+  let legalityHtml = ''
+  if (illegalCards.length > 0) {
+    const items = []
+    if (bannedCards.length > 0) items.push(`<span class="legality-stat-banned">${bannedCards.length} banned</span>`)
+    if (notLegalCards.length > 0) items.push(`<span class="legality-stat-notlegal">${notLegalCards.length} not legal</span>`)
+    if (restrictedCards.length > 0) items.push(`<span class="legality-stat-restricted">${restrictedCards.length} restricted</span>`)
+
+    legalityHtml = `
+    <div class="stat-section">
+      <div class="stat-header">Legalität</div>
+      <div class="legality-warning">
+        <span class="legality-warning-icon">⚠</span>
+        <span>${illegalCards.length} Karte${illegalCards.length > 1 ? 'n' : ''} nicht legal</span>
+      </div>
+      <div class="legality-breakdown">${items.join(' · ')}</div>
+      <div class="legality-card-list">
+        ${illegalCards.map(c => `<div class="legality-card-item"><span class="legality-badge legality-${c.commander_legality === 'not_legal' ? 'not-legal' : c.commander_legality}">${c.commander_legality === 'not_legal' ? 'not legal' : c.commander_legality}</span> ${c.name}</div>`).join('')}
+      </div>
+    </div>`
+  } else {
+    legalityHtml = `
+    <div class="stat-section">
+      <div class="stat-header">Legalität</div>
+      <div class="legality-ok">✓ Commander-legal</div>
+    </div>`
+  }
+
   el.innerHTML = `
     <div class="stat-section">
       <div class="stat-header">Manakurve <span class="stat-hint">⌀ ${avgCmc}</span></div>
@@ -248,6 +281,7 @@ function renderDeckStats(cards) {
         ${gcHtml}${tutorHtml}${flagsHtml}
       </div>
     </div>
+    ${legalityHtml}
   `
 }
 
@@ -341,6 +375,7 @@ async function refreshPrices(deckId, cards) {
     }
 
     const USD_TO_EUR = 0.92
+    const legalityMap = {}
     for (const sc of found) {
       const cardId = nameToId[sc.name.toLowerCase()]
       const p = sc.prices || {}
@@ -352,10 +387,13 @@ async function refreshPrices(deckId, cards) {
       if (cardId && eur) {
         priceMap[cardId] = { price: eur, isFoil }
       }
+      if (cardId && sc.legalities?.commander) {
+        legalityMap[cardId] = sc.legalities.commander
+      }
     }
 
     setProgress(70, `${Object.keys(priceMap).length} Preise speichern...`)
-    await updateCardPrices(deckId, priceMap)
+    await updateCardPrices(deckId, priceMap, legalityMap)
 
     setProgress(100, 'Fertig!')
     setTimeout(() => {

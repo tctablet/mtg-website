@@ -87,5 +87,6 @@ export function extractCardData(scryfallCard) {
     price_eur: pickPrice(scryfallCard.prices).price,
     price_is_foil: pickPrice(scryfallCard.prices).isFoil,
     price_updated_at: new Date().toISOString(),
+    commander_legality: scryfallCard.legalities?.commander || 'not_legal',
   }
 }
