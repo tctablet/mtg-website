@@ -1,5 +1,5 @@
 import { getDeck, getDeckCards, updateCardPrices, updateDeck } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop } from '../scryfall.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
@@ -27,8 +27,9 @@ export async function renderDeckView(container, params) {
     ? `background-image: linear-gradient(to bottom, rgba(15,15,20,0.3), rgba(15,15,20,0.95) 80%), url('${deck.commander_image}')`
     : ''
 
-  // Find commander card image for default preview
+  // Find commander card image(s) for default preview
   const commanderCard = cards.find(c => c.name.toLowerCase() === deck.commander?.toLowerCase())
+  const commander2Card = deck.commander2 ? cards.find(c => c.name.toLowerCase() === deck.commander2.toLowerCase()) : null
   const commanderCardImage = commanderCard?.image_uri || null
 
   container.innerHTML = `
@@ -39,7 +40,7 @@ export async function renderDeckView(container, params) {
             <a href="#/my-decks" class="back-link">&larr; Zurück</a>
             <h2>${deck.name} ${isOwner ? '<button id="edit-deck-meta" class="btn-edit-meta" title="Name/Commander bearbeiten">&#9998;</button>' : ''}</h2>
             <p class="deck-meta">
-              Commander: <strong>${deck.commander}</strong>
+              Commander: <strong>${deck.commander}</strong>${deck.commander2 ? ` + <strong>${deck.commander2}</strong>` : ''}
               &middot; Spieler: <strong>${deck.players?.name || 'Unbekannt'}</strong>
               &middot; ${cards.reduce((s, c) => s + (c.quantity || 1), 0)} Karten
             </p>
@@ -85,7 +86,7 @@ export async function renderDeckView(container, params) {
   renderDeckStats(cards)
 
   let currentSort = 'type'
-  const rerender = () => renderCardGroups(cards, deck.commander, currentSort)
+  const rerender = () => renderCardGroups(cards, deck.commander, currentSort, deck.commander2)
   rerender()
 
   document.getElementById('sort-select')?.addEventListener('change', (e) => {
@@ -116,16 +117,18 @@ export async function renderDeckView(container, params) {
   })
 }
 
-function renderCardGroups(cards, commanderName, sortMode) {
+function renderCardGroups(cards, commanderName, sortMode, commander2Name) {
   const groupsEl = document.getElementById('card-groups')
   groupsEl.innerHTML = ''
 
-  // Extract commander card and show it first
+  // Extract commander cards and show them first
   const commanderCard = cards.find(c => c.name.toLowerCase() === commanderName?.toLowerCase())
-  const remainingCards = commanderCard ? cards.filter(c => c !== commanderCard) : cards
+  const commander2Card = commander2Name ? cards.find(c => c.name.toLowerCase() === commander2Name.toLowerCase()) : null
+  const commanderCards = [commanderCard, commander2Card].filter(Boolean)
+  const remainingCards = cards.filter(c => !commanderCards.includes(c))
 
-  if (commanderCard) {
-    groupsEl.appendChild(buildGroupSection('Commander', [commanderCard]))
+  if (commanderCards.length > 0) {
+    groupsEl.appendChild(buildGroupSection('Commander', commanderCards))
   }
 
   if (sortMode === 'type') {
@@ -301,6 +304,10 @@ function showMetaEditor(deck) {
       Commander
       <input type="text" id="edit-deck-commander" value="${deck.commander}" />
     </label>
+    <label>
+      Partner Commander <span class="meta-hint">(leer lassen wenn kein Partner)</span>
+      <input type="text" id="edit-deck-commander2" value="${deck.commander2 || ''}" />
+    </label>
     <div class="meta-editor-actions">
       <button id="save-meta" class="btn">Speichern</button>
       <button id="cancel-meta" class="btn btn-secondary">Abbrechen</button>
@@ -316,6 +323,7 @@ function showMetaEditor(deck) {
   document.getElementById('save-meta').addEventListener('click', async () => {
     const newName = document.getElementById('edit-deck-name').value.trim()
     const newCommander = document.getElementById('edit-deck-commander').value.trim()
+    const newCommander2 = document.getElementById('edit-deck-commander2').value.trim() || null
     if (!newName || !newCommander) return
 
     const saveBtn = document.getElementById('save-meta')
@@ -323,12 +331,22 @@ function showMetaEditor(deck) {
     saveBtn.textContent = 'Speichere...'
 
     try {
-      const updates = { name: newName, commander: newCommander }
+      const updates = { name: newName, commander: newCommander, commander2: newCommander2 }
 
       // Update commander image if commander changed
       if (newCommander.toLowerCase() !== deck.commander.toLowerCase()) {
         const card = await fetchCardByName(newCommander)
         updates.commander_image = card ? getCardArtCrop(card) : null
+      }
+
+      // Update commander2 image if changed
+      if ((newCommander2 || '') !== (deck.commander2 || '')) {
+        if (newCommander2) {
+          const card2 = await fetchCardByName(newCommander2)
+          updates.commander2_image = card2 ? getCardArtCrop(card2) : null
+        } else {
+          updates.commander2_image = null
+        }
       }
 
       await updateDeck(deck.id, updates)
@@ -406,7 +424,8 @@ async function refreshPrices(deckId, cards) {
 }
 
 function exportDeck(deck, cards) {
-  const lines = [`// ${deck.name}`, `// Commander: ${deck.commander}`, '']
+  const cmdLine = deck.commander2 ? `// Commander: ${deck.commander} + ${deck.commander2}` : `// Commander: ${deck.commander}`
+  const lines = [`// ${deck.name}`, cmdLine, '']
   for (const card of cards) {
     lines.push(`${card.quantity} ${card.name}`)
   }

@@ -45,10 +45,15 @@ export async function getAllDecksWithPlayers() {
   return data || []
 }
 
-export async function createDeck(playerId, name, commander, commanderImage) {
+export async function createDeck(playerId, name, commander, commanderImage, commander2 = null, commander2Image = null) {
+  const row = { player_id: playerId, name, commander, commander_image: commanderImage }
+  if (commander2) {
+    row.commander2 = commander2
+    row.commander2_image = commander2Image
+  }
   const { data, error } = await supabase
     .from('decks')
-    .insert({ player_id: playerId, name, commander, commander_image: commanderImage })
+    .insert(row)
     .select()
     .single()
   if (error) throw error

@@ -72,6 +72,21 @@ function pickPrice(prices) {
   return { price: null, isFoil: false }
 }
 
+export function getPartnerType(scryfallCard) {
+  const keywords = scryfallCard.keywords || []
+  const oracleText = scryfallCard.oracle_text || scryfallCard.card_faces?.[0]?.oracle_text || ''
+
+  if (keywords.includes('Partner with')) {
+    const match = oracleText.match(/Partner with ([^\n(]+)/)
+    return { type: 'partner_with', partnerName: match ? match[1].trim() : null }
+  }
+  if (keywords.includes('Partner')) return { type: 'partner' }
+  if (keywords.includes('Friends forever')) return { type: 'friends_forever' }
+  if (keywords.includes('Choose a Background')) return { type: 'choose_background' }
+  if (keywords.includes("Doctor's companion")) return { type: 'doctors_companion' }
+  return null
+}
+
 export function extractCardData(scryfallCard) {
   const imageUri = scryfallCard.image_uris?.normal
     || scryfallCard.card_faces?.[0]?.image_uris?.normal
