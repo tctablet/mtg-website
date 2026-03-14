@@ -1133,6 +1133,26 @@ a:hover { color: var(--accent-hover); }
   letter-spacing: 4px;
 }
 
+/* ===== Mobile Card Preview Overlay ===== */
+.mobile-card-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: pointer;
+}
+
+.mobile-card-content img {
+  max-width: 300px;
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
 /* ===== Responsive ===== */
 
 /* Tablet */

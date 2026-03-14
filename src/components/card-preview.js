@@ -25,3 +25,20 @@ export function hidePreview() {
     el.innerHTML = ''
   }
 }
+
+export function showMobilePreview(imageUri, cardName) {
+  // Remove existing overlay if any
+  const existing = document.getElementById('mobile-card-overlay')
+  if (existing) { existing.remove(); return }
+
+  const overlay = document.createElement('div')
+  overlay.id = 'mobile-card-overlay'
+  overlay.className = 'mobile-card-overlay'
+  overlay.innerHTML = `
+    <div class="mobile-card-content">
+      <img src="${imageUri}" alt="${cardName || ''}" />
+    </div>
+  `
+  overlay.addEventListener('click', () => overlay.remove())
+  document.body.appendChild(overlay)
+}

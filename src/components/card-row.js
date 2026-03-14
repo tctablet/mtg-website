@@ -1,4 +1,4 @@
-import { showPreview, movePreview, hidePreview } from './card-preview.js'
+import { showPreview, hidePreview, showMobilePreview } from './card-preview.js'
 import { formatPrice } from '../utils.js'
 import { deleteCard, updateCardQuantity } from '../supabase.js'
 
@@ -57,6 +57,12 @@ export function createCardRow(card, onChanged) {
   if (card.image_uri) {
     tr.addEventListener('mouseenter', () => showPreview(card.image_uri))
     tr.addEventListener('mouseleave', () => hidePreview())
+    tr.addEventListener('click', (e) => {
+      if (editMode) return
+      if (!('ontouchstart' in window)) return
+      e.preventDefault()
+      showMobilePreview(card.image_uri, card.name)
+    })
   }
 
   return tr
