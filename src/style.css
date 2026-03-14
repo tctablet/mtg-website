@@ -1150,9 +1150,9 @@ a:hover { color: var(--accent-hover); }
 }
 
 .mobile-card-overlay.visible {
-  background: rgba(0, 0, 0, 0.8);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .mobile-card-overlay.closing {
