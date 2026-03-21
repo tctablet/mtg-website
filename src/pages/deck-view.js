@@ -79,7 +79,7 @@ export async function renderDeckView(container, params) {
         <div id="card-groups"></div>
       </div>
       <div id="token-gallery" class="token-gallery" style="display:none">
-        <h3 class="group-header">Tokens</h3>
+        <h3 class="group-header">Tokens <button id="copy-tokens" class="btn-copy-tokens" title="Token-Liste kopieren">Kopieren</button></h3>
         <div class="token-grid"></div>
       </div>
     </div>
@@ -145,6 +145,15 @@ async function loadTokens(cards) {
       </div>`
     ).join('')
     gallery.style.display = ''
+
+    document.getElementById('copy-tokens')?.addEventListener('click', () => {
+      const list = tokens.map(t => `1 ${t.name}`).join('\n')
+      navigator.clipboard.writeText(list).then(() => {
+        const btn = document.getElementById('copy-tokens')
+        btn.textContent = 'Kopiert!'
+        setTimeout(() => { btn.textContent = 'Kopieren' }, 1500)
+      })
+    })
   } catch { /* tokens are non-critical */ }
 }
 

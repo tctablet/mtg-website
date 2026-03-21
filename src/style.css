@@ -602,6 +602,24 @@ a:hover { color: var(--accent-hover); }
   text-align: center;
 }
 
+.btn-copy-tokens {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 10px;
+  cursor: pointer;
+  margin-left: 10px;
+  transition: background 0.15s ease;
+}
+
+.btn-copy-tokens:hover {
+  background: var(--accent);
+  color: var(--text-bright);
+}
+
 @media (max-width: 768px) {
   .token-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
