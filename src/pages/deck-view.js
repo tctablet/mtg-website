@@ -1,5 +1,5 @@
 import { getDeck, getDeckCards, updateCardPrices, updateDeck } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType } from '../scryfall.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
@@ -78,6 +78,10 @@ export async function renderDeckView(container, params) {
         </aside>
         <div id="card-groups"></div>
       </div>
+      <div id="token-gallery" class="token-gallery" style="display:none">
+        <h3 class="group-header">Tokens</h3>
+        <div class="token-grid"></div>
+      </div>
     </div>
   `
 
@@ -115,6 +119,33 @@ export async function renderDeckView(container, params) {
   document.getElementById('edit-deck-meta')?.addEventListener('click', () => {
     showMetaEditor(deck)
   })
+
+  // Load tokens in background
+  loadTokens(cards)
+}
+
+async function loadTokens(cards) {
+  try {
+    const names = cards.map(c => c.name)
+    const { found } = await fetchCardCollection(names)
+    const tokenMap = extractTokenRefs(found)
+    if (tokenMap.size === 0) return
+
+    const tokens = await fetchTokenDetails(tokenMap)
+    if (tokens.length === 0) return
+
+    const gallery = document.getElementById('token-gallery')
+    if (!gallery) return
+
+    const grid = gallery.querySelector('.token-grid')
+    grid.innerHTML = tokens.map(t =>
+      `<div class="token-card">
+        <img src="${t.image}" alt="${t.name}" loading="lazy" />
+        <span class="token-name">${t.name}</span>
+      </div>`
+    ).join('')
+    gallery.style.display = ''
+  } catch { /* tokens are non-critical */ }
 }
 
 function renderCardGroups(cards, commanderName, sortMode, commander2Name) {

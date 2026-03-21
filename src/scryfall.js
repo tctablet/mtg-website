@@ -87,6 +87,38 @@ export function getPartnerType(scryfallCard) {
   return null
 }
 
+export function extractTokenRefs(scryfallCards) {
+  const tokenMap = new Map()
+  for (const card of scryfallCards) {
+    if (!card.all_parts) continue
+    for (const part of card.all_parts) {
+      if (part.component === 'token' && !tokenMap.has(part.id)) {
+        tokenMap.set(part.id, part.uri)
+      }
+    }
+  }
+  return tokenMap
+}
+
+export async function fetchTokenDetails(tokenMap) {
+  const tokens = []
+  const uris = [...tokenMap.values()]
+
+  for (let i = 0; i < uris.length; i++) {
+    if (i > 0) await delay(80)
+    try {
+      const res = await fetch(uris[i])
+      if (!res.ok) continue
+      const data = await res.json()
+      const image = data.image_uris?.normal || data.card_faces?.[0]?.image_uris?.normal
+      if (image) {
+        tokens.push({ name: data.name, image, type_line: data.type_line || '' })
+      }
+    } catch { /* skip failed tokens */ }
+  }
+  return tokens
+}
+
 export function extractCardData(scryfallCard) {
   const imageUri = scryfallCard.image_uris?.normal
     || scryfallCard.card_faces?.[0]?.image_uris?.normal
