@@ -92,7 +92,9 @@ export function extractTokenRefs(scryfallCards) {
   for (const card of scryfallCards) {
     if (!card.all_parts) continue
     for (const part of card.all_parts) {
-      if (part.component === 'token' && !tokenMap.has(part.id)) {
+      const isToken = part.component === 'token'
+      const isEmblem = part.component === 'combo_piece' && part.type_line?.startsWith('Emblem')
+      if ((isToken || isEmblem) && !tokenMap.has(part.id)) {
         tokenMap.set(part.id, part.uri)
       }
     }
