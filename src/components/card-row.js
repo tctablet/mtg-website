@@ -55,14 +55,15 @@ export function createCardRow(card, onChanged) {
     `
   }
 
-  if (card.image_uri) {
-    tr.addEventListener('mouseenter', () => showPreview(card.image_uri))
+  const previewUri = card.proxy_image_uri || card.image_uri
+  if (previewUri) {
+    tr.addEventListener('mouseenter', () => showPreview(previewUri))
     tr.addEventListener('mouseleave', () => hidePreview())
     tr.addEventListener('click', (e) => {
       if (editMode) return
       if (!('ontouchstart' in window)) return
       e.preventDefault()
-      showMobilePreview(card.image_uri, card.name)
+      showMobilePreview(previewUri, card.name)
     })
   }
 

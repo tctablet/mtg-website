@@ -657,9 +657,20 @@ a:hover { color: var(--accent-hover); }
 
 /* ===== Proxy Artwork Grid ===== */
 .proxy-artwork-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.proxy-group {
+  /* inherits group-header styles from card-group */
+}
+
+.proxy-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+  margin-top: 12px;
 }
 
 .proxy-card {
@@ -755,6 +766,29 @@ a:hover { color: var(--accent-hover); }
 .artwork-picker-header h3 {
   font-size: 16px;
   color: var(--text-bright);
+  white-space: nowrap;
+}
+
+.artwork-search {
+  flex: 1;
+  max-width: 240px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-bright);
+  padding: 6px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.artwork-search:focus { border-color: var(--accent); }
+.artwork-search::placeholder { color: var(--text-dim); }
+
+.artwork-no-results {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 20px;
 }
 
 .artwork-picker-close {

@@ -30,7 +30,7 @@ export async function renderDeckView(container, params) {
   // Find commander card image(s) for default preview
   const commanderCard = cards.find(c => c.name.toLowerCase() === deck.commander?.toLowerCase())
   const commander2Card = deck.commander2 ? cards.find(c => c.name.toLowerCase() === deck.commander2.toLowerCase()) : null
-  const commanderCardImage = commanderCard?.image_uri || null
+  const commanderCardImage = commanderCard?.proxy_image_uri || commanderCard?.image_uri || null
 
   container.innerHTML = `
     <div class="page">
@@ -486,28 +486,70 @@ async function refreshPrices(deckId, cards) {
   }
 }
 
-function renderProxyArtworks(cards, isOwner) {
-  const grid = document.getElementById('proxy-artwork-grid')
-  if (!grid) return
+// --- Printings Cache ---
+const printingsCache = new Map()
 
-  // Deduplicate by name, sum quantities
-  const uniqueCards = []
-  const seen = new Map()
-  for (const c of cards) {
-    const key = c.name.toLowerCase()
-    if (seen.has(key)) {
-      seen.get(key).quantity += c.quantity
-    } else {
-      const entry = { ...c }
-      seen.set(key, entry)
-      uniqueCards.push(entry)
+async function prefetchPrintings(cardNames) {
+  const toFetch = cardNames.filter(n => !printingsCache.has(n.toLowerCase()))
+  // Check sessionStorage
+  for (let i = toFetch.length - 1; i >= 0; i--) {
+    const cached = sessionStorage.getItem(`prints:${toFetch[i].toLowerCase()}`)
+    if (cached) {
+      try {
+        printingsCache.set(toFetch[i].toLowerCase(), JSON.parse(cached))
+        toFetch.splice(i, 1)
+      } catch { /* ignore corrupt cache */ }
     }
   }
+  if (toFetch.length === 0) return
 
-  grid.innerHTML = uniqueCards.map(c => {
-    const imgSrc = c.proxy_image_uri || c.image_uri
-    return `
-      <div class="proxy-card" data-card-id="${c.id}" data-card-name="${c.name}">
+  // Fetch in parallel batches, 10 per second (Scryfall rate limit)
+  const BATCH = 10
+  for (let i = 0; i < toFetch.length; i += BATCH) {
+    const batch = toFetch.slice(i, i + BATCH)
+    await Promise.all(batch.map(async name => {
+      try {
+        const printings = await fetchCardPrintings(name)
+        printingsCache.set(name.toLowerCase(), printings)
+        sessionStorage.setItem(`prints:${name.toLowerCase()}`, JSON.stringify(printings))
+      } catch { /* skip failures */ }
+    }))
+    if (i + BATCH < toFetch.length) await new Promise(r => setTimeout(r, 120))
+  }
+}
+
+function renderProxyArtworks(cards, isOwner) {
+  const container = document.getElementById('proxy-artwork-grid')
+  if (!container) return
+
+  // Group by type like cards tab
+  const groups = groupCardsByType(cards)
+  container.innerHTML = ''
+
+  for (const group of groups) {
+    // Deduplicate within group
+    const unique = []
+    const seen = new Set()
+    for (const c of group.cards) {
+      if (seen.has(c.name.toLowerCase())) continue
+      seen.add(c.name.toLowerCase())
+      unique.push(c)
+    }
+
+    const section = document.createElement('div')
+    section.className = 'proxy-group'
+    section.innerHTML = `<h3 class="group-header">${group.label} (${unique.length})</h3>`
+
+    const grid = document.createElement('div')
+    grid.className = 'proxy-card-grid'
+
+    for (const c of unique) {
+      const imgSrc = c.proxy_image_uri || c.image_uri
+      const div = document.createElement('div')
+      div.className = 'proxy-card'
+      div.dataset.cardId = c.id
+      div.dataset.cardName = c.name
+      div.innerHTML = `
         <div class="proxy-card-img-wrap">
           <img src="${imgSrc || ''}" alt="${c.name}" loading="lazy" />
           ${c.proxy_image_uri ? '<span class="proxy-custom-badge">Custom</span>' : ''}
@@ -516,25 +558,24 @@ function renderProxyArtworks(cards, isOwner) {
           <span class="proxy-card-name">${c.name}</span>
           <span class="proxy-card-qty">${c.quantity}x</span>
         </div>
-      </div>
-    `
-  }).join('')
+      `
+      if (isOwner) {
+        div.style.cursor = 'pointer'
+        div.addEventListener('click', () => openArtworkPicker(c, div, cards))
+      }
+      grid.appendChild(div)
+    }
 
-  if (isOwner) {
-    grid.querySelectorAll('.proxy-card').forEach(el => {
-      el.style.cursor = 'pointer'
-      el.addEventListener('click', () => {
-        const cardId = el.dataset.cardId
-        const cardName = el.dataset.cardName
-        const card = cards.find(c => c.id === cardId)
-        openArtworkPicker(card, el)
-      })
-    })
+    section.appendChild(grid)
+    container.appendChild(section)
   }
+
+  // Prefetch all printings in background
+  const allNames = [...new Set(cards.map(c => c.name))]
+  prefetchPrintings(allNames)
 }
 
-async function openArtworkPicker(card, cardEl) {
-  // Remove existing modal
+async function openArtworkPicker(card, cardEl, allCards) {
   document.getElementById('artwork-picker-modal')?.remove()
 
   const modal = document.createElement('div')
@@ -544,6 +585,7 @@ async function openArtworkPicker(card, cardEl) {
     <div class="artwork-picker">
       <div class="artwork-picker-header">
         <h3>${card.name}</h3>
+        <input type="text" class="artwork-search" placeholder="Set suchen..." />
         <button class="artwork-picker-close">&times;</button>
       </div>
       <div class="artwork-picker-grid">
@@ -554,70 +596,92 @@ async function openArtworkPicker(card, cardEl) {
   document.body.appendChild(modal)
 
   modal.querySelector('.artwork-picker-close').addEventListener('click', () => modal.remove())
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.remove()
-  })
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove() })
 
   const pickerGrid = modal.querySelector('.artwork-picker-grid')
+  const searchInput = modal.querySelector('.artwork-search')
 
   try {
-    const printings = await fetchCardPrintings(card.name)
+    // Use cache if available, otherwise fetch
+    let printings = printingsCache.get(card.name.toLowerCase())
+    if (!printings) {
+      printings = await fetchCardPrintings(card.name)
+      printingsCache.set(card.name.toLowerCase(), printings)
+      sessionStorage.setItem(`prints:${card.name.toLowerCase()}`, JSON.stringify(printings))
+    }
 
     if (printings.length === 0) {
       pickerGrid.innerHTML = '<p>Keine Printings gefunden.</p>'
       return
     }
 
-    // Add reset option first if custom is set
-    let resetHtml = ''
-    if (card.proxy_image_uri) {
-      resetHtml = `
-        <div class="artwork-option artwork-reset" data-action="reset">
-          <div class="artwork-option-img-wrap">
-            <img src="${card.image_uri}" alt="Default" />
+    function renderPrintings(filter) {
+      const query = (filter || '').toLowerCase()
+      const filtered = query
+        ? printings.filter(p => p.set.toLowerCase().includes(query) || p.set_code.toLowerCase().includes(query))
+        : printings
+
+      let resetHtml = ''
+      if (card.proxy_image_uri && !query) {
+        resetHtml = `
+          <div class="artwork-option artwork-reset" data-action="reset">
+            <div class="artwork-option-img-wrap">
+              <img src="${card.image_uri}" alt="Default" />
+            </div>
+            <span class="artwork-option-set">Default zuruecksetzen</span>
           </div>
-          <span class="artwork-option-set">Default</span>
-        </div>
-      `
+        `
+      }
+
+      pickerGrid.innerHTML = resetHtml + (filtered.length === 0
+        ? `<p class="artwork-no-results">Kein Set gefunden fuer "${filter}"</p>`
+        : filtered.map(p => {
+          const isSelected = card.proxy_image_uri === p.image_normal || (!card.proxy_image_uri && card.image_uri === p.image_normal)
+          return `
+            <div class="artwork-option ${isSelected ? 'artwork-selected' : ''}" data-image="${p.image_normal}" data-png="${p.image_png || p.image_normal}">
+              <div class="artwork-option-img-wrap">
+                <img src="${p.image_normal}" alt="${p.set}" loading="lazy" />
+              </div>
+              <span class="artwork-option-set">${p.set} (${p.released?.substring(0, 4) || '?'})</span>
+            </div>
+          `
+        }).join(''))
+
+      pickerGrid.querySelectorAll('.artwork-option').forEach(opt => {
+        opt.addEventListener('click', async () => {
+          const isReset = opt.dataset.action === 'reset'
+          const newUri = isReset ? null : opt.dataset.png || opt.dataset.image
+
+          try {
+            await updateCardProxyImage(card.id, newUri)
+            card.proxy_image_uri = newUri
+
+            for (const c of allCards) {
+              if (c.name.toLowerCase() === card.name.toLowerCase()) {
+                c.proxy_image_uri = newUri
+              }
+            }
+
+            const img = cardEl.querySelector('img')
+            img.src = newUri || card.image_uri
+            const badge = cardEl.querySelector('.proxy-custom-badge')
+            if (newUri && !badge) {
+              cardEl.querySelector('.proxy-card-img-wrap').insertAdjacentHTML('beforeend', '<span class="proxy-custom-badge">Custom</span>')
+            } else if (!newUri && badge) {
+              badge.remove()
+            }
+
+            modal.remove()
+          } catch (err) {
+            alert('Fehler beim Speichern: ' + err.message)
+          }
+        })
+      })
     }
 
-    pickerGrid.innerHTML = resetHtml + printings.map(p => {
-      const isSelected = card.proxy_image_uri === p.image_normal || (!card.proxy_image_uri && card.image_uri === p.image_normal)
-      return `
-        <div class="artwork-option ${isSelected ? 'artwork-selected' : ''}" data-image="${p.image_normal}" data-png="${p.image_png || p.image_normal}">
-          <div class="artwork-option-img-wrap">
-            <img src="${p.image_normal}" alt="${p.set}" loading="lazy" />
-          </div>
-          <span class="artwork-option-set">${p.set} (${p.released?.substring(0, 4) || '?'})</span>
-        </div>
-      `
-    }).join('')
-
-    pickerGrid.querySelectorAll('.artwork-option').forEach(opt => {
-      opt.addEventListener('click', async () => {
-        const isReset = opt.dataset.action === 'reset'
-        const newUri = isReset ? null : opt.dataset.png || opt.dataset.image
-
-        try {
-          await updateCardProxyImage(card.id, newUri)
-          card.proxy_image_uri = newUri
-
-          // Update the card element in the grid
-          const img = cardEl.querySelector('img')
-          img.src = newUri || card.image_uri
-          const badge = cardEl.querySelector('.proxy-custom-badge')
-          if (newUri && !badge) {
-            cardEl.querySelector('.proxy-card-img-wrap').insertAdjacentHTML('beforeend', '<span class="proxy-custom-badge">Custom</span>')
-          } else if (!newUri && badge) {
-            badge.remove()
-          }
-
-          modal.remove()
-        } catch (err) {
-          alert('Fehler beim Speichern: ' + err.message)
-        }
-      })
-    })
+    renderPrintings('')
+    searchInput.addEventListener('input', () => renderPrintings(searchInput.value))
+    searchInput.focus()
   } catch (err) {
     pickerGrid.innerHTML = `<p>Fehler: ${err.message}</p>`
   }
