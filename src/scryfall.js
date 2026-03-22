@@ -126,10 +126,12 @@ export async function fetchCardPrintings(cardName) {
   const res = await fetch(url)
   if (!res.ok) return []
   const data = await res.json()
+  const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
   return (data.data || []).filter(c => {
     if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
     if (c.digital) return false
     if (c.promo) return false
+    if (EXCLUDED_SET_TYPES.includes(c.set_type)) return false
     const img = c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal
     return img != null
   }).map(c => ({

@@ -487,7 +487,16 @@ async function refreshPrices(deckId, cards) {
 }
 
 // --- Printings Cache ---
+const PRINTS_CACHE_VER = 'v2'
 const printingsCache = new Map()
+
+// Invalidate old cache versions
+if (sessionStorage.getItem('prints:ver') !== PRINTS_CACHE_VER) {
+  for (const key of Object.keys(sessionStorage)) {
+    if (key.startsWith('prints:')) sessionStorage.removeItem(key)
+  }
+  sessionStorage.setItem('prints:ver', PRINTS_CACHE_VER)
+}
 
 async function prefetchPrintings(cardNames) {
   const toFetch = cardNames.filter(n => !printingsCache.has(n.toLowerCase()))
