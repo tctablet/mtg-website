@@ -1,5 +1,5 @@
-import { getDeck, getDeckCards, updateCardPrices, updateDeck } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails } from '../scryfall.js'
+import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage } from '../supabase.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
@@ -67,20 +67,29 @@ export async function renderDeckView(container, params) {
           </select>
         </div>
       </div>
-      <div class="deck-layout">
-        <aside class="deck-sidebar">
-          <div class="deck-preview-sticky">
-            <div id="deck-card-preview">
-              ${commanderCardImage ? `<img src="${commanderCardImage}" alt="${deck.commander}" />` : ''}
-            </div>
-            <div id="deck-stats" class="deck-stats"></div>
-          </div>
-        </aside>
-        <div id="card-groups"></div>
+      <div class="deck-tabs">
+        <button class="deck-tab deck-tab-active" data-tab="cards">Karten</button>
+        <button class="deck-tab" data-tab="proxy">Proxy Artworks</button>
       </div>
-      <div id="token-gallery" class="token-gallery" style="display:none">
-        <h3 class="group-header">Tokens <button id="copy-tokens" class="btn-copy-tokens" title="Token-Liste kopieren">Kopieren</button></h3>
-        <div class="token-grid"></div>
+      <div id="tab-cards">
+        <div class="deck-layout">
+          <aside class="deck-sidebar">
+            <div class="deck-preview-sticky">
+              <div id="deck-card-preview">
+                ${commanderCardImage ? `<img src="${commanderCardImage}" alt="${deck.commander}" />` : ''}
+              </div>
+              <div id="deck-stats" class="deck-stats"></div>
+            </div>
+          </aside>
+          <div id="card-groups"></div>
+        </div>
+        <div id="token-gallery" class="token-gallery" style="display:none">
+          <h3 class="group-header">Tokens <button id="copy-tokens" class="btn-copy-tokens" title="Token-Liste kopieren">Kopieren</button></h3>
+          <div class="token-grid"></div>
+        </div>
+      </div>
+      <div id="tab-proxy" style="display:none">
+        <div id="proxy-artwork-grid" class="proxy-artwork-grid"></div>
       </div>
     </div>
   `
@@ -118,6 +127,20 @@ export async function renderDeckView(container, params) {
 
   document.getElementById('edit-deck-meta')?.addEventListener('click', () => {
     showMetaEditor(deck)
+  })
+
+  // Tab switching
+  container.querySelectorAll('.deck-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      container.querySelectorAll('.deck-tab').forEach(t => t.classList.remove('deck-tab-active'))
+      tab.classList.add('deck-tab-active')
+      const target = tab.dataset.tab
+      document.getElementById('tab-cards').style.display = target === 'cards' ? '' : 'none'
+      document.getElementById('tab-proxy').style.display = target === 'proxy' ? '' : 'none'
+      if (target === 'proxy') {
+        renderProxyArtworks(cards, isOwner)
+      }
+    })
   })
 
   // Load tokens in background
@@ -460,6 +483,143 @@ async function refreshPrices(deckId, cards) {
     }, 500)
   } catch (err) {
     setProgress(0, `Fehler: ${err.message}`)
+  }
+}
+
+function renderProxyArtworks(cards, isOwner) {
+  const grid = document.getElementById('proxy-artwork-grid')
+  if (!grid) return
+
+  // Deduplicate by name, sum quantities
+  const uniqueCards = []
+  const seen = new Map()
+  for (const c of cards) {
+    const key = c.name.toLowerCase()
+    if (seen.has(key)) {
+      seen.get(key).quantity += c.quantity
+    } else {
+      const entry = { ...c }
+      seen.set(key, entry)
+      uniqueCards.push(entry)
+    }
+  }
+
+  grid.innerHTML = uniqueCards.map(c => {
+    const imgSrc = c.proxy_image_uri || c.image_uri
+    return `
+      <div class="proxy-card" data-card-id="${c.id}" data-card-name="${c.name}">
+        <div class="proxy-card-img-wrap">
+          <img src="${imgSrc || ''}" alt="${c.name}" loading="lazy" />
+          ${c.proxy_image_uri ? '<span class="proxy-custom-badge">Custom</span>' : ''}
+        </div>
+        <div class="proxy-card-info">
+          <span class="proxy-card-name">${c.name}</span>
+          <span class="proxy-card-qty">${c.quantity}x</span>
+        </div>
+      </div>
+    `
+  }).join('')
+
+  if (isOwner) {
+    grid.querySelectorAll('.proxy-card').forEach(el => {
+      el.style.cursor = 'pointer'
+      el.addEventListener('click', () => {
+        const cardId = el.dataset.cardId
+        const cardName = el.dataset.cardName
+        const card = cards.find(c => c.id === cardId)
+        openArtworkPicker(card, el)
+      })
+    })
+  }
+}
+
+async function openArtworkPicker(card, cardEl) {
+  // Remove existing modal
+  document.getElementById('artwork-picker-modal')?.remove()
+
+  const modal = document.createElement('div')
+  modal.id = 'artwork-picker-modal'
+  modal.className = 'artwork-picker-overlay'
+  modal.innerHTML = `
+    <div class="artwork-picker">
+      <div class="artwork-picker-header">
+        <h3>${card.name}</h3>
+        <button class="artwork-picker-close">&times;</button>
+      </div>
+      <div class="artwork-picker-grid">
+        <p class="loading">Lade Printings...</p>
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+
+  modal.querySelector('.artwork-picker-close').addEventListener('click', () => modal.remove())
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove()
+  })
+
+  const pickerGrid = modal.querySelector('.artwork-picker-grid')
+
+  try {
+    const printings = await fetchCardPrintings(card.name)
+
+    if (printings.length === 0) {
+      pickerGrid.innerHTML = '<p>Keine Printings gefunden.</p>'
+      return
+    }
+
+    // Add reset option first if custom is set
+    let resetHtml = ''
+    if (card.proxy_image_uri) {
+      resetHtml = `
+        <div class="artwork-option artwork-reset" data-action="reset">
+          <div class="artwork-option-img-wrap">
+            <img src="${card.image_uri}" alt="Default" />
+          </div>
+          <span class="artwork-option-set">Default</span>
+        </div>
+      `
+    }
+
+    pickerGrid.innerHTML = resetHtml + printings.map(p => {
+      const isSelected = card.proxy_image_uri === p.image_normal || (!card.proxy_image_uri && card.image_uri === p.image_normal)
+      return `
+        <div class="artwork-option ${isSelected ? 'artwork-selected' : ''}" data-image="${p.image_normal}" data-png="${p.image_png || p.image_normal}">
+          <div class="artwork-option-img-wrap">
+            <img src="${p.image_normal}" alt="${p.set}" loading="lazy" />
+          </div>
+          <span class="artwork-option-set">${p.set} (${p.released?.substring(0, 4) || '?'})</span>
+        </div>
+      `
+    }).join('')
+
+    pickerGrid.querySelectorAll('.artwork-option').forEach(opt => {
+      opt.addEventListener('click', async () => {
+        const isReset = opt.dataset.action === 'reset'
+        const newUri = isReset ? null : opt.dataset.png || opt.dataset.image
+
+        try {
+          await updateCardProxyImage(card.id, newUri)
+          card.proxy_image_uri = newUri
+
+          // Update the card element in the grid
+          const img = cardEl.querySelector('img')
+          img.src = newUri || card.image_uri
+          const badge = cardEl.querySelector('.proxy-custom-badge')
+          if (newUri && !badge) {
+            cardEl.querySelector('.proxy-card-img-wrap').insertAdjacentHTML('beforeend', '<span class="proxy-custom-badge">Custom</span>')
+          } else if (!newUri && badge) {
+            badge.remove()
+          }
+
+          modal.remove()
+        } catch (err) {
+          alert('Fehler beim Speichern: ' + err.message)
+        }
+      })
+    })
+  } catch (err) {
+    pickerGrid.innerHTML = `<p>Fehler: ${err.message}</p>`
   }
 }
 

@@ -627,6 +627,192 @@ a:hover { color: var(--accent-hover); }
   }
 }
 
+/* ===== Deck Tabs ===== */
+.deck-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border);
+}
+
+.deck-tab {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.deck-tab:hover { color: var(--text-bright); }
+
+.deck-tab-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ===== Proxy Artwork Grid ===== */
+.proxy-artwork-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.proxy-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proxy-card-img-wrap {
+  position: relative;
+  aspect-ratio: 488 / 680;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.proxy-card-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease;
+}
+
+.proxy-card:hover .proxy-card-img-wrap img {
+  transform: scale(1.03);
+}
+
+.proxy-custom-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.proxy-card-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.proxy-card-name {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proxy-card-qty {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* ===== Artwork Picker Modal ===== */
+.artwork-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.artwork-picker {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.artwork-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.artwork-picker-header h3 {
+  font-size: 16px;
+  color: var(--text-bright);
+}
+
+.artwork-picker-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.artwork-picker-close:hover { color: var(--text-bright); }
+
+.artwork-picker-grid {
+  padding: 20px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.artwork-option {
+  cursor: pointer;
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  padding: 4px;
+  transition: border-color 0.15s;
+}
+
+.artwork-option:hover { border-color: var(--accent); }
+
+.artwork-selected { border-color: var(--accent); background: var(--accent-dim); }
+
+.artwork-option-img-wrap {
+  aspect-ratio: 488 / 680;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.artwork-option-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.artwork-option-set {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.artwork-reset {
+  border-color: var(--border);
+  border-style: dashed;
+}
+
 /* ===== Card Preview (integrated sidebar) ===== */
 .deck-layout {
   display: grid;

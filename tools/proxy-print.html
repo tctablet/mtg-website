@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Proxy Print — HD PDF Generator</title>
+<style>
+  :root {
+    --bg: #0f0f14;
+    --bg-card: #1a1a24;
+    --bg-card-hover: #22222e;
+    --bg-input: #16161f;
+    --text: #c8c8d0;
+    --text-dim: #8888a0;
+    --text-bright: #f0f0f5;
+    --accent: #7c5cbf;
+    --accent-hover: #9470d6;
+    --accent-dim: rgba(124, 92, 191, 0.15);
+    --border: #2a2a38;
+    --success: #4caf50;
+    --error: #e74c3c;
+    --radius: 8px;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-size: 15px; line-height: 1.5;
+  }
+
+  /* Header */
+  header {
+    padding: 16px 20px;
+    background: var(--bg-card); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  header h1 {
+    font-size: 18px; font-weight: 700; color: var(--text-bright);
+  }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--text-dim); font-size: 13px; }
+  .header-sep { color: var(--border); }
+
+  /* Layout */
+  .app {
+    max-width: 960px; margin: 24px auto; padding: 0 20px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .panel {
+    background: var(--bg-card); border-radius: var(--radius); padding: 20px;
+    border: 1px solid var(--border);
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--text-dim); margin-bottom: 14px; font-weight: 600;
+  }
+
+  /* Server status */
+  .server-status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: var(--radius); font-size: 13px;
+  }
+  .server-status.connected { background: rgba(76, 175, 80, 0.1); color: var(--success); border: 1px solid rgba(76, 175, 80, 0.2); }
+  .server-status.disconnected { background: rgba(231, 76, 60, 0.1); color: var(--error); border: 1px solid rgba(231, 76, 60, 0.2); }
+  .server-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; flex-shrink: 0;
+  }
+  .server-status.connected .dot { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .server-status.disconnected .dot { background: var(--error); }
+
+  .setup-hint {
+    background: var(--bg-input); border-radius: var(--radius); padding: 12px 14px;
+    font-size: 13px; color: var(--text-dim); margin-top: 12px;
+    line-height: 1.7; border: 1px solid var(--border);
+  }
+  .setup-hint code {
+    background: rgba(124,92,191,0.15); padding: 2px 6px; border-radius: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: var(--accent);
+  }
+  .setup-hint a { color: var(--accent); }
+  .setup-hint a:hover { color: var(--accent-hover); }
+
+  /* Input section */
+  .input-sections {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  .input-section {
+    background: var(--bg-input); border-radius: var(--radius); padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .input-section h3 {
+    font-size: 13px; font-weight: 600; color: var(--text-bright);
+    margin-bottom: 12px;
+  }
+  .input-section-or {
+    display: none; /* hidden, semantic only */
+  }
+
+  textarea {
+    width: 100%; min-height: 150px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+    padding: 12px; resize: vertical; outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+  /* Controls */
+  .controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px;
+  }
+  .control-group { display: flex; align-items: center; gap: 6px; }
+  .control-group label { font-size: 13px; color: var(--text-dim); }
+
+  select {
+    background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text-bright); padding: 7px 12px;
+    font-size: 13px; outline: none; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  select:focus { border-color: var(--accent); }
+  select option { background: var(--bg-card); }
+
+  .checkbox-group { display: flex; align-items: center; gap: 6px; }
+  .checkbox-group input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .checkbox-group label { font-size: 13px; color: var(--text-dim); }
+
+  /* Buttons */
+  .btn {
+    padding: 9px 22px; border: none; border-radius: var(--radius);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s; font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg-card-hover); }
+  .btn-danger { background: var(--error); color: #fff; }
+  .btn-danger:hover { filter: brightness(1.15); }
+  .btn-download {
+    background: var(--success); color: #fff;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-download:hover { filter: brightness(1.1); }
+
+  /* Card grid — improved preview */
+  .card-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px; margin-top: 12px;
+  }
+  .card-thumb {
+    position: relative; border-radius: var(--radius); overflow: hidden;
+    aspect-ratio: 488/680; background: var(--bg-input);
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card-thumb:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .card-thumb .qty {
+    position: absolute; top: 5px; right: 5px;
+    background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .card-thumb .card-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    padding: 20px 8px 6px; font-size: 11px; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Progress panel */
+  .progress-panel { display: none; }
+  .progress-panel.active { display: block; }
+
+  .progress-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .progress-header .phase {
+    font-size: 15px; font-weight: 600; color: var(--accent);
+  }
+  .progress-header .counter {
+    font-size: 13px; color: var(--text-dim);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .progress-bar-wrap {
+    width: 100%; height: 6px; background: var(--bg-input);
+    border-radius: 3px; overflow: hidden; margin-bottom: 18px;
+  }
+  .progress-bar {
+    height: 100%; border-radius: 3px; transition: width 0.3s; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  }
+
+  /* Active slots */
+  .active-slots {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 18px;
+  }
+  .slot {
+    background: var(--bg-input); border-radius: var(--radius); padding: 12px;
+    border: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+    min-height: 80px; transition: all 0.3s;
+  }
+  .slot.active {
+    border-color: rgba(124, 92, 191, 0.4);
+    background: linear-gradient(135deg, var(--accent-dim), var(--bg-input));
+  }
+  .slot.done {
+    border-color: rgba(76, 175, 80, 0.3);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.06), var(--bg-input));
+  }
+  .slot.done .slot-spinner { display: none; }
+  .slot-img {
+    width: 48px; height: 67px; border-radius: 4px; overflow: hidden;
+    flex-shrink: 0; background: var(--bg);
+  }
+  .slot-img img { width: 100%; height: 100%; object-fit: cover; }
+  .slot-info { flex: 1; min-width: 0; }
+  .slot-name {
+    font-size: 13px; font-weight: 600; color: var(--text-bright);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .slot-status {
+    font-size: 11px; color: var(--text-dim); margin-top: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .slot.active .slot-status { color: var(--accent); }
+  .slot.done .slot-status { color: var(--success); }
+  .slot-spinner {
+    width: 14px; height: 14px; border: 2px solid rgba(124, 92, 191, 0.2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
+  }
+  .slot:not(.active) .slot-spinner { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Stats bar */
+  .progress-stats {
+    display: flex; gap: 20px; font-size: 12px; color: var(--text-dim);
+    font-family: 'SF Mono', 'Fira Code', monospace; margin-bottom: 14px;
+    padding: 10px 14px; background: var(--bg-input); border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .progress-stats span { display: flex; align-items: center; gap: 4px; }
+
+  /* Log */
+  .log-toggle {
+    font-size: 12px; color: var(--text-dim); cursor: pointer;
+    margin-bottom: 6px; user-select: none;
+    transition: color 0.15s;
+  }
+  .log-toggle:hover { color: var(--text-bright); }
+  .log {
+    max-height: 150px; overflow-y: auto; background: var(--bg-input); border-radius: var(--radius);
+    padding: 10px 12px; border: 1px solid var(--border);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px; color: var(--text-dim); line-height: 1.6;
+  }
+  .log.collapsed { display: none; }
+  .log .ok { color: var(--success); }
+  .log .err { color: var(--error); }
+  .log .info { color: var(--accent); }
+  .log .cached { color: #60a5fa; }
+
+  /* Summary */
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+  .stat-box {
+    background: var(--bg-input); border-radius: var(--radius); padding: 14px 20px;
+    text-align: center; border: 1px solid var(--border); flex: 1; min-width: 100px;
+  }
+  .stat-box .val { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .stat-box .lbl { font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.5px; }
+
+  /* Deck loader specific */
+  .deck-select-wrap {
+    display: flex; gap: 10px; align-items: center;
+  }
+  .deck-select-wrap select { flex: 1; min-width: 200px; }
+  .deck-loader-status {
+    font-size: 12px; color: var(--text-dim); margin-top: 8px;
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .input-sections { grid-template-columns: 1fr; }
+    .active-slots { grid-template-columns: 1fr; }
+    .card-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+    header { flex-direction: column; gap: 4px; }
+    .header-sep { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MTG <span>Proxy Print</span></h1>
+  <span class="header-sep">|</span>
+  <p>HD PDF Generator mit AI Upscaling</p>
+</header>
+
+<div class="app">
+
+  <!-- Server Status -->
+  <div class="server-status disconnected" id="server-status">
+    <span class="dot"></span>
+    <span id="server-text">Upscale-Server wird gesucht...</span>
+  </div>
+
+  <!-- Setup Hint (shown when server not connected) -->
+  <div class="setup-hint" id="setup-hint" style="display:none">
+    <strong>Fuer AI Upscaling:</strong><br>
+    1. <a href="https://github.com/upscayl/upscayl-ncnn/releases" target="_blank">Upscayl-NCNN herunterladen</a>
+    und <code>upscayl-bin</code> in <code>tools/</code> legen<br>
+    2. <code>python3 tools/proxy-print.py</code> starten<br>
+    <em>Ohne Binary wird Pillow LANCZOS als Fallback verwendet.</em>
+  </div>
+
+  <!-- Input: Deck Loader + Manual side-by-side -->
+  <div class="panel" id="panel-input">
+    <h2>Karten laden</h2>
+    <div class="input-sections">
+      <div class="input-section">
+        <h3>Deck aus Website</h3>
+        <div class="deck-select-wrap">
+          <select id="deck-select">
+            <option value="">Deck auswaehlen...</option>
+          </select>
+          <button class="btn btn-primary" id="btn-load-deck" disabled>Laden</button>
+        </div>
+        <div class="deck-loader-status" id="deck-loader-status"></div>
+      </div>
+      <div class="input-section">
+        <h3>Manuelle Decklist</h3>
+        <textarea id="decklist" placeholder="1 Sol Ring&#10;1 Command Tower&#10;4 Forest&#10;&#10;Formate: 1 Cardname, 1x Cardname, MTGA"></textarea>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="btn-go" disabled>PDF generieren</button>
+      <div class="control-group">
+        <label for="upscale-mode">Upscaling:</label>
+        <select id="upscale-mode">
+          <option value="off">Aus (300 DPI)</option>
+          <option value="2">2x (600 DPI)</option>
+          <option value="4" selected>4x (1200 DPI)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="quality">Qualitaet:</label>
+        <select id="quality">
+          <option value="1.0">Verlustfrei</option>
+          <option value="0.95">Q95</option>
+          <option value="0.92">Q92</option>
+        </select>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="cut-marks" checked>
+        <label for="cut-marks">Schnittmarken</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Preview -->
+  <div class="panel" id="panel-cards" style="display:none">
+    <h2>Kartenvorschau (<span id="card-count">0</span>)</h2>
+    <div class="card-grid" id="card-grid"></div>
+  </div>
+
+  <!-- Progress Panel -->
+  <div class="panel progress-panel" id="progress-panel">
+    <div class="progress-header">
+      <span class="phase" id="phase-label">Vorbereitung...</span>
+      <span class="counter" id="progress-counter">0/0</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <!-- 3 active processing slots -->
+    <div class="active-slots" id="active-slots">
+      <div class="slot" id="slot-0">
+        <div class="slot-img" id="slot-img-0"></div>
+        <div class="slot-info">
+          <div class="slot-name" id="slot-name-0">—</div>
+          <div class="slot-status" id="slot-status-0">Wartend</div>
+        </div>
+        <div class="slot-spinner"></div>
+      </div>
+      <div class="slot" id="slot-1">
+        <div class="slot-img" id="slot-img-1"></div>
+        <div class="slot-info">
+          <div class="slot-name" id="slot-name-1">—</div>
+          <div class="slot-status" id="slot-status-1">Wartend</div>
+        </div>
+        <div class="slot-spinner"></div>
+      </div>
+      <div class="slot" id="slot-2">
+        <div class="slot-img" id="slot-img-2"></div>
+        <div class="slot-info">
+          <div class="slot-name" id="slot-name-2">—</div>
+          <div class="slot-status" id="slot-status-2">Wartend</div>
+        </div>
+        <div class="slot-spinner"></div>
+      </div>
+    </div>
+
+    <div class="progress-stats">
+      <span id="stat-elapsed">0:00</span>
+      <span id="stat-eta">ETA —</span>
+      <span id="stat-speed">— s/Karte</span>
+      <span id="stat-size">0 MB</span>
+    </div>
+
+    <div class="log-toggle" id="log-toggle" onclick="document.getElementById('log').classList.toggle('collapsed')">
+      Log anzeigen
+    </div>
+    <div class="log collapsed" id="log"></div>
+
+    <div class="controls" style="margin-top:10px">
+      <button class="btn btn-danger" id="btn-cancel" style="display:none">Abbrechen</button>
+      <button class="btn btn-download" id="btn-download-pdf" style="display:none">PDF herunterladen</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="panel" id="summary-panel" style="display:none">
+    <h2>Zusammenfassung</h2>
+    <div class="summary" id="summary"></div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+const SCRYFALL_API = 'https://api.scryfall.com';
+const UPSCALE_SERVER = window.location.origin;
+const CARD_W_MM = 63, CARD_H_MM = 88;
+const A4_W = 210, A4_H = 297;
+const COLS = 3, ROWS = 3, CARDS_PER_PAGE = 9;
+const MARGIN_X = (A4_W - COLS * CARD_W_MM) / 2;
+const MARGIN_Y = (A4_H - ROWS * CARD_H_MM) / 2;
+const CUT_LEN = 5;
+const PARALLEL = 1;
+
+let cards = [];
+let cancelled = false;
+let pdfBlob = null;
+let serverOnline = false;
+let deckLoadedFromDb = false;
+
+const SUPABASE_URL = 'https://jcbdjlqxmlsfqfenltws.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjYmRqbHF4bWxzZnFmZW5sdHdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzczNDUsImV4cCI6MjA4OTA1MzM0NX0.S87-oIgyMjB1Jdc-2LW4b0mlnUkoFw_SjltpMAB6lvc';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function fmtTime(s) { return `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`; }
+
+// --- Server Check ---
+async function checkServer() {
+  const statusEl = document.getElementById('server-status');
+  const textEl = document.getElementById('server-text');
+  const hintEl = document.getElementById('setup-hint');
+  const btnGo = document.getElementById('btn-go');
+  const selUpscale = document.getElementById('upscale-mode');
+
+  try {
+    const res = await fetch(`${UPSCALE_SERVER}/health`, { signal: AbortSignal.timeout(2000) });
+    const data = await res.json();
+    statusEl.className = 'server-status connected';
+    serverOnline = true;
+    selUpscale.value = '2';
+    selUpscale.disabled = false;
+    hintEl.style.display = 'none';
+    if (data.mode === 'ai') {
+      textEl.textContent = `Upscale-Server verbunden — ${data.model} (AI)`;
+    } else {
+      textEl.textContent = `Upscale-Server verbunden — LANCZOS (kein AI-Binary)`;
+      hintEl.style.display = '';
+    }
+  } catch {
+    statusEl.className = 'server-status disconnected';
+    textEl.textContent = 'Upscale-Server nicht erreichbar — PDF mit Scryfall-Bildern (300 DPI)';
+    hintEl.style.display = '';
+    serverOnline = false;
+    selUpscale.value = 'off';
+    selUpscale.disabled = true;
+  }
+  btnGo.disabled = false;
+}
+
+// --- Decklist Parser ---
+function parseDecklist(text) {
+  const lines = text.trim().split('\n');
+  const seen = new Map();
+  const result = [];
+  const sectionHeaders = ['sideboard', 'mainboard', 'commander', 'companion'];
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith('//') || line.startsWith('#')) continue;
+    if (sectionHeaders.includes(line.toLowerCase())) continue;
+
+    let qty = 1, name = line;
+    const m = line.match(/^(\d+)\s*x?\s+(.+?)(?:\s+\([A-Z0-9]+\)\s+\d+.*)?$/);
+    if (m) {
+      qty = parseInt(m[1], 10) || 1;
+      name = m[2].trim();
+    } else {
+      name = line.replace(/\s+\([A-Z0-9]+\)\s+\d+.*$/, '').trim();
+    }
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      result[seen.get(key)].qty += qty;
+    } else {
+      seen.set(key, result.length);
+      result.push({ name, qty });
+    }
+  }
+  return result;
+}
+
+// --- Scryfall Fetch ---
+async function fetchCards(entries) {
+  const results = [];
+  const chunks = [];
+  for (let i = 0; i < entries.length; i += 75) chunks.push(entries.slice(i, i + 75));
+
+  for (let ci = 0; ci < chunks.length; ci++) {
+    if (ci > 0) await delay(100);
+    const res = await fetch(`${SCRYFALL_API}/cards/collection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiers: chunks[ci].map(e => ({ name: e.name })) })
+    });
+    if (!res.ok) throw new Error(`Scryfall error: ${res.status}`);
+    const data = await res.json();
+
+    for (const card of (data.data || [])) {
+      const entry = entries.find(e => e.name.toLowerCase() === card.name.toLowerCase());
+      const pngUri = card.image_uris?.png || card.card_faces?.[0]?.image_uris?.png || null;
+      const normalUri = card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
+      results.push({
+        name: card.name, qty: entry ? entry.qty : 1,
+        pngUri, normalUri,
+        thumbUri: normalUri || pngUri,
+        error: (!pngUri && !normalUri) ? 'Kein Bild' : null,
+      });
+    }
+    for (const nf of (data.not_found || [])) {
+      results.push({ name: nf.name, qty: 1, pngUri: null, normalUri: null, thumbUri: null, error: 'Nicht gefunden' });
+    }
+  }
+  return results;
+}
+
+// --- UI ---
+function renderCardGrid() {
+  const grid = document.getElementById('card-grid');
+  grid.innerHTML = '';
+  const total = cards.reduce((s, c) => s + c.qty, 0);
+  const unique = cards.filter(c => !c.error).length;
+  document.getElementById('card-count').textContent = `${total} Karten, ${unique} unique`;
+  for (const c of cards) {
+    const div = document.createElement('div');
+    div.className = 'card-thumb';
+    if (c.thumbUri) div.innerHTML = `<img src="${c.thumbUri}" alt="${c.name}" loading="lazy">`;
+    if (c.qty > 1) div.innerHTML += `<span class="qty">${c.qty}x</span>`;
+    div.innerHTML += `<span class="card-label">${c.name}</span>`;
+    div.title = `${c.qty}x ${c.name}`;
+    grid.appendChild(div);
+  }
+}
+
+function log(msg, cls = '') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// --- Slot UI ---
+function setSlot(idx, card, status, cls) {
+  const slot = document.getElementById(`slot-${idx}`);
+  const imgEl = document.getElementById(`slot-img-${idx}`);
+  const nameEl = document.getElementById(`slot-name-${idx}`);
+  const statusEl = document.getElementById(`slot-status-${idx}`);
+
+  slot.className = `slot ${cls}`;
+  if (card) {
+    nameEl.textContent = card.name;
+    if (card.thumbUri && !imgEl.querySelector('img')) {
+      imgEl.innerHTML = `<img src="${card.thumbUri}" alt="${card.name}">`;
+    }
+  } else {
+    nameEl.textContent = '—';
+    imgEl.innerHTML = '';
+  }
+  statusEl.textContent = status;
+}
+
+function clearSlots() {
+  for (let i = 0; i < 3; i++) setSlot(i, null, 'Wartend', '');
+}
+
+// --- Convert blob to dataURL (reads raw bytes, no re-encoding) ---
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('FileReader failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// --- Convert PNG blob to JPEG dataURL via canvas ---
+function blobToJpegDataUrl(blob, quality = 1.0) {
+  // If already JPEG from server, use directly without re-encoding
+  if (blob.type === 'image/jpeg') return blobToDataUrl(blob);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const dataUrl = c.toDataURL('image/jpeg', quality);
+      URL.revokeObjectURL(img.src);
+      resolve(dataUrl);
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Image decode failed')); };
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+// --- Fetch image as blob ---
+async function fetchImageBlob(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  return await res.blob();
+}
+
+// --- Upscale via local server ---
+async function upscaleBlob(blob, scale = 2) {
+  const formData = new FormData();
+  formData.append('image', blob, 'card.png');
+  const res = await fetch(`${UPSCALE_SERVER}/upscale?scale=${scale}`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Server error: ${res.status}`);
+  }
+  return await res.blob();
+}
+
+// --- Cut marks ---
+function drawCutMarks(pdf) {
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(0.2);
+  for (let r = 0; r <= ROWS; r++) {
+    const y = MARGIN_Y + r * CARD_H_MM;
+    pdf.line(MARGIN_X - CUT_LEN, y, MARGIN_X - 1, y);
+    pdf.line(MARGIN_X + COLS * CARD_W_MM + 1, y, MARGIN_X + COLS * CARD_W_MM + CUT_LEN, y);
+  }
+  for (let c = 0; c <= COLS; c++) {
+    const x = MARGIN_X + c * CARD_W_MM;
+    pdf.line(x, MARGIN_Y - CUT_LEN, x, MARGIN_Y - 1);
+    pdf.line(x, MARGIN_Y + ROWS * CARD_H_MM + 1, x, MARGIN_Y + ROWS * CARD_H_MM + CUT_LEN);
+  }
+}
+
+// --- Main Pipeline ---
+async function runPipeline() {
+  const text = document.getElementById('decklist').value;
+  if (!text.trim() && cards.length === 0) return;
+
+  const upscaleScale = document.getElementById('upscale-mode').value;
+  const doUpscale = upscaleScale !== 'off' && serverOnline;
+  const jpegQuality = parseFloat(document.getElementById('quality').value);
+  const showCutMarks = document.getElementById('cut-marks').checked;
+
+  cancelled = false;
+  pdfBlob = null;
+
+  const btnGo = document.getElementById('btn-go');
+  btnGo.disabled = true;
+
+  // Show progress
+  document.getElementById('progress-panel').classList.add('active');
+  document.getElementById('btn-cancel').style.display = '';
+  document.getElementById('btn-download-pdf').style.display = 'none';
+  document.getElementById('summary-panel').style.display = 'none';
+  document.getElementById('log').innerHTML = '';
+  clearSlots();
+
+  const phaseEl = document.getElementById('phase-label');
+  const counterEl = document.getElementById('progress-counter');
+  const barEl = document.getElementById('progress-bar');
+
+  try {
+    // Step 1: Parse & fetch from Scryfall (skip if loaded from DB)
+    if (!deckLoadedFromDb) {
+      phaseEl.textContent = 'Scryfall laden...';
+      log('Decklist wird geladen...', 'info');
+      const entries = parseDecklist(text);
+      if (entries.length === 0) throw new Error('Keine Karten erkannt.');
+
+      cards = await fetchCards(entries);
+      document.getElementById('panel-cards').style.display = '';
+      renderCardGrid();
+    } else {
+      log('Deck aus Website geladen', 'info');
+      deckLoadedFromDb = false; // Reset for next run
+    }
+
+    const validCards = cards.filter(c => !c.error);
+    log(`${validCards.length} Karten gefunden`, 'ok');
+
+    // Expand by quantity
+    const allCards = [];
+    for (const c of validCards) {
+      for (let i = 0; i < c.qty; i++) allCards.push(c);
+    }
+
+    const totalCards = allCards.length;
+    const totalPages = Math.ceil(totalCards / CARDS_PER_PAGE);
+
+    // Step 2: Fetch/upscale all unique cards
+    const imageCache = new Map(); // name -> jpeg dataUrl
+    const startTime = Date.now();
+    let hdCount = 0;
+    let done = 0;
+    const total = validCards.length;
+
+    if (doUpscale) {
+      // Phase 2a: Pre-fetch all images from Scryfall in parallel
+      phaseEl.textContent = 'Bilder laden...';
+      log(`${total} unique Karten, JPEG Q${Math.round(jpegQuality*100)}`, 'info');
+      const blobCache = new Map(); // name -> blob
+      const FETCH_PARALLEL = 6;
+      let fetchIdx = 0;
+      let fetchDone = 0;
+
+      async function fetchWorker() {
+        while (fetchIdx < validCards.length && !cancelled) {
+          const idx = fetchIdx++;
+          const card = validCards[idx];
+          const imgUrl = card.pngUri || card.normalUri;
+          try {
+            blobCache.set(card.name, await fetchImageBlob(imgUrl));
+          } catch (err) {
+            log(`${card.name} — Download fehlgeschlagen`, 'err');
+          }
+          fetchDone++;
+          counterEl.textContent = `${fetchDone}/${total}`;
+          barEl.style.width = `${(fetchDone / total * 50).toFixed(1)}%`;
+        }
+      }
+      const fetchWorkers = [];
+      for (let w = 0; w < FETCH_PARALLEL; w++) fetchWorkers.push(fetchWorker());
+      await Promise.all(fetchWorkers);
+      log(`${blobCache.size} Bilder geladen`, 'ok');
+
+      // Phase 2b: Upscale sequentially (GPU-bound, 1 at a time)
+      phaseEl.textContent = 'Upscaling...';
+
+      for (let i = 0; i < validCards.length && !cancelled; i++) {
+        const card = validCards[i];
+        const blob = blobCache.get(card.name);
+        if (!blob) continue;
+
+        setSlot(0, card, 'Upscaling...', 'active');
+        const t0 = Date.now();
+
+        try {
+          const upscaledBlob = await upscaleBlob(blob, parseInt(upscaleScale));
+          const dur = ((Date.now() - t0) / 1000).toFixed(1);
+          const dataUrl = await blobToJpegDataUrl(upscaledBlob, jpegQuality);
+          imageCache.set(card.name, dataUrl);
+          hdCount++;
+
+          setSlot(0, card, `${dur}s`, 'done');
+          log(`${card.name} — ${upscaleScale}x (${dur}s)`, 'ok');
+        } catch (err) {
+          log(`${card.name} — ${err.message}, Fallback`, 'err');
+          try {
+            imageCache.set(card.name, await blobToJpegDataUrl(blob, jpegQuality));
+          } catch {}
+          setSlot(0, card, 'Fallback', 'done');
+        }
+
+        done++;
+        counterEl.textContent = `${done}/${total}`;
+        barEl.style.width = `${(50 + done / total * 50).toFixed(1)}%`;
+
+        const elapsed = (Date.now() - startTime) / 1000;
+        const perCard = elapsed / done;
+        const eta = perCard * (total - done);
+        document.getElementById('stat-elapsed').textContent = fmtTime(elapsed);
+        document.getElementById('stat-eta').textContent = `ETA ${fmtTime(eta)}`;
+        document.getElementById('stat-speed').textContent = `${perCard.toFixed(1)}s/Karte`;
+      }
+      blobCache.clear();
+
+    } else {
+      // No upscaling — fetch Scryfall PNGs, convert to JPEG
+      phaseEl.textContent = 'Bilder laden...';
+      for (const card of validCards) {
+        if (cancelled) break;
+        const imgUrl = card.pngUri || card.normalUri;
+        try {
+          const blob = await fetchImageBlob(imgUrl);
+          imageCache.set(card.name, await blobToJpegDataUrl(blob, jpegQuality));
+          log(`${card.name}`, 'ok');
+        } catch (err) {
+          log(`${card.name} — ${err.message}`, 'err');
+        }
+        done++;
+        counterEl.textContent = `${done}/${total}`;
+        barEl.style.width = `${(done / total * 100).toFixed(1)}%`;
+      }
+    }
+
+    if (cancelled) {
+      log('Abgebrochen.', 'err');
+      phaseEl.textContent = 'Abgebrochen';
+      btnGo.disabled = false;
+      document.getElementById('btn-cancel').style.display = 'none';
+      return;
+    }
+
+    // Step 3: Build PDF from cached JPEG images
+    phaseEl.textContent = 'PDF erstellen...';
+    clearSlots();
+    log(`PDF: ${totalCards} Karten auf ${totalPages} Seiten...`, 'info');
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    for (let page = 0; page < totalPages; page++) {
+      if (page > 0) pdf.addPage();
+      if (showCutMarks) drawCutMarks(pdf);
+      const pageCards = allCards.slice(page * CARDS_PER_PAGE, (page + 1) * CARDS_PER_PAGE);
+
+      for (let idx = 0; idx < pageCards.length; idx++) {
+        const card = pageCards[idx];
+        const col = idx % COLS;
+        const row = Math.floor(idx / COLS);
+        const x = MARGIN_X + col * CARD_W_MM;
+        const y = MARGIN_Y + row * CARD_H_MM;
+        const imgDataUrl = imageCache.get(card.name);
+        if (imgDataUrl) {
+          pdf.addImage(imgDataUrl, 'JPEG', x, y, CARD_W_MM, CARD_H_MM);
+        }
+      }
+      counterEl.textContent = `Seite ${page+1}/${totalPages}`;
+      barEl.style.width = `${((page+1) / totalPages * 100).toFixed(1)}%`;
+      await delay(5);
+    }
+
+    if (cancelled) {
+      log('Abgebrochen.', 'err');
+      btnGo.disabled = false;
+      document.getElementById('btn-cancel').style.display = 'none';
+      return;
+    }
+
+    // Finalize
+    pdfBlob = pdf.output('blob');
+    const sizeMB = (pdfBlob.size / 1024 / 1024).toFixed(1);
+    const totalTime = Math.round((Date.now() - startTime) / 1000);
+
+    phaseEl.textContent = 'Fertig!';
+    counterEl.textContent = '';
+    barEl.style.width = '100%';
+    document.getElementById('stat-size').textContent = `${sizeMB} MB`;
+    document.getElementById('stat-elapsed').textContent = fmtTime(totalTime);
+    document.getElementById('stat-eta').textContent = '';
+
+    log(`PDF fertig: ${sizeMB} MB (${fmtTime(totalTime)})`, 'ok');
+    document.getElementById('btn-cancel').style.display = 'none';
+    document.getElementById('btn-download-pdf').style.display = '';
+    imageCache.clear();
+
+    // Summary
+    document.getElementById('summary-panel').style.display = '';
+    document.getElementById('summary').innerHTML = `
+      <div class="stat-box"><div class="val">${totalCards}</div><div class="lbl">Karten</div></div>
+      <div class="stat-box"><div class="val">${totalPages}</div><div class="lbl">Seiten</div></div>
+      <div class="stat-box"><div class="val">${sizeMB} MB</div><div class="lbl">Dateigr.</div></div>
+      <div class="stat-box"><div class="val">${doUpscale ? (parseInt(upscaleScale) * 300) : '300'}</div><div class="lbl">DPI</div></div>
+      <div class="stat-box"><div class="val">${hdCount}/${total}</div><div class="lbl">Upscaled</div></div>
+      <div class="stat-box"><div class="val">${fmtTime(totalTime)}</div><div class="lbl">Dauer</div></div>
+    `;
+  } catch (err) {
+    log(`Fehler: ${err.message}`, 'err');
+    phaseEl.textContent = 'Fehler';
+  } finally {
+    btnGo.disabled = false;
+  }
+}
+
+// --- Deck Loader ---
+async function loadDecksDropdown() {
+  const select = document.getElementById('deck-select');
+  const statusEl = document.getElementById('deck-loader-status');
+  try {
+    const { data: decks } = await sb.from('decks').select('*, players(name)').order('created_at', { ascending: false });
+    if (!decks || decks.length === 0) {
+      statusEl.textContent = 'Keine Decks gefunden.';
+      return;
+    }
+    // Group by player
+    const byPlayer = {};
+    for (const d of decks) {
+      const pName = d.players?.name || 'Unbekannt';
+      if (!byPlayer[pName]) byPlayer[pName] = [];
+      byPlayer[pName].push(d);
+    }
+    select.innerHTML = '<option value="">— Deck auswaehlen —</option>';
+    for (const [player, pDecks] of Object.entries(byPlayer)) {
+      const group = document.createElement('optgroup');
+      group.label = player;
+      for (const d of pDecks) {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = `${d.name} (${d.commander})`;
+        group.appendChild(opt);
+      }
+      select.appendChild(group);
+    }
+    document.getElementById('btn-load-deck').disabled = false;
+    statusEl.textContent = `${decks.length} Decks geladen`;
+  } catch (err) {
+    statusEl.textContent = `Fehler: ${err.message}`;
+  }
+}
+
+async function loadDeckFromSupabase(deckId) {
+  const statusEl = document.getElementById('deck-loader-status');
+  statusEl.textContent = 'Lade Karten...';
+
+  const { data: dbCards, error } = await sb
+    .from('cards')
+    .select('name, quantity, image_uri, proxy_image_uri')
+    .eq('deck_id', deckId)
+    .order('name');
+
+  if (error) throw error;
+  if (!dbCards || dbCards.length === 0) throw new Error('Keine Karten im Deck.');
+
+  // Convert to proxy-print card format
+  // Use proxy_image_uri if set, otherwise image_uri (normal resolution from Scryfall)
+  // For upscaling we need PNG — construct PNG URL from normal URL
+  const results = [];
+  for (const c of dbCards) {
+    const imgUri = c.proxy_image_uri || c.image_uri;
+    // Scryfall normal URLs look like: .../normal/front/...png or ...jpg
+    // Convert to PNG URL for best upscaling quality
+    const pngUri = imgUri ? imgUri.replace('/normal/', '/png/').replace(/\.(jpg|jpeg)(\?.*)?$/, '.png$2') : null;
+    const normalUri = imgUri;
+    results.push({
+      name: c.name,
+      qty: c.quantity || 1,
+      pngUri,
+      normalUri,
+      thumbUri: normalUri || pngUri,
+      error: !imgUri ? 'Kein Bild' : null,
+    });
+  }
+
+  statusEl.textContent = `${results.length} Karten geladen`;
+  return results;
+}
+
+// --- Events ---
+document.getElementById('deck-select').addEventListener('change', () => {
+  document.getElementById('btn-load-deck').disabled = !document.getElementById('deck-select').value;
+});
+
+document.getElementById('btn-load-deck').addEventListener('click', async () => {
+  const deckId = document.getElementById('deck-select').value;
+  if (!deckId) return;
+
+  const btn = document.getElementById('btn-load-deck');
+  btn.disabled = true;
+  btn.textContent = 'Lade...';
+
+  try {
+    cards = await loadDeckFromSupabase(deckId);
+    deckLoadedFromDb = true;
+    document.getElementById('panel-cards').style.display = '';
+    renderCardGrid();
+    document.getElementById('btn-go').disabled = false;
+    // Clear textarea to avoid confusion
+    document.getElementById('decklist').value = '';
+  } catch (err) {
+    document.getElementById('deck-loader-status').textContent = `Fehler: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Laden';
+  }
+});
+
+document.getElementById('btn-go').addEventListener('click', runPipeline);
+document.getElementById('btn-cancel').addEventListener('click', () => { cancelled = true; });
+document.getElementById('btn-download-pdf').addEventListener('click', () => {
+  if (!pdfBlob) return;
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mtg-proxies-hd.pdf';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('upscale-mode').addEventListener('change', () => {
+  document.getElementById('btn-go').disabled = false;
+});
+
+// Init
+checkServer();
+setInterval(checkServer, 10000);
+loadDecksDropdown();
+</script>
+
+</body>
+</html>

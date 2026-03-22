@@ -123,6 +123,14 @@ export async function updateCardQuantity(cardId, quantity) {
   if (error) throw error
 }
 
+export async function updateCardProxyImage(cardId, proxyImageUri) {
+  const { error } = await supabase
+    .from('cards')
+    .update({ proxy_image_uri: proxyImageUri })
+    .eq('id', cardId)
+  if (error) throw error
+}
+
 export async function updateDeck(deckId, updates) {
   const { error } = await supabase.from('decks').update(updates).eq('id', deckId)
   if (error) throw error

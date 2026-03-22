@@ -121,6 +121,24 @@ export async function fetchTokenDetails(tokenMap) {
   return tokens
 }
 
+export async function fetchCardPrintings(cardName) {
+  const url = `${API_BASE}/cards/search?q=!"${encodeURIComponent(cardName)}"&unique=prints&order=released`
+  const res = await fetch(url)
+  if (!res.ok) return []
+  const data = await res.json()
+  return (data.data || []).filter(c => {
+    const img = c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal
+    return img != null
+  }).map(c => ({
+    scryfall_id: c.id,
+    set: c.set_name,
+    set_code: c.set,
+    released: c.released_at,
+    image_normal: c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal,
+    image_png: c.image_uris?.png || c.card_faces?.[0]?.image_uris?.png,
+  }))
+}
+
 export function extractCardData(scryfallCard) {
   const imageUri = scryfallCard.image_uris?.normal
     || scryfallCard.card_faces?.[0]?.image_uris?.normal
