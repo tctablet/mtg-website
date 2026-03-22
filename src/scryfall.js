@@ -128,6 +128,8 @@ export async function fetchCardPrintings(cardName) {
   const data = await res.json()
   return (data.data || []).filter(c => {
     if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
+    if (c.digital) return false
+    if (c.promo) return false
     const img = c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal
     return img != null
   }).map(c => ({
