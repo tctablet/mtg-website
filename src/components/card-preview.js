@@ -32,12 +32,7 @@ export function showPreview(imageUri, dfcInfo) {
 export function movePreview() {}
 
 export function hidePreview() {
-  const el = document.getElementById('deck-card-preview')
-  if (!el) return
-  const img = ensureImg(el)
-  img.src = defaultImage || ''
-  currentDfc = null
-  hideFlipButton()
+  // Keep last hovered card visible — only showPreview replaces it
 }
 
 function ensureImg(container) {
