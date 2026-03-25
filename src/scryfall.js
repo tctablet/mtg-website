@@ -49,6 +49,18 @@ export async function fetchCardByName(name) {
   return await res.json()
 }
 
+const dfcCache = new Map()
+
+export async function fetchCardBackImage(scryfallId) {
+  if (dfcCache.has(scryfallId)) return dfcCache.get(scryfallId)
+  const res = await fetch(`${API_BASE}/cards/${scryfallId}`)
+  if (!res.ok) return null
+  const card = await res.json()
+  const backImage = card.card_faces?.[1]?.image_uris?.normal || null
+  dfcCache.set(scryfallId, backImage)
+  return backImage
+}
+
 export function getCardArtCrop(card) {
   return card?.image_uris?.art_crop
     || card?.card_faces?.[0]?.image_uris?.art_crop

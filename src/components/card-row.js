@@ -56,14 +56,16 @@ export function createCardRow(card, onChanged) {
   }
 
   const previewUri = card.proxy_image_uri || card.image_uri
+  const isDfc = card.name?.includes(' // ')
+  const dfcInfo = isDfc && card.scryfall_id ? { scryfallId: card.scryfall_id } : null
   if (previewUri) {
-    tr.addEventListener('mouseenter', () => showPreview(previewUri))
+    tr.addEventListener('mouseenter', () => showPreview(previewUri, dfcInfo))
     tr.addEventListener('mouseleave', () => hidePreview())
     tr.addEventListener('click', (e) => {
       if (editMode) return
       if (!('ontouchstart' in window)) return
       e.preventDefault()
-      showMobilePreview(previewUri, card.name)
+      showMobilePreview(previewUri, card.name, dfcInfo)
     })
   }
 
