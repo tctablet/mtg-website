@@ -103,6 +103,10 @@ async function doAnalyze() {
     scryfallMap = {}
     for (const card of found) {
       scryfallMap[card.name.toLowerCase()] = card
+      // Also index DFC cards by front face name
+      if (card.name.includes(' // ')) {
+        scryfallMap[card.name.split(' // ')[0].toLowerCase()] = card
+      }
     }
 
     if (notFound.length > 0) {
@@ -154,6 +158,9 @@ async function doAnalyze() {
 
     showStatus(statusEl, `${found.length} Karten geladen. Waehle deinen Commander:`)
     renderCommanderPicker()
+
+    // Scroll to commander picker
+    document.getElementById('commander-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } catch (err) {
     showStatus(statusEl, `Fehler: ${err.message}`, 'error')
     btn.disabled = false
