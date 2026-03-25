@@ -1,6 +1,6 @@
-import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings } from '../scryfall.js'
-import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale } from '../utils.js'
+import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards } from '../supabase.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, autocompleteCard } from '../scryfall.js'
+import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
 import { estimateBracket } from '../bracket.js'
@@ -56,6 +56,15 @@ export async function renderDeckView(container, params) {
         ${isOwner ? '<button id="refresh-prices" class="btn">Preise aktualisieren</button>' : ''}
         ${isOwner ? '<button id="toggle-edit" class="btn btn-secondary">Bearbeiten</button>' : ''}
         <button id="export-deck" class="btn btn-secondary">Exportieren</button>
+        ${isOwner ? `
+        <div id="add-card-bar" class="add-card-bar" hidden>
+          <div class="autocomplete-wrapper">
+            <input type="text" id="add-card-input" class="add-card-input" placeholder="Karte hinzufügen..." autocomplete="off" />
+            <div id="add-card-list" class="autocomplete-list" hidden></div>
+          </div>
+          <span id="add-card-status" class="add-card-status"></span>
+        </div>
+        ` : ''}
         <div class="sort-controls">
           <span class="sort-label">Sortierung:</span>
           <select id="sort-select" class="sort-select">
@@ -112,6 +121,14 @@ export async function renderDeckView(container, params) {
     setEditMode(!isEditMode())
     btn.textContent = isEditMode() ? 'Fertig' : 'Bearbeiten'
     btn.classList.toggle('btn-active', isEditMode())
+    const addBar = document.getElementById('add-card-bar')
+    if (addBar) {
+      addBar.hidden = !isEditMode()
+      if (!isEditMode()) {
+        document.getElementById('add-card-input').value = ''
+        document.getElementById('add-card-list').hidden = true
+      }
+    }
     rerender()
   })
 
@@ -143,8 +160,136 @@ export async function renderDeckView(container, params) {
     })
   })
 
+  // Add card autocomplete
+  if (isOwner) {
+    setupAddCard(id, cards, deck, () => {
+      currentSort = document.getElementById('sort-select')?.value || 'type'
+      rerender()
+      renderDeckStats(cards)
+    })
+  }
+
   // Load tokens in background
   loadTokens(cards)
+}
+
+function setupAddCard(deckId, cards, deck, onAdded) {
+  const input = document.getElementById('add-card-input')
+  const list = document.getElementById('add-card-list')
+  const status = document.getElementById('add-card-status')
+  if (!input || !list) return
+
+  let timer = null
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer)
+    const query = input.value.trim()
+    if (query.length < 2) { list.hidden = true; return }
+
+    timer = setTimeout(async () => {
+      const suggestions = await autocompleteCard(query)
+      if (suggestions.length === 0) { list.hidden = true; return }
+
+      list.innerHTML = suggestions.slice(0, 8)
+        .map(name => `<div class="autocomplete-item">${name}</div>`)
+        .join('')
+      list.hidden = false
+
+      list.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => addCardToDeck(item.textContent))
+      })
+    }, 250)
+  })
+
+  input.addEventListener('keydown', (e) => {
+    const items = list.querySelectorAll('.autocomplete-item')
+    const active = list.querySelector('.autocomplete-item.active')
+    let idx = [...items].indexOf(active)
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (active) active.classList.remove('active')
+      idx = (idx + 1) % items.length
+      items[idx]?.classList.add('active')
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (active) active.classList.remove('active')
+      idx = idx <= 0 ? items.length - 1 : idx - 1
+      items[idx]?.classList.add('active')
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (active) {
+        addCardToDeck(active.textContent)
+      } else if (items.length > 0) {
+        addCardToDeck(items[0].textContent)
+      }
+    } else if (e.key === 'Escape') {
+      list.hidden = true
+    }
+  })
+
+  async function addCardToDeck(cardName) {
+    list.hidden = true
+    input.value = ''
+
+    // Check if card already exists in deck
+    const existing = cards.find(c => c.name.toLowerCase() === cardName.toLowerCase())
+    if (existing) {
+      status.textContent = `"${cardName}" ist bereits im Deck`
+      status.className = 'add-card-status add-card-status-warn'
+      setTimeout(() => { status.textContent = '' }, 2500)
+      input.focus()
+      return
+    }
+
+    status.textContent = 'Lade...'
+    status.className = 'add-card-status'
+
+    try {
+      const scryfallCard = await fetchCardByName(cardName)
+      if (!scryfallCard) {
+        status.textContent = `"${cardName}" nicht gefunden`
+        status.className = 'add-card-status add-card-status-warn'
+        setTimeout(() => { status.textContent = '' }, 2500)
+        return
+      }
+
+      const data = extractCardData(scryfallCard)
+      const cardRow = {
+        deck_id: deckId,
+        name: data.name,
+        scryfall_id: data.scryfall_id,
+        type_line: data.type_line,
+        type_category: getTypeCategory(data.type_line),
+        mana_cost: data.mana_cost,
+        cmc: data.cmc,
+        image_uri: data.image_uri,
+        price_eur: data.price_eur,
+        price_is_foil: data.price_is_foil,
+        price_updated_at: data.price_updated_at,
+        commander_legality: data.commander_legality,
+        quantity: 1,
+      }
+
+      await insertCards([cardRow])
+
+      // Re-fetch cards to get the new card with its DB id
+      const freshCards = await getDeckCards(deckId)
+      cards.length = 0
+      cards.push(...freshCards)
+
+      status.textContent = `${data.name} hinzugefügt`
+      status.className = 'add-card-status add-card-status-ok'
+      setTimeout(() => { status.textContent = '' }, 2000)
+
+      onAdded()
+      input.focus()
+    } catch (err) {
+      status.textContent = `Fehler: ${err.message}`
+      status.className = 'add-card-status add-card-status-warn'
+      setTimeout(() => { status.textContent = '' }, 3000)
+    }
+  }
 }
 
 async function loadTokens(cards) {

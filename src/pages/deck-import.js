@@ -1,20 +1,25 @@
 import { getPlayer } from '../auth.js'
 import { navigate } from '../router.js'
 import { createDeck, insertCards } from '../supabase.js'
-import { fetchCardCollection, extractCardData, autocompleteCard, fetchCardByName, getCardArtCrop, getPartnerType } from '../scryfall.js'
+import { fetchCardCollection, extractCardData, getCardArtCrop, getPartnerType, getCardNormalImage } from '../scryfall.js'
 import { parseDeckList, getTypeCategory } from '../utils.js'
 
-let selectedCommanderImage = null
-let selectedCommander2Image = null
-let debounceTimer = null
-let debounceTimer2 = null
+// State shared between steps
+let scryfallMap = {}
+let parsedCards = []
+let commanderCandidates = []
+let selectedCommander = null
+let selectedCommander2 = null
 
 export async function renderDeckImport(container) {
   const player = getPlayer()
   if (!player) { navigate('#/login'); return }
 
-  selectedCommanderImage = null
-  selectedCommander2Image = null
+  scryfallMap = {}
+  parsedCards = []
+  commanderCandidates = []
+  selectedCommander = null
+  selectedCommander2 = null
 
   container.innerHTML = `
     <div class="page">
@@ -23,30 +28,6 @@ export async function renderDeckImport(container) {
         <label>Deckname
           <input type="text" id="deck-name" placeholder="z.B. Atraxa Superfriends" />
         </label>
-        <label>Commander
-          <div class="commander-field">
-            <div class="autocomplete-wrapper">
-              <input type="text" id="deck-commander" placeholder="z.B. Atraxa, Praetors' Voice" autocomplete="off" />
-              <div id="autocomplete-list" class="autocomplete-list" hidden></div>
-            </div>
-            <div id="commander-preview" class="commander-preview" hidden>
-              <img id="commander-preview-img" alt="Commander Artwork" />
-            </div>
-          </div>
-        </label>
-        <div id="partner-section" class="partner-section" hidden>
-          <label><span id="partner-label">Partner Commander</span>
-            <div class="commander-field">
-              <div class="autocomplete-wrapper">
-                <input type="text" id="deck-commander2" placeholder="Zweiter Commander wählen..." autocomplete="off" />
-                <div id="autocomplete-list2" class="autocomplete-list" hidden></div>
-              </div>
-              <div id="commander2-preview" class="commander-preview" hidden>
-                <img id="commander2-preview-img" alt="Partner Commander Artwork" />
-              </div>
-            </div>
-          </label>
-        </div>
         <label>Kartenliste
           <textarea id="deck-list" rows="20" placeholder="1 Sol Ring
 1 Command Tower
@@ -58,199 +39,68 @@ export async function renderDeckImport(container) {
             <input type="file" id="file-input" accept=".txt,.dec,.mwDeck" />
             Datei laden
           </label>
-          <button id="import-btn" class="btn">Importieren</button>
+          <button id="next-btn" class="btn">Weiter</button>
         </div>
         <div id="import-status" hidden></div>
         <div id="import-errors" hidden></div>
+        <div id="commander-picker" hidden></div>
       </div>
     </div>
   `
 
-  setupAutocomplete('deck-commander', 'autocomplete-list', selectCommander)
-  setupAutocomplete('deck-commander2', 'autocomplete-list2', selectCommander2)
-
-  const fileInput = document.getElementById('file-input')
-  fileInput.addEventListener('change', async (e) => {
+  document.getElementById('file-input').addEventListener('change', async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    const text = await file.text()
-    document.getElementById('deck-list').value = text
+    document.getElementById('deck-list').value = await file.text()
   })
 
-  document.getElementById('import-btn').addEventListener('click', doImport)
+  document.getElementById('next-btn').addEventListener('click', doAnalyze)
 }
 
-function setupAutocomplete(inputId, listId, onSelect) {
-  const input = document.getElementById(inputId)
-  const list = document.getElementById(listId)
-  if (!input || !list) return
+function isCommanderEligible(scryfallCard) {
+  const typeLine = scryfallCard.type_line || ''
+  const oracleText = scryfallCard.oracle_text || scryfallCard.card_faces?.[0]?.oracle_text || ''
 
-  let timer = inputId === 'deck-commander' ? debounceTimer : debounceTimer2
+  // Legendary Creature
+  if (typeLine.includes('Legendary') && typeLine.includes('Creature')) return true
+  // Planeswalker that can be commander
+  if (typeLine.includes('Planeswalker') && oracleText.includes('can be your commander')) return true
+  // Some cards explicitly say they can be your commander
+  if (oracleText.includes('can be your commander')) return true
 
-  input.addEventListener('input', () => {
-    clearTimeout(timer)
-    const query = input.value.trim()
-
-    if (query.length < 2) {
-      list.hidden = true
-      return
-    }
-
-    timer = setTimeout(async () => {
-      const suggestions = await autocompleteCard(query)
-      if (suggestions.length === 0) {
-        list.hidden = true
-        return
-      }
-
-      list.innerHTML = suggestions
-        .slice(0, 8)
-        .map(name => `<div class="autocomplete-item">${name}</div>`)
-        .join('')
-      list.hidden = false
-
-      list.querySelectorAll('.autocomplete-item').forEach(item => {
-        item.addEventListener('click', () => onSelect(item.textContent))
-      })
-    }, 250)
-
-    if (inputId === 'deck-commander') debounceTimer = timer
-    else debounceTimer2 = timer
-  })
-
-  input.addEventListener('keydown', (e) => {
-    const items = list.querySelectorAll('.autocomplete-item')
-    const active = list.querySelector('.autocomplete-item.active')
-    let idx = [...items].indexOf(active)
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      if (active) active.classList.remove('active')
-      idx = (idx + 1) % items.length
-      items[idx]?.classList.add('active')
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      if (active) active.classList.remove('active')
-      idx = idx <= 0 ? items.length - 1 : idx - 1
-      items[idx]?.classList.add('active')
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (active) {
-        onSelect(active.textContent)
-      } else if (items.length > 0) {
-        onSelect(items[0].textContent)
-      }
-    } else if (e.key === 'Escape') {
-      list.hidden = true
-    }
-  })
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.autocomplete-wrapper')) {
-      list.hidden = true
-    }
-  })
+  return false
 }
 
-async function selectCommander(name) {
-  const input = document.getElementById('deck-commander')
-  const list = document.getElementById('autocomplete-list')
-  const preview = document.getElementById('commander-preview')
-  const previewImg = document.getElementById('commander-preview-img')
-  const partnerSection = document.getElementById('partner-section')
-  const partnerLabel = document.getElementById('partner-label')
-
-  input.value = name
-  list.hidden = true
-
-  const card = await fetchCardByName(name)
-  if (card) {
-    const artCrop = getCardArtCrop(card)
-    if (artCrop) {
-      previewImg.src = artCrop
-      preview.hidden = false
-      selectedCommanderImage = artCrop
-    }
-
-    // Check for partner-like abilities
-    const partner = getPartnerType(card)
-    if (partner) {
-      partnerSection.hidden = false
-      const labels = {
-        partner: 'Partner Commander',
-        partner_with: 'Partner Commander',
-        friends_forever: 'Friends Forever Partner',
-        choose_background: 'Background',
-        doctors_companion: "Doctor's Companion",
-      }
-      partnerLabel.textContent = labels[partner.type] || 'Partner Commander'
-
-      // Auto-fill for "Partner with [Name]"
-      if (partner.type === 'partner_with' && partner.partnerName) {
-        selectCommander2(partner.partnerName)
-      }
-    } else {
-      partnerSection.hidden = true
-      selectedCommander2Image = null
-      const input2 = document.getElementById('deck-commander2')
-      if (input2) input2.value = ''
-    }
-  }
-}
-
-async function selectCommander2(name) {
-  const input = document.getElementById('deck-commander2')
-  const list = document.getElementById('autocomplete-list2')
-  const preview = document.getElementById('commander2-preview')
-  const previewImg = document.getElementById('commander2-preview-img')
-
-  input.value = name
-  if (list) list.hidden = true
-
-  const card = await fetchCardByName(name)
-  if (card) {
-    const artCrop = getCardArtCrop(card)
-    if (artCrop) {
-      previewImg.src = artCrop
-      preview.hidden = false
-      selectedCommander2Image = artCrop
-    }
-  }
-}
-
-async function doImport() {
+async function doAnalyze() {
   const nameEl = document.getElementById('deck-name')
-  const commanderEl = document.getElementById('deck-commander')
   const listEl = document.getElementById('deck-list')
   const statusEl = document.getElementById('import-status')
   const errorsEl = document.getElementById('import-errors')
-  const btn = document.getElementById('import-btn')
+  const btn = document.getElementById('next-btn')
 
   const deckName = nameEl.value.trim()
-  const commander = commanderEl.value.trim()
-  const commander2El = document.getElementById('deck-commander2')
-  const commander2 = commander2El?.value.trim() || null
   const listText = listEl.value.trim()
 
-  if (!deckName || !commander || !listText) {
-    showStatus(statusEl, 'Bitte alle Felder ausfüllen.', 'error')
+  if (!deckName || !listText) {
+    showStatus(statusEl, 'Bitte Deckname und Kartenliste ausfuellen.', 'error')
     return
   }
 
-  const parsed = parseDeckList(listText)
-  if (parsed.length === 0) {
+  parsedCards = parseDeckList(listText)
+  if (parsedCards.length === 0) {
     showStatus(statusEl, 'Keine Karten erkannt. Format: "1 Kartenname" pro Zeile.', 'error')
     return
   }
 
   btn.disabled = true
-  showStatus(statusEl, `${parsed.length} Karten erkannt. Lade Daten von Scryfall...`)
+  btn.textContent = 'Lade...'
+  showStatus(statusEl, `${parsedCards.length} Karten erkannt. Lade Daten von Scryfall...`)
 
   try {
-    const uniqueNames = [...new Set(parsed.map(c => c.name))]
+    const uniqueNames = [...new Set(parsedCards.map(c => c.name))]
     const { found, notFound } = await fetchCardCollection(uniqueNames)
 
-    const scryfallMap = {}
+    scryfallMap = {}
     for (const card of found) {
       scryfallMap[card.name.toLowerCase()] = card
     }
@@ -265,30 +115,233 @@ async function doImport() {
       errorsEl.hidden = true
     }
 
-    // Use pre-selected commander image, or fall back to scryfall lookup
-    let commanderImage = selectedCommanderImage
-    if (!commanderImage) {
-      const commanderData = scryfallMap[commander.toLowerCase()]
-      commanderImage = commanderData
-        ? (commanderData.image_uris?.art_crop || commanderData.card_faces?.[0]?.image_uris?.art_crop || null)
-        : null
+    // Find commander candidates
+    commanderCandidates = found.filter(c => isCommanderEligible(c))
+
+    if (commanderCandidates.length === 0) {
+      showStatus(statusEl, 'Keine Commander-faehigen Karten in der Liste gefunden. Bitte pruefe die Kartenliste.', 'error')
+      btn.disabled = false
+      btn.textContent = 'Weiter'
+      return
     }
 
-    showStatus(statusEl, 'Speichere Deck...')
+    // Disable step 1 inputs
+    nameEl.disabled = true
+    listEl.disabled = true
+    btn.hidden = true
+    document.querySelector('.file-upload').hidden = true
 
-    // Commander 2 image
-    let commander2Image = selectedCommander2Image
-    if (commander2 && !commander2Image) {
-      const c2Data = scryfallMap[commander2.toLowerCase()]
-      commander2Image = c2Data
-        ? (c2Data.image_uris?.art_crop || c2Data.card_faces?.[0]?.image_uris?.art_crop || null)
-        : null
+    showStatus(statusEl, `${found.length} Karten geladen. Waehle deinen Commander:`)
+    renderCommanderPicker()
+  } catch (err) {
+    showStatus(statusEl, `Fehler: ${err.message}`, 'error')
+    btn.disabled = false
+    btn.textContent = 'Weiter'
+  }
+}
+
+function renderCommanderPicker() {
+  const picker = document.getElementById('commander-picker')
+  picker.hidden = false
+
+  picker.innerHTML = `
+    <div class="cmdr-picker">
+      <div class="cmdr-picker-header">
+        <h3>Commander waehlen</h3>
+        <input type="text" id="cmdr-filter" class="cmdr-filter" placeholder="Karten filtern..." />
+      </div>
+      <div id="cmdr-grid" class="cmdr-grid"></div>
+      <div id="partner-picker" hidden>
+        <div class="cmdr-picker-header">
+          <h3 id="partner-picker-title">Partner Commander waehlen</h3>
+          <input type="text" id="partner-filter" class="cmdr-filter" placeholder="Partner filtern..." />
+        </div>
+        <div id="partner-grid" class="cmdr-grid"></div>
+      </div>
+      <div id="cmdr-selection" class="cmdr-selection" hidden>
+        <div id="cmdr-selection-preview" class="cmdr-selection-preview"></div>
+        <button id="import-btn" class="btn">Deck importieren</button>
+      </div>
+    </div>
+  `
+
+  renderCandidateGrid('cmdr-grid', commanderCandidates, '', selectMainCommander)
+
+  document.getElementById('cmdr-filter').addEventListener('input', (e) => {
+    renderCandidateGrid('cmdr-grid', commanderCandidates, e.target.value, selectMainCommander)
+  })
+
+  document.getElementById('partner-filter')?.addEventListener('input', (e) => {
+    const partnerCandidates = getPartnerCandidates()
+    renderCandidateGrid('partner-grid', partnerCandidates, e.target.value, selectPartnerCommander)
+  })
+
+  document.getElementById('import-btn').addEventListener('click', doImport)
+}
+
+function renderCandidateGrid(gridId, candidates, filter, onSelect) {
+  const grid = document.getElementById(gridId)
+  const query = (filter || '').toLowerCase()
+  const filtered = query
+    ? candidates.filter(c => c.name.toLowerCase().includes(query) || (c.type_line || '').toLowerCase().includes(query))
+    : candidates
+
+  grid.innerHTML = filtered.map(c => {
+    const img = getCardNormalImage(c) || ''
+    const isSelected = (selectedCommander && c.name === selectedCommander.name) ||
+                       (selectedCommander2 && c.name === selectedCommander2.name)
+    return `
+      <div class="cmdr-card ${isSelected ? 'cmdr-card-selected' : ''}" data-name="${c.name.replace(/"/g, '&quot;')}">
+        <img src="${img}" alt="${c.name}" loading="lazy" />
+        <span class="cmdr-card-name">${c.name}</span>
+      </div>
+    `
+  }).join('')
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<p class="cmdr-empty">Keine Karten gefunden${query ? ` fuer "${filter}"` : ''}</p>`
+  }
+
+  grid.querySelectorAll('.cmdr-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.name
+      const card = candidates.find(c => c.name === name)
+      if (card) onSelect(card)
+    })
+  })
+}
+
+function selectMainCommander(card) {
+  selectedCommander = card
+  selectedCommander2 = null
+
+  // Check for partner abilities
+  const partner = getPartnerType(card)
+  const partnerPicker = document.getElementById('partner-picker')
+  const partnerTitle = document.getElementById('partner-picker-title')
+
+  if (partner) {
+    const labels = {
+      partner: 'Partner Commander',
+      partner_with: 'Partner Commander',
+      friends_forever: 'Friends Forever Partner',
+      choose_background: 'Background',
+      doctors_companion: "Doctor's Companion",
     }
+    partnerTitle.textContent = `${labels[partner.type] || 'Partner'} waehlen (optional)`
+    partnerPicker.hidden = false
+
+    // For "Partner with [Name]", auto-select if in deck
+    if (partner.type === 'partner_with' && partner.partnerName) {
+      const partnerCard = commanderCandidates.find(c => c.name.toLowerCase() === partner.partnerName.toLowerCase())
+      if (partnerCard) {
+        selectedCommander2 = partnerCard
+      }
+    }
+
+    const partnerCandidates = getPartnerCandidates()
+    renderCandidateGrid('partner-grid', partnerCandidates, '', selectPartnerCommander)
+  } else {
+    partnerPicker.hidden = true
+  }
+
+  // Re-render main grid to show selection
+  const filterVal = document.getElementById('cmdr-filter')?.value || ''
+  renderCandidateGrid('cmdr-grid', commanderCandidates, filterVal, selectMainCommander)
+
+  updateSelectionPreview()
+}
+
+function getPartnerCandidates() {
+  const mainPartner = getPartnerType(selectedCommander)
+  if (!mainPartner) return []
+
+  return commanderCandidates.filter(c => {
+    if (c.name === selectedCommander.name) return false
+    const p = getPartnerType(c)
+    if (!p) return false
+
+    // Match compatible partner types
+    if (mainPartner.type === 'partner' && p.type === 'partner') return true
+    if (mainPartner.type === 'partner_with' && p.type === 'partner_with') return true
+    if (mainPartner.type === 'friends_forever' && p.type === 'friends_forever') return true
+    if (mainPartner.type === 'choose_background') {
+      return (c.type_line || '').includes('Background')
+    }
+    if (mainPartner.type === 'doctors_companion' && p.type === 'doctors_companion') return true
+    return false
+  })
+}
+
+function selectPartnerCommander(card) {
+  // Toggle off if already selected
+  if (selectedCommander2 && selectedCommander2.name === card.name) {
+    selectedCommander2 = null
+  } else {
+    selectedCommander2 = card
+  }
+
+  const filterVal = document.getElementById('partner-filter')?.value || ''
+  const partnerCandidates = getPartnerCandidates()
+  renderCandidateGrid('partner-grid', partnerCandidates, filterVal, selectPartnerCommander)
+  updateSelectionPreview()
+}
+
+function updateSelectionPreview() {
+  const selection = document.getElementById('cmdr-selection')
+  const preview = document.getElementById('cmdr-selection-preview')
+
+  if (!selectedCommander) {
+    selection.hidden = true
+    return
+  }
+
+  selection.hidden = false
+  const img1 = getCardNormalImage(selectedCommander) || ''
+  let html = `
+    <div class="cmdr-selected-card">
+      <img src="${img1}" alt="${selectedCommander.name}" />
+      <span>${selectedCommander.name}</span>
+    </div>
+  `
+
+  if (selectedCommander2) {
+    const img2 = getCardNormalImage(selectedCommander2) || ''
+    html += `
+      <span class="cmdr-plus">+</span>
+      <div class="cmdr-selected-card">
+        <img src="${img2}" alt="${selectedCommander2.name}" />
+        <span>${selectedCommander2.name}</span>
+      </div>
+    `
+  }
+
+  preview.innerHTML = html
+}
+
+async function doImport() {
+  const statusEl = document.getElementById('import-status')
+  const btn = document.getElementById('import-btn')
+  const deckName = document.getElementById('deck-name').value.trim()
+
+  if (!selectedCommander) {
+    showStatus(statusEl, 'Bitte waehle einen Commander.', 'error')
+    return
+  }
+
+  btn.disabled = true
+  btn.textContent = 'Importiere...'
+  showStatus(statusEl, 'Speichere Deck...')
+
+  try {
+    const commanderImage = getCardArtCrop(selectedCommander)
+    const commander2Name = selectedCommander2?.name || null
+    const commander2Image = selectedCommander2 ? getCardArtCrop(selectedCommander2) : null
 
     const player = JSON.parse(localStorage.getItem('mtg_player'))
-    const deck = await createDeck(player.id, deckName, commander, commanderImage, commander2, commander2Image)
+    const deck = await createDeck(player.id, deckName, selectedCommander.name, commanderImage, commander2Name, commander2Image)
 
-    const cardRows = parsed
+    const cardRows = parsedCards
       .filter(c => scryfallMap[c.name.toLowerCase()])
       .map(c => {
         const sd = extractCardData(scryfallMap[c.name.toLowerCase()])
@@ -312,11 +365,11 @@ async function doImport() {
     }
 
     showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert!`, 'success')
-
     setTimeout(() => navigate(`#/deck/${deck.id}`), 1500)
   } catch (err) {
     showStatus(statusEl, `Fehler: ${err.message}`, 'error')
     btn.disabled = false
+    btn.textContent = 'Deck importieren'
   }
 }
 
