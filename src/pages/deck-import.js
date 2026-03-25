@@ -369,31 +369,49 @@ async function doImport() {
     const player = JSON.parse(localStorage.getItem('mtg_player'))
     const deck = await createDeck(player.id, deckName, selectedCommander.name, commanderImage, commander2Name, commander2Image)
 
-    const cardRows = parsedCards
-      .filter(c => scryfallMap[c.name.toLowerCase()])
-      .map(c => {
-        const sd = extractCardData(scryfallMap[c.name.toLowerCase()])
-        return {
-          deck_id: deck.id,
-          quantity: c.quantity,
-          name: sd.name,
-          scryfall_id: sd.scryfall_id,
-          type_line: sd.type_line,
-          type_category: getTypeCategory(sd.type_line),
-          mana_cost: sd.mana_cost,
-          cmc: sd.cmc,
-          image_uri: sd.image_uri,
-          price_eur: sd.price_eur,
-          price_updated_at: sd.price_updated_at,
-        }
+    const cardRows = []
+    const skipped = []
+    for (const c of parsedCards) {
+      const scData = scryfallMap[c.name.toLowerCase()]
+      if (!scData) {
+        skipped.push(c.name)
+        continue
+      }
+      const sd = extractCardData(scData)
+      cardRows.push({
+        deck_id: deck.id,
+        quantity: c.quantity,
+        name: sd.name,
+        scryfall_id: sd.scryfall_id,
+        type_line: sd.type_line,
+        type_category: getTypeCategory(sd.type_line),
+        mana_cost: sd.mana_cost,
+        cmc: sd.cmc,
+        image_uri: sd.image_uri,
+        price_eur: sd.price_eur,
+        price_updated_at: sd.price_updated_at,
       })
+    }
 
     if (cardRows.length > 0) {
       await insertCards(cardRows)
     }
 
-    showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert!`, 'success')
-    setTimeout(() => navigate(`#/deck/${deck.id}`), 1500)
+    const errorsEl = document.getElementById('import-errors')
+    if (skipped.length > 0) {
+      console.warn('Import: Karten uebersprungen (nicht in Scryfall gefunden):', skipped)
+      errorsEl.innerHTML = `
+        <p><strong>${skipped.length} Karte${skipped.length > 1 ? 'n' : ''} uebersprungen:</strong></p>
+        <ul>${skipped.map(n => `<li>${n}</li>`).join('')}</ul>
+      `
+      errorsEl.hidden = false
+      showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert (${skipped.length} uebersprungen).`, 'success')
+      setTimeout(() => navigate(`#/deck/${deck.id}`), 3000)
+    } else {
+      errorsEl.hidden = true
+      showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert!`, 'success')
+      setTimeout(() => navigate(`#/deck/${deck.id}`), 1500)
+    }
   } catch (err) {
     showStatus(statusEl, `Fehler: ${err.message}`, 'error')
     btn.disabled = false
