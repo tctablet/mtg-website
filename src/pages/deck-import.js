@@ -115,14 +115,35 @@ async function doAnalyze() {
       errorsEl.hidden = true
     }
 
-    // Find commander candidates
-    commanderCandidates = found.filter(c => isCommanderEligible(c))
+    // Collect all colors used in the deck (excluding commander candidates)
+    const allEligible = found.filter(c => isCommanderEligible(c))
+    const eligibleNames = new Set(allEligible.map(c => c.name.toLowerCase()))
+    const deckColors = new Set()
+    for (const card of found) {
+      if (eligibleNames.has(card.name.toLowerCase())) continue
+      for (const color of (card.color_identity || [])) {
+        deckColors.add(color)
+      }
+    }
+
+    // Filter: commander's color_identity must cover all deck colors
+    commanderCandidates = allEligible.filter(c => {
+      const cmdrColors = new Set(c.color_identity || [])
+      for (const color of deckColors) {
+        if (!cmdrColors.has(color)) return false
+      }
+      return true
+    })
 
     if (commanderCandidates.length === 0) {
-      showStatus(statusEl, 'Keine Commander-faehigen Karten in der Liste gefunden. Bitte pruefe die Kartenliste.', 'error')
-      btn.disabled = false
-      btn.textContent = 'Weiter'
-      return
+      // Fallback: show all eligible if no candidate covers all colors
+      commanderCandidates = allEligible
+      if (commanderCandidates.length === 0) {
+        showStatus(statusEl, 'Keine Commander-faehigen Karten in der Liste gefunden. Bitte pruefe die Kartenliste.', 'error')
+        btn.disabled = false
+        btn.textContent = 'Weiter'
+        return
+      }
     }
 
     // Disable step 1 inputs
