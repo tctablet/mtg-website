@@ -28,8 +28,8 @@ export async function renderDeckView(container, params) {
     : ''
 
   // Find commander card image(s) for default preview
-  const commanderCard = cards.find(c => c.name.toLowerCase() === deck.commander?.toLowerCase())
-  const commander2Card = deck.commander2 ? cards.find(c => c.name.toLowerCase() === deck.commander2.toLowerCase()) : null
+  const commanderCard = cards.find(c => matchCommander(c.name, deck.commander))
+  const commander2Card = deck.commander2 ? cards.find(c => matchCommander(c.name, deck.commander2)) : null
   const commanderCardImage = commanderCard?.proxy_image_uri || commanderCard?.image_uri || null
 
   container.innerHTML = `
@@ -325,13 +325,21 @@ async function loadTokens(cards) {
   } catch { /* tokens are non-critical */ }
 }
 
+function matchCommander(cardName, commanderName) {
+  if (!cardName || !commanderName) return false
+  const a = cardName.toLowerCase()
+  const b = commanderName.toLowerCase()
+  // Exact match, or DFC front-face match (card "A" matches commander "A // B" and vice versa)
+  return a === b || a.startsWith(b.split(' // ')[0]) || b.startsWith(a.split(' // ')[0])
+}
+
 function renderCardGroups(cards, commanderName, sortMode, commander2Name) {
   const groupsEl = document.getElementById('card-groups')
   groupsEl.innerHTML = ''
 
   // Extract commander cards and show them first
-  const commanderCard = cards.find(c => c.name.toLowerCase() === commanderName?.toLowerCase())
-  const commander2Card = commander2Name ? cards.find(c => c.name.toLowerCase() === commander2Name.toLowerCase()) : null
+  const commanderCard = cards.find(c => matchCommander(c.name, commanderName))
+  const commander2Card = commander2Name ? cards.find(c => matchCommander(c.name, commander2Name)) : null
   const commanderCards = [commanderCard, commander2Card].filter(Boolean)
   const remainingCards = cards.filter(c => !commanderCards.includes(c))
 
