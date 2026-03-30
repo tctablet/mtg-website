@@ -9,7 +9,12 @@ export function parseDeckList(text) {
     if (!line || line.startsWith('//') || line.startsWith('#')) continue
     if (/^(commander|deck|sideboard|companion|maybeboard):?$/i.test(line)) continue
 
-    const match = line.match(/^(\d+)x?\s+(.+?)(?:\s*[\(\[][\w-]+[\)\]]\s*[\w-]*)?(?:\s*\*F\*)?$/)
+    // deckstats: skip sideboard lines ("SB: 1 Card Name")
+    if (/^SB:\s*/i.test(line)) continue
+    // deckstats: strip leading set code ("1 [IKO] Card Name" → "1 Card Name")
+    const normalized = line.replace(/^(\d+x?\s+)\[[\w-]+\]\s*/, '$1')
+
+    const match = normalized.match(/^(\d+)x?\s+(.+?)(?:\s*[\(\[][\w-]+[\)\]]\s*[\w-]*)?(?:\s*\*F\*)?$/)
     if (match) {
       // Strip any remaining set code / collector number that wasn't caught
       const name = match[2].trim().replace(/\s*[\(\[][\w-]+[\)\]]\s*[\w-]*$/, '').trim()

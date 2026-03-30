@@ -16,7 +16,8 @@ export async function fetchCardCollection(cardNames) {
   for (let i = 0; i < chunks.length; i++) {
     if (i > 0) await delay(100)
 
-    const identifiers = chunks[i].map(name => ({ name }))
+    // Scryfall collection API doesn't accept "A // B" DFC names — use front face only
+    const identifiers = chunks[i].map(name => ({ name: name.includes(' // ') ? name.split(' // ')[0] : name }))
     const res = await fetch(`${API_BASE}/cards/collection`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
