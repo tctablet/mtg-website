@@ -156,6 +156,20 @@ async function doAnalyze() {
     btn.hidden = true
     document.querySelector('.file-upload').hidden = true
 
+    // Auto-select commander if marked with # !Commander
+    const taggedCommander = parsedCards.find(c => c.isCommander)
+    if (taggedCommander) {
+      const cmdrCard = scryfallMap[taggedCommander.name.toLowerCase()]
+      if (cmdrCard) {
+        selectedCommander = cmdrCard
+        // Check for second commander tag
+        const taggedCommander2 = parsedCards.find(c => c.isCommander && c.name.toLowerCase() !== taggedCommander.name.toLowerCase())
+        if (taggedCommander2) {
+          selectedCommander2 = scryfallMap[taggedCommander2.name.toLowerCase()] || null
+        }
+      }
+    }
+
     showStatus(statusEl, `${found.length} Karten geladen. Waehle deinen Commander:`)
     renderCommanderPicker()
 

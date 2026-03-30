@@ -16,9 +16,12 @@ export function parseDeckList(text) {
 
     const match = normalized.match(/^(\d+)x?\s+(.+?)(?:\s*[\(\[][\w-]+[\)\]]\s*[\w-]*)?(?:\s*\*F\*)?$/)
     if (match) {
-      // Strip any remaining set code / collector number that wasn't caught
-      const name = match[2].trim().replace(/\s*[\(\[][\w-]+[\)\]]\s*[\w-]*$/, '').trim()
-      cards.push({ quantity: parseInt(match[1], 10), name })
+      // Detect inline annotations before stripping (e.g. # !Commander, # !Foil)
+      const rawName = match[2].trim().replace(/\s*[\(\[][\w-]+[\)\]]\s*[\w-]*$/, '')
+      const isCommander = /!Commander/i.test(rawName)
+      // Strip inline # comments (# !Foil, # !Commander, etc.)
+      const name = rawName.replace(/\s*#.*$/, '').trim()
+      cards.push({ quantity: parseInt(match[1], 10), name, isCommander })
     }
   }
 
