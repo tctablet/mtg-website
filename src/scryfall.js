@@ -138,7 +138,12 @@ export async function fetchCheapestPrice(cardName) {
   const name = cardName.includes(' // ') ? cardName.split(' // ')[0] : cardName
   const q = `!"${name}" -is:digital`
   const url = `${API_BASE}/cards/search?q=${encodeURIComponent(q)}&unique=prints&order=eur&dir=asc`
-  const res = await fetch(url)
+  let res = await fetch(url)
+  // Retry once on rate limit (429)
+  if (res.status === 429) {
+    await delay(1000)
+    res = await fetch(url)
+  }
   if (!res.ok) return { price: null, isFoil: false }
   const data = await res.json()
   // Results sorted by EUR asc — scan for first card with a price

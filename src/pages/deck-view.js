@@ -618,7 +618,7 @@ async function refreshPrices(deckId, cards) {
     const uniqueNames = [...new Set(cards.map(c => c.name))]
     const priceMap = {}
     for (let i = 0; i < uniqueNames.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 100))
+      if (i > 0) await new Promise(r => setTimeout(r, 150))
       const pct = 10 + Math.round((i / uniqueNames.length) * 60)
       setProgress(pct, `Günstigsten Preis suchen... ${i + 1}/${uniqueNames.length}`)
       const { price, isFoil } = await fetchCheapestPrice(uniqueNames[i])
