@@ -136,29 +136,24 @@ export async function fetchTokenDetails(tokenMap) {
 
 export async function fetchCheapestPrice(cardName) {
   const name = cardName.includes(' // ') ? cardName.split(' // ')[0] : cardName
-  const url = `${API_BASE}/cards/search?q=!"${encodeURIComponent(name)}"&unique=prints`
+  const q = `!"${name}" -is:digital`
+  const url = `${API_BASE}/cards/search?q=${encodeURIComponent(q)}&unique=prints&order=eur&dir=asc`
   const res = await fetch(url)
   if (!res.ok) return { price: null, isFoil: false }
   const data = await res.json()
-  let best = null
-  let bestFoil = false
+  // Results sorted by EUR asc — scan for first card with a price
   for (const c of (data.data || [])) {
-    if (c.digital) continue
     const p = c.prices || {}
-    const candidates = [
-      { val: p.eur ? parseFloat(p.eur) : null, foil: false },
-      { val: p.usd ? parseFloat(p.usd) * USD_TO_EUR : null, foil: false },
-      { val: p.eur_foil ? parseFloat(p.eur_foil) : null, foil: true },
-      { val: p.usd_foil ? parseFloat(p.usd_foil) * USD_TO_EUR : null, foil: true },
-    ]
-    for (const { val, foil } of candidates) {
-      if (val && (best === null || val < best)) {
-        best = val
-        bestFoil = foil
-      }
-    }
+    if (p.eur) return { price: parseFloat(p.eur), isFoil: false }
+    if (p.usd) return { price: parseFloat(p.usd) * USD_TO_EUR, isFoil: false }
   }
-  return { price: best, isFoil: bestFoil }
+  // No non-foil price found, try foil
+  for (const c of (data.data || [])) {
+    const p = c.prices || {}
+    if (p.eur_foil) return { price: parseFloat(p.eur_foil), isFoil: true }
+    if (p.usd_foil) return { price: parseFloat(p.usd_foil) * USD_TO_EUR, isFoil: true }
+  }
+  return { price: null, isFoil: false }
 }
 
 export async function fetchCardPrintings(cardName) {
