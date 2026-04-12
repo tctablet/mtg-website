@@ -1,5 +1,5 @@
 import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, autocompleteCard } from '../scryfall.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchCheapestPrice, autocompleteCard } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
@@ -596,37 +596,41 @@ async function refreshPrices(deckId, cards) {
   }
 
   try {
-    setProgress(10, 'Preise von Scryfall laden...')
+    // Step 1: Fetch collection for legality data
+    setProgress(5, 'Legalität prüfen...')
     const names = cards.map(c => c.name)
     const { found } = await fetchCardCollection(names)
 
-    setProgress(50, `${found.length} Karten gefunden, speichere...`)
-
-    const priceMap = {}
     const nameToId = {}
     for (const c of cards) {
       nameToId[c.name.toLowerCase()] = c.id
     }
 
-    const USD_TO_EUR = 0.92
     const legalityMap = {}
     for (const sc of found) {
       const cardId = nameToId[sc.name.toLowerCase()]
-      const p = sc.prices || {}
-      let eur = null, isFoil = false
-      if (p.eur) eur = parseFloat(p.eur)
-      else if (p.usd) eur = parseFloat(p.usd) * USD_TO_EUR
-      else if (p.eur_foil) { eur = parseFloat(p.eur_foil); isFoil = true }
-      else if (p.usd_foil) { eur = parseFloat(p.usd_foil) * USD_TO_EUR; isFoil = true }
-      if (cardId && eur) {
-        priceMap[cardId] = { price: eur, isFoil }
-      }
       if (cardId && sc.legalities?.commander) {
         legalityMap[cardId] = sc.legalities.commander
       }
     }
 
-    setProgress(70, `${Object.keys(priceMap).length} Preise speichern...`)
+    // Step 2: Fetch cheapest price per unique card name
+    const uniqueNames = [...new Set(cards.map(c => c.name))]
+    const priceMap = {}
+    for (let i = 0; i < uniqueNames.length; i++) {
+      if (i > 0) await new Promise(r => setTimeout(r, 100))
+      const pct = 10 + Math.round((i / uniqueNames.length) * 60)
+      setProgress(pct, `Günstigsten Preis suchen... ${i + 1}/${uniqueNames.length}`)
+      const { price, isFoil } = await fetchCheapestPrice(uniqueNames[i])
+      // Map price to all card IDs with this name
+      for (const c of cards) {
+        if (c.name === uniqueNames[i] && price) {
+          priceMap[c.id] = { price, isFoil }
+        }
+      }
+    }
+
+    setProgress(75, `${Object.keys(priceMap).length} Preise speichern...`)
     await updateCardPrices(deckId, priceMap, legalityMap)
 
     setProgress(100, 'Fertig!')

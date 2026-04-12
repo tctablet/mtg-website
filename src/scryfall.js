@@ -134,6 +134,33 @@ export async function fetchTokenDetails(tokenMap) {
   return tokens
 }
 
+export async function fetchCheapestPrice(cardName) {
+  const name = cardName.includes(' // ') ? cardName.split(' // ')[0] : cardName
+  const url = `${API_BASE}/cards/search?q=!"${encodeURIComponent(name)}"&unique=prints`
+  const res = await fetch(url)
+  if (!res.ok) return { price: null, isFoil: false }
+  const data = await res.json()
+  let best = null
+  let bestFoil = false
+  for (const c of (data.data || [])) {
+    if (c.digital) continue
+    const p = c.prices || {}
+    const candidates = [
+      { val: p.eur ? parseFloat(p.eur) : null, foil: false },
+      { val: p.usd ? parseFloat(p.usd) * USD_TO_EUR : null, foil: false },
+      { val: p.eur_foil ? parseFloat(p.eur_foil) : null, foil: true },
+      { val: p.usd_foil ? parseFloat(p.usd_foil) * USD_TO_EUR : null, foil: true },
+    ]
+    for (const { val, foil } of candidates) {
+      if (val && (best === null || val < best)) {
+        best = val
+        bestFoil = foil
+      }
+    }
+  }
+  return { price: best, isFoil: bestFoil }
+}
+
 export async function fetchCardPrintings(cardName) {
   const url = `${API_BASE}/cards/search?q=!"${encodeURIComponent(cardName)}"&unique=prints&order=released`
   const res = await fetch(url)

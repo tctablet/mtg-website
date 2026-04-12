@@ -22,7 +22,7 @@ export function renderInfo(container) {
           <li><strong>USD Foil &times; 0.92</strong> — Letzter Fallback für Karten die nur als Foil in USD gelistet sind</li>
         </ol>
         <p class="info-note">
-          Scryfall gibt immer den Preis des <em>neuesten Printings</em> zurück.
+          Beim Aktualisieren werden <em>alle verfügbaren Printings</em> einer Karte abgefragt und der günstigste Preis über alle Editionen gewählt.
           Der Gesamtwert eines Decks errechnet sich aus der Summe aller Einzelpreise multipliziert mit der jeweiligen Kartenanzahl.
           Preise älter als 7 Tage werden als "veraltet" markiert.
         </p>
