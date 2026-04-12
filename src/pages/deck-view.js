@@ -1,5 +1,5 @@
-import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchCheapestPrice, autocompleteCard } from '../scryfall.js'
+import { supabase, getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards } from '../supabase.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, autocompleteCard } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
@@ -596,8 +596,8 @@ async function refreshPrices(deckId, cards) {
   }
 
   try {
-    // Step 1: Fetch collection for legality data
-    setProgress(5, 'Legalität prüfen...')
+    // Step 1: Fetch legality from Scryfall collection API
+    setProgress(10, 'Legalität prüfen...')
     const names = cards.map(c => c.name)
     const { found } = await fetchCardCollection(names)
 
@@ -614,23 +614,40 @@ async function refreshPrices(deckId, cards) {
       }
     }
 
-    // Step 2: Fetch cheapest price per unique card name
+    // Step 2: Fetch cheapest prices from pre-synced Supabase table
+    setProgress(40, 'Günstigste Preise laden...')
     const uniqueNames = [...new Set(cards.map(c => c.name))]
-    const priceMap = {}
-    for (let i = 0; i < uniqueNames.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 150))
-      const pct = 10 + Math.round((i / uniqueNames.length) * 60)
-      setProgress(pct, `Günstigsten Preis suchen... ${i + 1}/${uniqueNames.length}`)
-      const { price, isFoil } = await fetchCheapestPrice(uniqueNames[i])
-      // Map price to all card IDs with this name
-      for (const c of cards) {
-        if (c.name === uniqueNames[i] && price) {
-          priceMap[c.id] = { price, isFoil }
-        }
+    const { data: priceRows } = await supabase
+      .from('scryfall_prices')
+      .select('name, cheapest_eur, is_foil')
+      .in('name', uniqueNames)
+
+    const priceLookup = new Map()
+    for (const row of (priceRows || [])) {
+      priceLookup.set(row.name, { price: row.cheapest_eur, isFoil: row.is_foil })
+    }
+
+    // Also try front-face name for DFCs not matched by full name
+    const missing = uniqueNames.filter(n => !priceLookup.has(n) && n.includes(' // '))
+    if (missing.length) {
+      const frontNames = missing.map(n => n.split(' // ')[0])
+      const { data: dfcRows } = await supabase
+        .from('scryfall_prices')
+        .select('name, cheapest_eur, is_foil')
+        .in('name', frontNames)
+      for (let i = 0; i < missing.length; i++) {
+        const row = (dfcRows || []).find(r => r.name === frontNames[i])
+        if (row) priceLookup.set(missing[i], { price: row.cheapest_eur, isFoil: row.is_foil })
       }
     }
 
-    setProgress(75, `${Object.keys(priceMap).length} Preise speichern...`)
+    const priceMap = {}
+    for (const c of cards) {
+      const info = priceLookup.get(c.name)
+      if (info) priceMap[c.id] = info
+    }
+
+    setProgress(70, `${Object.keys(priceMap).length} Preise speichern...`)
     await updateCardPrices(deckId, priceMap, legalityMap)
 
     setProgress(100, 'Fertig!')

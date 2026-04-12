@@ -12,17 +12,19 @@ export function renderInfo(container) {
       <section class="info-section">
         <h3>Preisberechnung</h3>
         <p>
-          Alle Kartenpreise werden live von der <strong>Scryfall API</strong> abgerufen.
-          Pro Karte wird der günstigste verfügbare Preis nach folgender Priorität gewählt:
+          Kartenpreise stammen aus der <strong>Scryfall Bulk Data</strong>, die täglich automatisch
+          synchronisiert wird. Pro Karte wird der <em>günstigste verfügbare Preis über alle Editionen</em>
+          nach folgender Priorität gewählt:
         </p>
         <ol>
-          <li><strong>EUR (non-foil)</strong> — Standardpreis in Euro auf dem europäischen Markt</li>
+          <li><strong>EUR (non-foil)</strong> — Günstigstes Printing in Euro auf dem europäischen Markt</li>
           <li><strong>USD (non-foil) &times; 0.92</strong> — Falls kein EUR-Preis vorhanden, wird der US-Dollar-Preis mit einem festen Wechselkurs umgerechnet</li>
           <li><strong>EUR Foil</strong> — Manche Karten existieren nur als Foil-Version (z.B. Commander-Precon-Exklusives). Diese werden mit einem <span class="foil-badge">✦</span> markiert</li>
           <li><strong>USD Foil &times; 0.92</strong> — Letzter Fallback für Karten die nur als Foil in USD gelistet sind</li>
         </ol>
         <p class="info-note">
-          Beim Aktualisieren werden <em>alle verfügbaren Printings</em> einer Karte abgefragt und der günstigste Preis über alle Editionen gewählt.
+          Die Preisdatenbank wird täglich um 08:00 Uhr aus dem Scryfall-Gesamtkatalog (~90.000 Printings) aktualisiert.
+          "Preise aktualisieren" liest aus dieser vorberechneten Datenbank — kein langsames Karte-für-Karte-Abfragen mehr.
           Der Gesamtwert eines Decks errechnet sich aus der Summe aller Einzelpreise multipliziert mit der jeweiligen Kartenanzahl.
           Preise älter als 7 Tage werden als "veraltet" markiert.
         </p>

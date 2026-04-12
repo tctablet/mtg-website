@@ -1,0 +1,20 @@
+name: Sync Scryfall Prices
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Daily at 06:00 UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync prices from Scryfall bulk data
+        env:
+          SUPABASE_URL: https://jcbdjlqxmlsfqfenltws.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/sync-prices.mjs
