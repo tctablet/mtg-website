@@ -19,6 +19,10 @@ export async function renderDeckView(container, params) {
   }
 
   const player = getPlayer()
+  if (!player && !deck.for_sale) {
+    navigate('#/login')
+    return
+  }
   const isOwner = player && player.id === deck.player_id
   const stale = cards.some(c => isPriceStale(c.price_updated_at))
   const totalPrice = formatTotalPrice(cards)

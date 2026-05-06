@@ -1,12 +1,8 @@
-import { getPlayer } from '../auth.js'
 import { navigate } from '../router.js'
 import { getResterampeDecks, getDeckCards } from '../supabase.js'
 import { formatPrice, formatTotalPrice } from '../utils.js'
 
 export async function renderResterampe(container) {
-  const player = getPlayer()
-  if (!player) { navigate('#/login'); return }
-
   container.innerHTML = '<p class="loading">Lade Resterampe...</p>'
 
   const decks = await getResterampeDecks()

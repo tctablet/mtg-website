@@ -6,7 +6,17 @@ export function renderNav() {
   const player = getPlayer()
 
   if (!player) {
-    nav.innerHTML = ''
+    nav.innerHTML = `
+      <div class="nav-inner">
+        <div class="nav-brand">MTG Deck Tracker</div>
+        <div class="nav-links">
+          <a href="#/resterampe">Philips Resterampe</a>
+        </div>
+        <div class="nav-user">
+          <a href="#/login" class="btn-small">Login</a>
+        </div>
+      </div>
+    `
     return
   }
 
@@ -30,6 +40,6 @@ export function renderNav() {
   document.getElementById('logout-btn').addEventListener('click', () => {
     logout()
     renderNav()
-    navigate('#/login')
+    navigate('#/resterampe')
   })
 }

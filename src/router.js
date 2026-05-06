@@ -9,7 +9,7 @@ export function navigate(hash) {
 }
 
 export function getCurrentRoute() {
-  return window.location.hash || '#/login'
+  return window.location.hash || '#/resterampe'
 }
 
 function matchRoute(hash) {
