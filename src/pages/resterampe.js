@@ -1,6 +1,6 @@
 import { navigate } from '../router.js'
 import { getResterampeDecks, getDeckCards } from '../supabase.js'
-import { formatPrice, formatTotalPrice } from '../utils.js'
+import { formatPrice, formatTotalPrice, getDeckColors } from '../utils.js'
 
 export async function renderResterampe(container) {
   container.innerHTML = '<p class="loading">Lade Resterampe...</p>'
@@ -67,6 +67,11 @@ function createResterampeCard(deck, cards) {
     ? `background-image: url('${deck.commander_image}')`
     : ''
 
+  const colors = getDeckColors(cards)
+  const colorPipsHtml = colors.length
+    ? `<div class="mana-pips">${colors.map(c => `<span class="mana-pip mana-pip-${c}">${c}</span>`).join('')}</div>`
+    : ''
+
   const archetypeHtml = deck.archetype
     ? `<span class="resterampe-archetype">${escapeHtml(deck.archetype)}</span>`
     : ''
@@ -100,7 +105,10 @@ function createResterampeCard(deck, cards) {
     ${deck.sold ? '<span class="sold-badge">Verkauft</span>' : ''}
     <div class="deck-card-art" style="${bgImage}"></div>
     <div class="deck-card-info">
-      <h3>${escapeHtml(deck.name)}</h3>
+      <div class="deck-card-title-row">
+        <h3>${escapeHtml(deck.name)}</h3>
+        ${colorPipsHtml}
+      </div>
       <p class="deck-commander">${escapeHtml(deck.commander)}${deck.commander2 ? ' + ' + escapeHtml(deck.commander2) : ''}</p>
       ${archetypeHtml}
       ${playstyleHtml}

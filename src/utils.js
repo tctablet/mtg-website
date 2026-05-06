@@ -92,3 +92,26 @@ export function isPriceStale(priceUpdatedAt) {
   const diff = Date.now() - new Date(priceUpdatedAt).getTime()
   return diff > 7 * 24 * 60 * 60 * 1000 // 7 Tage
 }
+
+// --- Color Identity ---
+
+const BASIC_LAND_COLOR = {
+  Plains: 'W', Island: 'U', Swamp: 'B', Mountain: 'R', Forest: 'G',
+}
+
+export function getDeckColors(cards) {
+  const colors = new Set()
+  for (const c of cards) {
+    const cost = c.mana_cost || ''
+    for (const sym of ['W', 'U', 'B', 'R', 'G']) {
+      if (new RegExp(`\\{[^}]*${sym}[^}]*\\}`).test(cost)) colors.add(sym)
+    }
+    const tl = c.type_line || ''
+    if (/Basic Land/i.test(tl)) {
+      for (const [land, color] of Object.entries(BASIC_LAND_COLOR)) {
+        if (tl.includes(land)) colors.add(color)
+      }
+    }
+  }
+  return ['W', 'U', 'B', 'R', 'G'].filter(c => colors.has(c))
+}
