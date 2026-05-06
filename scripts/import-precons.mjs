@@ -723,6 +723,179 @@ const JARED = `
 1 Terramorphic Expanse
 `
 
+const PERRIE = `
+1 Perrie, the Pulverizer
+1 Aven Courier
+1 Devoted Druid
+1 Grateful Apparition
+1 Incubation Druid
+1 Luminarch Aspirant
+1 Scavenging Ooze
+1 Skyship Plunderer
+1 Steelbane Hydra
+1 Thrummingbird
+1 Wall of Roots
+1 Angelic Sleuth
+1 Aven Mimeomancer
+1 Crystalline Giant
+1 Evolution Sage
+1 Jenara, Asura of War
+1 Park Heights Maverick
+1 Rishkar, Peema Renegade
+1 Vorel of the Hull Clade
+1 Wingspan Mentor
+1 Denry Klin, Editor in Chief
+1 Fathom Mage
+1 Forgotten Ancient
+1 Kros, Defense Contractor
+1 Slippery Bogbonder
+1 Wickerbough Elder
+1 Avenging Huntbonder
+1 Roalesk, Apex Hybrid
+1 Shield Broker
+1 Skyboon Evangelist
+1 Bribe Taker
+1 Ajani Unyielding
+1 Bant Charm
+1 Brokers Charm
+1 Contractual Safeguard
+1 Exotic Pets
+1 Generous Gift
+1 Storm of Forms
+1 Brokers Confluence
+1 Declaration in Stone
+1 Tezzeret's Gambit
+1 Damning Verdict
+1 Planar Outburst
+1 Urban Evolution
+1 Rishkar's Expertise
+1 Everflowing Chalice
+1 Sol Ring
+1 Arcane Signet
+1 Fellwar Stone
+1 Gavel of the Righteous
+1 Power Conduit
+1 Swiftfoot Boots
+1 Agent's Toolkit
+1 Commander's Sphere
+1 Midnight Clock
+1 Oblivion Stone
+1 Oracle's Vault
+1 Hoofprints of the Stag
+1 Together Forever
+1 Family's Favor
+1 Primal Empathy
+1 Resourceful Defense
+1 Ash Barrens
+1 Bant Panorama
+1 Brokers Hideout
+1 Canopy Vista
+1 Command Tower
+1 Exotic Orchard
+1 Flooded Grove
+5 Forest
+1 Fortified Village
+1 Gavony Township
+4 Island
+1 Karn's Bastion
+1 Littjara Mirrorlake
+1 Llanowar Reborn
+1 Myriad Landscape
+1 Nesting Grounds
+1 Path of Ancestry
+5 Plains
+1 Port Town
+1 Prairie Stream
+1 Seaside Citadel
+1 Skycloud Expanse
+1 Sungrass Prairie
+1 Temple of Mystery
+1 Vivid Creek
+1 Vivid Grove
+1 Vivid Meadow
+`
+
+const DAXOS = `
+1 Daxos the Returned
+1 Karlov of the Ghost Council
+1 Oreskos Explorer
+1 Underworld Coinsmith
+1 Bastion Protector
+1 Burnished Hart
+1 Dawnglare Invoker
+1 Ghostblade Eidolon
+1 Kor Sanctifiers
+1 Mesa Enchantress
+1 Monk Idealist
+1 Nighthowler
+1 Ajani's Chosen
+1 Corpse Augur
+1 Fate Unraveler
+1 Banshee of the Dread Choir
+1 Celestial Ancient
+1 Celestial Archon
+1 Doomwake Giant
+1 Dreadbringer Lampads
+1 Herald of the Host
+1 Thief of Blood
+1 Treasury Thrull
+1 Sandstone Oracle
+1 Silent Sentinel
+1 Teysa, Envoy of Ghosts
+1 Death Grasp
+1 Ancient Craving
+1 Dawn to Dusk
+1 Gild
+1 Righteous Confluence
+1 Deadly Tempest
+1 Open the Vaults
+1 Sol Ring
+1 Wayfarer's Bauble
+1 Lightning Greaves
+1 Orzhov Signet
+1 Thought Vessel
+1 Crystal Chimes
+1 Orzhov Cluestone
+1 Phyrexian Reclamation
+1 Grave Peril
+1 Seal of Cleansing
+1 Aura of Silence
+1 Banishing Light
+1 Cage of Hands
+1 Fallen Ideal
+1 Grasp of Fate
+1 Karmic Justice
+1 Phyrexian Arena
+1 Seal of Doom
+1 Shielded by Faith
+1 Underworld Connections
+1 Vow of Duty
+1 Vow of Malice
+1 Daxos's Torment
+1 Marshal's Anthem
+1 Black Market
+1 Dictate of Heliod
+1 Sigil of the Empty Throne
+1 Necromancer's Covenant
+1 Barren Moor
+1 Command Tower
+1 Evolving Wilds
+1 Ghost Quarter
+1 New Benalia
+1 Orzhov Basilica
+1 Orzhov Guildgate
+11 Plains
+1 Rogue's Passage
+1 Scoured Barrens
+1 Secluded Steppe
+13 Swamp
+1 Tainted Field
+1 Temple of the False God
+1 Terramorphic Expanse
+1 Vivid Marsh
+1 Vivid Meadow
+`
+
 const ZINNIA = `
 1 Zinnia, Valley's Voice
 1 Agate Instigator
@@ -872,6 +1045,22 @@ const DECKS = [
     playstyle: 'Erzeugt Token-Schwärme und verdoppelt Trigger-Effekte mit Zinnias Ability. Wide-Boards aus Birds, Soldiers und Spirits werden über Anthems und Combat-Tricks zur Lawine.',
     sealedPrice: 39.90,
     decklist: ZINNIA,
+  },
+  {
+    name: 'Bedecked Brokers (SNC Precon)',
+    commander: 'Perrie, the Pulverizer',
+    archetype: 'Bant Counter Voltron',
+    playstyle: 'Verteilt verschiedene Counter-Arten auf deinen Permanents und schlägt mit Perrie für massiven Trampelschaden zu — je mehr unterschiedliche Counter, desto härter der Hit. Proliferate-Engine als Multiplikator.',
+    sealedPrice: 24.90,
+    decklist: PERRIE,
+  },
+  {
+    name: 'Call the Spirits (C15 Precon)',
+    commander: 'Daxos the Returned',
+    archetype: 'Orzhov Enchantress / Spirit Tokens',
+    playstyle: 'Spielst Verzauberungen für Wert und erzeugst Spirit-Tokens mit Daxos Devotion-Trigger. Sigil of the Empty Throne und Necromancer\'s Covenant verwandeln dein Enchantment-Board in eine Wand aus fliegenden Geistern.',
+    sealedPrice: 39.90,
+    decklist: DAXOS,
   },
 ]
 
