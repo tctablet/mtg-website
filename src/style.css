@@ -1874,25 +1874,13 @@ a:hover { color: var(--accent-hover); }
 }
 
 .mana-pip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  font-size: 10px;
-  font-weight: 700;
-  font-family: 'Inter', system-ui, sans-serif;
-  letter-spacing: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 -1px 1px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   user-select: none;
+  display: block;
 }
-
-.mana-pip-W { background: #fffbd5; color: #3d3424; }
-.mana-pip-U { background: #aae0fa; color: #0e3858; }
-.mana-pip-B { background: #2a2a2a; color: #d8d2c5; }
-.mana-pip-R { background: #f9aa8f; color: #5d1908; }
-.mana-pip-G { background: #9bd3ae; color: #0f3a1d; }
 
 /* ===== Resterampe ===== */
 .resterampe-section {

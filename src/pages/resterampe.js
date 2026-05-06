@@ -69,7 +69,9 @@ function createResterampeCard(deck, cards) {
 
   const colors = getDeckColors(cards)
   const colorPipsHtml = colors.length
-    ? `<div class="mana-pips">${colors.map(c => `<span class="mana-pip mana-pip-${c}">${c}</span>`).join('')}</div>`
+    ? `<div class="mana-pips">${colors.map(c =>
+        `<img class="mana-pip" src="https://svgs.scryfall.io/card-symbols/${c}.svg" alt="${c}" />`
+      ).join('')}</div>`
     : ''
 
   const archetypeHtml = deck.archetype
