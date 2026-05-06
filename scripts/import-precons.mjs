@@ -125,8 +125,8 @@ async function supa(method, path, body) {
   return await res.json()
 }
 
-async function importDeck({ name, commander, archetype, playstyle, sealedPrice, decklist }) {
-  console.log(`\n=== ${name} (${commander}) ===`)
+async function importDeck({ name, commander, commander2, archetype, playstyle, sealedPrice, decklist }) {
+  console.log(`\n=== ${name} (${commander}${commander2 ? ' + ' + commander2 : ''}) ===`)
   const cards = parseList(decklist)
   console.log(`  ${cards.length} unique entries, ${cards.reduce((s, c) => s + c.quantity, 0)} total cards`)
 
@@ -149,7 +149,14 @@ async function importDeck({ name, commander, archetype, playstyle, sealedPrice, 
   if (!commanderCard) throw new Error(`Commander not found: ${commander}`)
   const commanderImage = getArtCrop(commanderCard)
 
-  const [deck] = await supa('POST', '/decks', [{
+  let commander2Image = null
+  if (commander2) {
+    const c2 = await fetchByName(commander2)
+    if (!c2) throw new Error(`Partner commander not found: ${commander2}`)
+    commander2Image = getArtCrop(c2)
+  }
+
+  const deckRow = {
     player_id: PHILIP_ID,
     name,
     commander,
@@ -159,7 +166,12 @@ async function importDeck({ name, commander, archetype, playstyle, sealedPrice, 
     sealed_price_eur: sealedPrice,
     archetype,
     playstyle,
-  }])
+  }
+  if (commander2) {
+    deckRow.commander2 = commander2
+    deckRow.commander2_image = commander2Image
+  }
+  const [deck] = await supa('POST', '/decks', [deckRow])
   console.log(`  ✓ Deck created: ${deck.id}`)
 
   const cardRows = []
@@ -429,6 +441,380 @@ const FIRKRAAG = `
 1 Wandering Fumarole
 `
 
+const KAUST = `
+1 Kaust, Eyes of the Glade
+1 Ainok Survivalist
+1 Broodhatch Nantuko
+1 Den Protector
+1 Hidden Dragonslayer
+1 Hooded Hydra
+1 Master of Pearls
+1 Nervous Gardener
+1 Printlifter Ooze
+1 Sakura-Tribe Elder
+1 Deathmist Raptor
+1 Mirror Entity
+1 Welcoming Vampire
+1 Ashcloud Phoenix
+1 Beast Whisperer
+1 Boltbender
+1 Experiment Twelve
+1 Nantuko Vigilante
+1 Salt Road Ambushers
+1 Saryth, the Viper's Fang
+1 Sidar Kondo of Jamuraa
+1 Tesak, Judith's Hellhound
+1 Thelonite Hermit
+1 Toski, Bearer of Secrets
+1 Duskana, the Rage Mother
+1 Neheb, the Eternal
+1 Ohran Frostfang
+1 Seedborn Muse
+1 Whisperwood Elemental
+1 Yedora, Grave Gardener
+1 Exalted Angel
+1 Root Elemental
+1 Scourge of the Throne
+1 Temur War Shaman
+1 Imperial Hellkite
+1 Akroma, Angel of Fury
+1 Krosan Colossus
+1 Krosan Cloudscraper
+1 Path to Exile
+1 Chaos Warp
+1 Unexplained Absence
+1 Return of the Wildspeaker
+1 Showstopping Surprise
+1 Nature's Lore
+1 Three Visits
+1 Jeska's Will
+1 Decimate
+1 Fell the Mighty
+1 Austere Command
+1 Dusk // Dawn
+1 Ransom Note
+1 Sol Ring
+1 Arcane Signet
+1 Lifecrafter's Bestiary
+1 Scroll of Fate
+1 Panoptic Projektor
+1 Obscuring Aether
+1 Wild Growth
+1 Mastery of the Unseen
+1 Trail of Mystery
+1 True Identity
+1 Ugin's Mastery
+1 Veiled Ascension
+1 Boros Garrison
+1 Branch of Vitu-Ghazi
+1 Canopy Vista
+1 Cinder Glade
+1 Command Tower
+1 Exotic Orchard
+4 Forest
+1 Fortified Village
+1 Furycalm Snarl
+1 Game Trail
+1 Gruul Turf
+1 Jungle Shrine
+1 Kessig Wolf Run
+1 Krosan Verge
+1 Mossfire Valley
+1 Mosswort Bridge
+3 Mountain
+4 Plains
+1 Sacred Peaks
+1 Scattered Groves
+1 Selesnya Sanctuary
+1 Sheltered Thicket
+1 Shrine of the Forsaken Gods
+1 Sungrass Prairie
+1 Temple of Abandon
+1 Temple of Plenty
+1 Temple of Triumph
+1 Temple of the False God
+1 Zoetic Cavern
+`
+
+const FRODO_SAM = `
+1 Frodo, Adventurous Hobbit
+1 Sam, Loyal Attendant
+1 Birds of Paradise
+1 Essence Warden
+1 Gilded Goose
+1 Banquet Guests
+1 Farmer Cotton
+1 Feasting Hobbit
+1 Gollum, Obsessed Stalker
+1 Pippin, Warden of Isengard
+1 Prize Pig
+1 Prosperous Innkeeper
+1 Shire Shirriff
+1 Bilbo, Birthday Celebrant
+1 Lobelia, Defender of Bag End
+1 Mentor of the Meek
+1 Merry, Warden of Isengard
+1 Rapacious Guest
+1 Rosie Cotton of South Lane
+1 Savvy Hunter
+1 The Gaffer
+1 Tireless Provisioner
+1 Butterbur, Bree Innkeeper
+1 Mirkwood Bats
+1 Treebeard, Gracious Host
+1 Gwaihir, Greatest of the Eagles
+1 Landroval, Horizon Witness
+1 Motivated Pony
+1 Eagles of the North
+1 Generous Ent
+1 Great Oak Guardian
+1 Orchard Strider
+1 Woodfall Primus
+1 Swords to Plowshares
+1 Go for the Throat
+1 Anguished Unmaking
+1 Crypt Incursion
+1 Mortify
+1 Sylvan Offering
+1 Farseek
+1 Night's Whisper
+1 Revive the Shire
+1 Cultivate
+1 Toxic Deluge
+1 Harmonize
+1 Fell the Mighty
+1 Fumigate
+1 Dusk // Dawn
+1 Sol Ring
+1 Arcane Signet
+1 Hithlain Rope
+1 Chromatic Lantern
+1 Commander's Sphere
+1 Field-Tested Frying Pan
+1 Pristine Talisman
+1 Trading Post
+1 Well of Lost Dreams
+1 Dawn of Hope
+1 Of Herbs and Stewed Rabbit
+1 Assemble the Entmoot
+1 Call for Unity
+1 Sanguine Bond
+1 Access Tunnel
+1 Ash Barrens
+1 Brushland
+1 Canopy Vista
+1 Command Tower
+1 Evolving Wilds
+1 Exotic Orchard
+8 Forest
+1 Fortified Village
+1 Ghost Quarter
+1 Graypelt Refuge
+1 Isolated Chapel
+1 Murmuring Bosk
+1 Necroblossom Snarl
+1 Path of Ancestry
+4 Plains
+1 Rogue's Passage
+1 Sandsteppe Citadel
+1 Scattered Groves
+1 Scoured Barrens
+1 Shineshadow Snarl
+1 Shire Terrace
+1 Sunpetal Grove
+4 Swamp
+1 Woodland Cemetery
+`
+
+const JARED = `
+1 Jared Carthalion
+1 Baleful Strix
+1 Coiling Oracle
+1 Hero of Precinct One
+1 Jenson Carthalion, Druid Exile
+1 Tiller Engine
+1 Faeburrow Elder
+1 Fallaji Wayfarer
+1 Selvala, Explorer Returned
+1 Archelos, Lagoon Mystic
+1 Atla Palani, Nest Tender
+1 Glint-Eye Nephilim
+1 Knight of New Alara
+1 Solemn Simulacrum
+1 Transguild Courier
+1 Zaxara, the Exemplary
+1 Chromanticore
+1 Fusion Elemental
+1 Illuna, Apex of Wishes
+1 Maelstrom Archangel
+1 Nethroi, Apex of Death
+1 Rienne, Angel of Rebirth
+1 Surrak Dragonclaw
+1 Xyris, the Writhing Storm
+1 O-Kagachi, Vengeful Kami
+1 Two-Headed Hellkite
+1 Primeval Spawn
+1 Path to Exile
+1 Echoing Truth
+1 Growth Spiral
+1 Terminate
+1 Abzan Charm
+1 Beast Within
+1 Naya Charm
+1 Sultai Charm
+1 Sylvan Reclamation
+1 Unite the Coalition
+1 Explore
+1 Farseek
+1 Cultivate
+1 Kodama's Reach
+1 Lavalanche
+1 Painful Truths
+1 Radiant Flames
+1 Search for Tomorrow
+1 Explosive Vegetation
+1 Migration Path
+1 Iridian Maelstrom
+1 Time Wipe
+1 Merciless Eviction
+1 Duneblast
+1 Arcane Signet
+1 Fellwar Stone
+1 Obsidian Obelisk
+1 Prophetic Prism
+1 Coalition Relic
+1 Commander's Sphere
+1 Abundant Growth
+1 Path to the World Tree
+1 Mana Cannons
+1 Maelstrom Nexus
+1 Arcane Sanctum
+1 Bad River
+1 Canopy Vista
+1 Cascading Cataracts
+1 Cinder Glade
+1 Command Tower
+1 Crumbling Necropolis
+1 Crystal Quarry
+1 Evolving Wilds
+1 Exotic Orchard
+1 Flood Plain
+3 Forest
+1 Frontier Bivouac
+1 Grasslands
+2 Island
+1 Jungle Shrine
+1 Krosan Verge
+2 Mountain
+1 Mountain Valley
+1 Murmuring Bosk
+1 Mystic Monastery
+1 Nomad Outpost
+1 Opulent Palace
+2 Plains
+1 Prairie Stream
+1 Rocky Tar Pit
+1 Sandsteppe Citadel
+1 Savage Lands
+1 Seaside Citadel
+1 Smoldering Marsh
+1 Sunken Hollow
+2 Swamp
+1 Terramorphic Expanse
+`
+
+const ZINNIA = `
+1 Zinnia, Valley's Voice
+1 Agate Instigator
+1 Jacked Rabbit
+1 Loyal Warhound
+1 Ornithopter of Paradise
+1 Plumecreed Escort
+1 Pollywog Prodigy
+1 Selfless Spirit
+1 Spirited Companion
+1 Tetsuko Umezawa, Fugitive
+1 Aether Channeler
+1 Blade Splicer
+1 Circuit Mender
+1 Combat Celebrant
+1 Devilish Valet
+1 Hanged Executioner
+1 Inspiring Overseer
+1 Rapid Augmenter
+1 Skyclave Apparition
+1 Thopter Engineer
+1 Curiosity Crafter
+1 Jazal Goldmane
+1 Luminous Broodmoth
+1 Restoration Angel
+1 Rose Room Treasurer
+1 Solemn Simulacrum
+1 Arthur, Marigold Knight
+1 Boss's Chauffeur
+1 Cloudblazer
+1 Illusory Ambusher
+1 Shield Broker
+1 Siege-Gang Commander
+1 Inferno Titan
+1 Sun Titan
+1 Angel of the Ruins
+1 Junk Winder
+1 Elspeth, Sun's Champion
+1 Path to Exile
+1 Rapid Hybridization
+1 Echoing Assault
+1 Pull from Tomorrow
+1 Aetherize
+1 Rowdy Research
+1 Chart a Course
+1 Martial Coup
+1 Stolen by the Fae
+1 Cut a Deal
+1 Time Wipe
+1 Storm of Souls
+1 Calamity of Cinders
+1 Dusk // Dawn
+1 Sol Ring
+1 Arcane Signet
+1 Azorius Signet
+1 Boros Signet
+1 Fellwar Stone
+1 Izzet Signet
+1 Mind Stone
+1 Helm of the Host
+1 Fortune Teller's Talent
+1 Bident of Thassa
+1 Murmuration
+1 Adarkar Wastes
+1 Battlefield Forge
+1 Cascade Bluffs
+1 Castle Ardenvale
+1 Clifftop Retreat
+1 Command Tower
+1 Evolving Wilds
+1 Exotic Orchard
+1 Ferrous Lake
+1 Glacial Fortress
+4 Mountain
+1 Mystic Monastery
+1 Path of Ancestry
+9 Plains
+1 Rugged Prairie
+1 Seachrome Coast
+1 Shivan Reef
+1 Skycloud Expanse
+1 Sulfur Falls
+1 Sunscorched Divide
+1 Temple of Enlightenment
+1 Temple of Epiphany
+1 Temple of Triumph
+1 Terramorphic Expanse
+1 Thriving Bluff
+1 Thriving Heath
+1 Thriving Isle
+`
+
 const DECKS = [
   {
     name: 'Creative Energy (MH3 Precon)',
@@ -453,6 +839,39 @@ const DECKS = [
     playstyle: 'Goade Gegner-Kreaturen damit sie sich gegenseitig zerlegen, ziehe selbst Karten von ihren Angriffen und schließe mit fetten Drachen ab. Politisch wertvoll — du bist nie das primäre Ziel.',
     sealedPrice: 89.90,
     decklist: FIRKRAAG,
+  },
+  {
+    name: 'Deadly Disguise (MKM Precon)',
+    commander: 'Kaust, Eyes of the Glade',
+    archetype: 'Naya Disguise / Morph',
+    playstyle: 'Spiele Kreaturen verdeckt als Disguise/Morph und nutze die Unsicherheit deiner Gegner aus. Beim Aufdecken kommen mächtige Trigger und Combat-Tricks ins Spiel — Bluff trifft auf Beatdown.',
+    sealedPrice: 34.90,
+    decklist: KAUST,
+  },
+  {
+    name: 'Food and Fellowship (LTR Precon)',
+    commander: 'Frodo, Adventurous Hobbit',
+    commander2: 'Sam, Loyal Attendant',
+    archetype: 'Abzan Food / Lifegain',
+    playstyle: 'Generiere Food-Tokens, gewinne Leben und ziehe Karten dank Frodos Ring-tempting Triggern. Sam reduziert die Food-Kosten und Sanguine Bond schließt das Spiel mit Lifegain-Drains ab.',
+    sealedPrice: 44.90,
+    decklist: FRODO_SAM,
+  },
+  {
+    name: 'Painbow (DMU Precon)',
+    commander: 'Jared Carthalion',
+    archetype: '5-Color Goodstuff / Painbow',
+    playstyle: 'Spielst alle fünf Farben — die besten Charms, Wraths und Bomben aus dem ganzen Spektrum. Jared zieht je nach Schadensfarbe Karten oder pumpt sich selbst, du nutzt jede Painlands-Aktivierung doppelt.',
+    sealedPrice: 29.90,
+    decklist: JARED,
+  },
+  {
+    name: 'Family Matters (BLB Precon)',
+    commander: "Zinnia, Valley's Voice",
+    archetype: 'Jeskai Token Doubling',
+    playstyle: 'Erzeugt Token-Schwärme und verdoppelt Trigger-Effekte mit Zinnias Ability. Wide-Boards aus Birds, Soldiers und Spirits werden über Anthems und Combat-Tricks zur Lawine.',
+    sealedPrice: 39.90,
+    decklist: ZINNIA,
   },
 ]
 
