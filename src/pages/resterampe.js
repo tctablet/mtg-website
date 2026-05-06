@@ -11,11 +11,6 @@ export async function renderResterampe(container) {
     <div class="page">
       <div class="resterampe-header">
         <h2>Philips Resterampe</h2>
-        <p class="resterampe-intro">
-          Ich löse meine Magic-Sammlung auf und biete hier Decks zum Verkauf an.
-          Bei Precons zeigt die Karte zusätzlich den Sealed-Preis (falls man das Deck
-          neu original verpackt kaufen würde).
-        </p>
       </div>
       <section class="resterampe-section" id="section-custom">
         <h3 class="resterampe-section-title">Custom Decks</h3>
