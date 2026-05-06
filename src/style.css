@@ -1865,3 +1865,269 @@ a:hover { color: var(--accent-hover); }
   }
   .admin-add-form input { width: 100% !important; }
 }
+
+/* ===== Resterampe ===== */
+.resterampe-header {
+  margin-bottom: 24px;
+}
+
+.resterampe-header h2 {
+  margin-bottom: 8px;
+}
+
+.resterampe-intro {
+  color: var(--text-dim);
+  font-size: 14px;
+  max-width: 720px;
+}
+
+.resterampe-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.resterampe-card .deck-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resterampe-archetype {
+  display: inline-block;
+  background: var(--accent-dim);
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.resterampe-playstyle {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 4px 0 8px;
+}
+
+.resterampe-prices {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.resterampe-price-row {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resterampe-price-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.resterampe-price-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.resterampe-price-sealed .resterampe-price-value {
+  color: var(--accent);
+}
+
+.resterampe-card-sold {
+  opacity: 0.55;
+}
+
+.resterampe-card-sold .deck-card-art {
+  filter: grayscale(0.6);
+}
+
+.sold-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--error);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Sale Banner (in Deck-View) ===== */
+.sale-banner {
+  background: linear-gradient(135deg, var(--accent-dim), rgba(124, 92, 191, 0.05));
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.sale-banner-sold {
+  border-color: var(--error);
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.12), rgba(231, 76, 60, 0.03));
+}
+
+.sale-banner-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.sale-banner-info {
+  flex: 1;
+  min-width: 240px;
+}
+
+.sale-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.sale-banner-tag {
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.sale-banner-sold .sale-banner-tag {
+  background: var(--error);
+}
+
+.sale-banner-archetype {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sale-banner-playstyle {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sale-banner-prices {
+  display: flex;
+  gap: 16px;
+}
+
+.sale-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 90px;
+}
+
+.sale-price-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sale-price-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.sale-price-sealed .sale-price-value {
+  color: var(--accent);
+}
+
+.sale-banner-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* ===== Modal Overlay (Sale Meta Editor) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow);
+}
+
+.modal h3 {
+  color: var(--text-bright);
+  margin-bottom: 4px;
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.modal input,
+.modal textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  color: var(--text-bright);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.modal input:focus,
+.modal textarea:focus { border-color: var(--accent); }
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}

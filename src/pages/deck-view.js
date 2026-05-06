@@ -22,6 +22,9 @@ export async function renderDeckView(container, params) {
   const isOwner = player && player.id === deck.player_id
   const stale = cards.some(c => isPriceStale(c.price_updated_at))
   const totalPrice = formatTotalPrice(cards)
+  const isForSale = !!deck.for_sale
+  const backHref = isForSale ? '#/resterampe' : '#/my-decks'
+  const backLabel = isForSale ? 'Zur Resterampe' : 'Zurück'
 
   const headerBg = deck.commander_image
     ? `background-image: linear-gradient(to bottom, rgba(15,15,20,0.3), rgba(15,15,20,0.95) 80%), url('${deck.commander_image}')`
@@ -37,7 +40,7 @@ export async function renderDeckView(container, params) {
       <div class="deck-header-banner" style="${headerBg}">
         <div class="deck-header">
           <div>
-            <a href="#/my-decks" class="back-link">&larr; Zurück</a>
+            <a href="${backHref}" class="back-link">&larr; ${backLabel}</a>
             <h2>${deck.name} ${isOwner ? '<button id="edit-deck-meta" class="btn-edit-meta" title="Name/Commander bearbeiten">&#9998;</button>' : ''}</h2>
             <p class="deck-meta">
               Commander: <strong>${deck.commander}</strong>${deck.commander2 ? ` + <strong>${deck.commander2}</strong>` : ''}
@@ -52,9 +55,12 @@ export async function renderDeckView(container, params) {
           </div>
         </div>
       </div>
+      ${isForSale ? renderSaleBanner(deck, totalPrice, isOwner) : ''}
       <div class="deck-actions">
         ${isOwner ? '<button id="refresh-prices" class="btn">Preise aktualisieren</button>' : ''}
         ${isOwner ? '<button id="toggle-edit" class="btn btn-secondary">Bearbeiten</button>' : ''}
+        ${isOwner && !isForSale ? '<button id="add-to-sale" class="btn btn-secondary">Zur Resterampe</button>' : ''}
+        ${isOwner && isForSale ? '<button id="remove-from-sale" class="btn btn-secondary">Aus Resterampe</button>' : ''}
         <button id="export-deck" class="btn btn-secondary">Exportieren</button>
         ${isOwner ? `
         <div id="add-card-bar" class="add-card-bar" hidden>
@@ -144,6 +150,28 @@ export async function renderDeckView(container, params) {
 
   document.getElementById('edit-deck-meta')?.addEventListener('click', () => {
     showMetaEditor(deck)
+  })
+
+  document.getElementById('add-to-sale')?.addEventListener('click', async () => {
+    if (!confirm(`"${deck.name}" zur Resterampe hinzufügen?`)) return
+    await updateDeck(deck.id, { for_sale: true })
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  })
+
+  document.getElementById('remove-from-sale')?.addEventListener('click', async () => {
+    if (!confirm(`"${deck.name}" aus der Resterampe entfernen?`)) return
+    await updateDeck(deck.id, { for_sale: false, sold: false })
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  })
+
+  document.getElementById('toggle-sold')?.addEventListener('click', async () => {
+    const newSold = !deck.sold
+    await updateDeck(deck.id, { sold: newSold })
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  })
+
+  document.getElementById('edit-sale-meta')?.addEventListener('click', () => {
+    showSaleMetaEditor(deck)
   })
 
   // Tab switching
@@ -884,4 +912,99 @@ function exportDeck(deck, cards) {
   a.download = `${deck.name.replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g, '')}.txt`
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+function renderSaleBanner(deck, singlesTotal, isOwner) {
+  const sealed = deck.sealed_price_eur != null ? formatPrice(deck.sealed_price_eur) : '—'
+  const archetype = deck.archetype || ''
+  const playstyle = deck.playstyle || ''
+
+  return `
+    <div class="sale-banner ${deck.sold ? 'sale-banner-sold' : ''}">
+      <div class="sale-banner-main">
+        <div class="sale-banner-info">
+          <div class="sale-banner-title">
+            <span class="sale-banner-tag">${deck.sold ? 'Verkauft' : 'Zum Verkauf'}</span>
+            ${archetype ? `<span class="sale-banner-archetype">${escapeAttr(archetype)}</span>` : ''}
+          </div>
+          ${playstyle ? `<p class="sale-banner-playstyle">${escapeAttr(playstyle)}</p>` : ''}
+        </div>
+        <div class="sale-banner-prices">
+          <div class="sale-price">
+            <span class="sale-price-label">Singles</span>
+            <span class="sale-price-value">${singlesTotal}</span>
+          </div>
+          <div class="sale-price sale-price-sealed">
+            <span class="sale-price-label">Sealed</span>
+            <span class="sale-price-value">${sealed}</span>
+          </div>
+        </div>
+      </div>
+      ${isOwner ? `
+        <div class="sale-banner-actions">
+          <button id="edit-sale-meta" class="btn btn-secondary btn-small">Verkaufs-Info bearbeiten</button>
+          <button id="toggle-sold" class="btn ${deck.sold ? 'btn-secondary' : ''} btn-small">${deck.sold ? 'Wieder verfügbar' : 'Als verkauft markieren'}</button>
+        </div>
+      ` : ''}
+    </div>
+  `
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c])
+}
+
+function showSaleMetaEditor(deck) {
+  if (document.getElementById('sale-meta-editor')) return
+
+  const overlay = document.createElement('div')
+  overlay.id = 'sale-meta-editor'
+  overlay.className = 'modal-overlay'
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>Verkaufs-Info bearbeiten</h3>
+      <label>
+        Sealed-Preis (€)
+        <input type="number" step="0.01" min="0" id="edit-sealed-price" value="${deck.sealed_price_eur ?? ''}" placeholder="z.B. 39.90" />
+      </label>
+      <label>
+        Archetype
+        <input type="text" id="edit-archetype" value="${escapeAttr(deck.archetype || '')}" placeholder="z.B. Token Aggro" />
+      </label>
+      <label>
+        Playstyle (1-2 Sätze)
+        <textarea id="edit-playstyle" rows="3" placeholder="Kurze Beschreibung wie sich das Deck spielt...">${escapeAttr(deck.playstyle || '')}</textarea>
+      </label>
+      <div class="modal-actions">
+        <button id="save-sale-meta" class="btn">Speichern</button>
+        <button id="cancel-sale-meta" class="btn btn-secondary">Abbrechen</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+
+  const close = () => overlay.remove()
+  overlay.addEventListener('click', e => { if (e.target === overlay) close() })
+  document.getElementById('cancel-sale-meta').addEventListener('click', close)
+
+  document.getElementById('save-sale-meta').addEventListener('click', async () => {
+    const priceVal = document.getElementById('edit-sealed-price').value.trim()
+    const archetype = document.getElementById('edit-archetype').value.trim() || null
+    const playstyle = document.getElementById('edit-playstyle').value.trim() || null
+    const sealed_price_eur = priceVal === '' ? null : parseFloat(priceVal)
+
+    const btn = document.getElementById('save-sale-meta')
+    btn.disabled = true
+    btn.textContent = 'Speichere...'
+
+    try {
+      await updateDeck(deck.id, { sealed_price_eur, archetype, playstyle })
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    } catch (err) {
+      btn.disabled = false
+      btn.textContent = `Fehler: ${err.message}`
+    }
+  })
 }

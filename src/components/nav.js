@@ -16,6 +16,7 @@ export function renderNav() {
       <div class="nav-links">
         <a href="#/overview">Übersicht</a>
         <a href="#/my-decks">Meine Decks</a>
+        <a href="#/resterampe">Philips Resterampe</a>
         <a href="#/info">Info</a>
         ${player.is_admin ? '<a href="#/admin">Admin</a>' : ''}
       </div>

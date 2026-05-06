@@ -33,6 +33,7 @@ export async function getPlayerDecks(playerId) {
     .from('decks')
     .select('*')
     .eq('player_id', playerId)
+    .eq('for_sale', false)
     .order('created_at', { ascending: false })
   return data || []
 }
@@ -41,6 +42,17 @@ export async function getAllDecksWithPlayers() {
   const { data } = await supabase
     .from('decks')
     .select('*, players(name)')
+    .eq('for_sale', false)
+    .order('created_at', { ascending: false })
+  return data || []
+}
+
+export async function getResterampeDecks() {
+  const { data } = await supabase
+    .from('decks')
+    .select('*, players(name)')
+    .eq('for_sale', true)
+    .order('sold', { ascending: true })
     .order('created_at', { ascending: false })
   return data || []
 }

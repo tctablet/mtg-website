@@ -8,6 +8,7 @@ import { renderDeckView } from './pages/deck-view.js'
 import { renderDeckImport } from './pages/deck-import.js'
 import { renderAdmin } from './pages/admin.js'
 import { renderInfo } from './pages/info.js'
+import { renderResterampe } from './pages/resterampe.js'
 
 // Routes registrieren
 registerRoute('#/login', renderLogin)
@@ -17,6 +18,7 @@ registerRoute('#/deck/:id', renderDeckView)
 registerRoute('#/import', renderDeckImport)
 registerRoute('#/admin', renderAdmin)
 registerRoute('#/info', renderInfo)
+registerRoute('#/resterampe', renderResterampe)
 
 // Navigation rendern
 renderNav()
