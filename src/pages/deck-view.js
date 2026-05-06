@@ -915,30 +915,47 @@ function exportDeck(deck, cards) {
 }
 
 function renderSaleBanner(deck, singlesTotal, isOwner) {
+  const isCustom = deck.deck_type === 'custom'
   const sealed = deck.sealed_price_eur != null ? formatPrice(deck.sealed_price_eur) : '—'
   const archetype = deck.archetype || ''
   const playstyle = deck.playstyle || ''
+  const tagLabel = deck.sold
+    ? 'Verkauft'
+    : (isCustom ? 'Custom · Zum Verkauf' : 'Precon · Zum Verkauf')
+
+  const pricesHtml = isCustom
+    ? `
+      <div class="sale-banner-prices">
+        <div class="sale-price">
+          <span class="sale-price-label">Singles-Wert</span>
+          <span class="sale-price-value">${singlesTotal}</span>
+        </div>
+      </div>
+    `
+    : `
+      <div class="sale-banner-prices">
+        <div class="sale-price">
+          <span class="sale-price-label">Singles</span>
+          <span class="sale-price-value">${singlesTotal}</span>
+        </div>
+        <div class="sale-price sale-price-sealed">
+          <span class="sale-price-label">Sealed</span>
+          <span class="sale-price-value">${sealed}</span>
+        </div>
+      </div>
+    `
 
   return `
     <div class="sale-banner ${deck.sold ? 'sale-banner-sold' : ''}">
       <div class="sale-banner-main">
         <div class="sale-banner-info">
           <div class="sale-banner-title">
-            <span class="sale-banner-tag">${deck.sold ? 'Verkauft' : 'Zum Verkauf'}</span>
+            <span class="sale-banner-tag">${tagLabel}</span>
             ${archetype ? `<span class="sale-banner-archetype">${escapeAttr(archetype)}</span>` : ''}
           </div>
           ${playstyle ? `<p class="sale-banner-playstyle">${escapeAttr(playstyle)}</p>` : ''}
         </div>
-        <div class="sale-banner-prices">
-          <div class="sale-price">
-            <span class="sale-price-label">Singles</span>
-            <span class="sale-price-value">${singlesTotal}</span>
-          </div>
-          <div class="sale-price sale-price-sealed">
-            <span class="sale-price-label">Sealed</span>
-            <span class="sale-price-value">${sealed}</span>
-          </div>
-        </div>
+        ${pricesHtml}
       </div>
       ${isOwner ? `
         <div class="sale-banner-actions">

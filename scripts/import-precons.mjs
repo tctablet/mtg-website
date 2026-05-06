@@ -39,15 +39,35 @@ function pickPrice(prices) {
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)) }
 
+// Parses both plain "N Name" lists and MTGA exports like "N Name (SET) 123 *F*".
+// Aggregates multiple entries with the same canonical name (e.g. multiple
+// Mountain printings get summed into one entry).
 function parseList(text) {
-  const out = []
-  for (const line of text.split('\n')) {
-    const t = line.trim()
-    if (!t || t.startsWith('//') || t.startsWith('#')) continue
-    const m = t.match(/^(\d+)\s+(.+)$/)
-    if (m) out.push({ quantity: parseInt(m[1], 10), name: m[2].trim() })
+  const counts = new Map()
+  const order = []
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    if (/^\/\//.test(line)) continue
+    if (/^#(?!\s*!)/.test(line)) continue
+    if (/^SB:\s*/i.test(line)) continue
+    if (/^(commander|deck|sideboard|companion|maybeboard):?$/i.test(line)) continue
+
+    const m = line.match(/^(\d+)x?\s+(.+?)(?:\s*\(([\w-]+)\)\s*[\w-]*)?(?:\s*\*F\*)?$/)
+    if (!m) continue
+    const qty = parseInt(m[1], 10)
+    let name = m[2].trim().replace(/\s*#.*$/, '').trim()
+    // Strip leading [SET] (deckstats variant)
+    name = name.replace(/^\[[\w-]+\]\s*/, '').trim()
+    if (!name) continue
+    if (counts.has(name)) {
+      counts.set(name, counts.get(name) + qty)
+    } else {
+      counts.set(name, qty)
+      order.push(name)
+    }
   }
-  return out
+  return order.map(name => ({ name, quantity: counts.get(name) }))
 }
 
 async function scryfallCollection(names) {
@@ -125,7 +145,7 @@ async function supa(method, path, body) {
   return await res.json()
 }
 
-async function importDeck({ name, commander, commander2, archetype, playstyle, sealedPrice, decklist }) {
+async function importDeck({ name, commander, commander2, archetype, playstyle, sealedPrice, decklist, deckType = 'precon' }) {
   console.log(`\n=== ${name} (${commander}${commander2 ? ' + ' + commander2 : ''}) ===`)
   const cards = parseList(decklist)
   console.log(`  ${cards.length} unique entries, ${cards.reduce((s, c) => s + c.quantity, 0)} total cards`)
@@ -163,9 +183,10 @@ async function importDeck({ name, commander, commander2, archetype, playstyle, s
     commander_image: commanderImage,
     for_sale: true,
     sold: false,
-    sealed_price_eur: sealedPrice,
+    sealed_price_eur: sealedPrice ?? null,
     archetype,
     playstyle,
+    deck_type: deckType,
   }
   if (commander2) {
     deckRow.commander2 = commander2
@@ -723,6 +744,188 @@ const JARED = `
 1 Terramorphic Expanse
 `
 
+const PROSPER = `
+// COMMANDER
+1 Prosper, Tome-Bound (AFC) 2 *F*
+
+1 Apex of Power
+1 Arcane Signet
+1 Bedevil
+1 Bituminous Blast
+1 Bojuka Bog
+1 Breeches, Eager Pillager
+1 Bucknard's Everfull Purse
+1 Chaos Channeler
+1 Chaos Wand
+1 Chaos Warp
+1 Command Tower
+1 Commander's Sphere
+1 Commune with Lava
+1 Consuming Vapors
+1 Dead Man's Chest
+1 Dire Fleet Daredevil
+1 Dream Devourer
+1 Dream Pillager
+1 Etali, Primal Storm
+1 Exotic Orchard
+1 Fellwar Stone
+1 Fevered Suspicion
+1 Florian, Voldaren Scion
+1 Foreboding Ruins
+1 Gonti, Lord of Luxury
+1 Grim Hireling
+1 Haunted Ridge
+1 Hex
+1 Hidetsugu, Devouring Chaos
+1 Hit the Mother Lode
+1 Hurl Through Hell
+1 Ignite the Future
+1 Ingenious Artillerist
+1 Izzet Chemister
+1 Juri, Master of the Revue
+1 Kalain, Reclusive Painter
+1 Magmatic Channeler
+1 Marionette Master
+1 Mayhem Devil
+1 Mind Stone
+1 Mirkwood Bats
+1 Mortuary Mire
+3 Mountain (AFR) 277
+2 Mountain (AFR) 275
+1 Mountain (VOW) 274
+1 Mountain (NEO) 299
+1 Mountain (DSK) 284
+1 Nadier's Nightblade
+1 Oracle's Vault
+1 Orazca Relic
+1 Outpost Siege
+1 Poison the Cup
+1 Pontiff of Blight
+1 Rakdos Carnarium
+1 Rakdos Charm
+1 Rakdos Signet
+1 Reckless Endeavor
+1 Shadowblood Ridge
+1 Smoldering Marsh
+5 Snow-Covered Mountain
+6 Snow-Covered Swamp
+1 Sol Ring
+1 Spinerock Knoll
+1 Stolen Strategy
+1 Swamp (VOW) 273
+1 Swamp (UNF) 237 *F*
+1 Swamp (MOM) 286
+1 Swamp (WHO) 201
+1 Swamp (WHO) 201 *F*
+1 Swamp (LCI) 289 *F*
+1 Tainted Peak
+1 Talisman of Indulgence
+1 Tectonic Giant
+1 Terminate
+1 The Ruinous Powers
+1 Theater of Horrors
+1 Throes of Chaos
+1 Two-Headed Hunter
+1 Underdark Rift
+1 Unstable Obelisk
+1 Valakut Exploration
+1 Vandalblast
+1 Visions of Phyrexia
+1 Wild-Magic Sorcerer
+1 You Find Some Prisoners
+1 Zhalfirin Void
+`
+
+const ALANIA = `
+// COMMANDER
+1 Alania, Divergent Storm
+
+1 Aetherize
+1 Alania's Pathmaker
+1 Arcane Signet
+1 Archmage Emeritus
+1 Big Score
+1 Blasphemous Act
+1 Brainstorm
+1 Bria, Riptide Rogue
+1 Cascade Bluffs
+1 Case of the Ransacked Lab
+1 Chaos Warp
+1 Command Tower
+1 Commander's Sphere
+1 Conduct Electricity
+1 Coruscation Mage
+1 Counterspell
+1 Daring Waverider
+1 Deflecting Swat
+1 Disrupt
+1 Distant Melody
+1 Eon Frolicker
+1 Eroded Canyon
+1 Expedite
+1 Ferrous Lake
+1 Flame of Anor
+1 Forger's Foundry
+1 Frantic Search
+1 Frolicking Familiar
+1 Halimar Depths
+1 Harmonic Prodigy
+1 Harnesser of Storms
+1 Haze of Rage
+2 Island (BLB) 266
+3 Island (BLB) 269
+3 Island (BLB) 268
+3 Island (BLB) 267
+1 Izzet Signet
+1 Jin-Gitaxias, Progress Tyrant
+1 Kindlespark Duo
+1 Kitsa, Otterball Elite
+1 Lightning Greaves
+1 Lightshell Duo
+3 Mountain (BLB) 275
+3 Mountain (BLB) 276
+3 Mountain (BLB) 277
+3 Mountain (BLB) 274
+1 Mystic Sanctuary
+1 Opt
+1 Otterball Antics
+1 Pearl of Wisdom
+1 Pongify
+1 Poppet Stitcher
+1 Preordain
+1 Pull from Tomorrow
+1 Ral, Crackling Wit
+1 Rapid Augmenter
+1 Reliquary Tower
+1 Riptide Laboratory
+1 River's Rebuke
+1 Rogue's Passage
+1 Run Away Together
+1 Season of Weaving
+1 Slick Sequence
+1 Slip Through Space
+1 Snap
+1 Sol Ring
+1 Song of Totentanz
+1 Storm-Kiln Artist
+1 Stormcarved Coast
+1 Stormcatch Mentor
+1 Stormchaser's Talent
+1 Stormsplitter
+1 Sulfur Falls
+1 Talisman of Creativity
+1 Tempest Angler
+1 Thieving Otter
+1 Thrill of Possibility
+1 Thunderclap Drake
+1 Thundertrap Trainer
+1 Twinning Staff
+1 Unsummon
+1 Valley Floodcaller
+1 Vandalblast
+1 Veyran, Voice of Duality
+`
+
 const PERRIE = `
 1 Perrie, the Pulverizer
 1 Aven Courier
@@ -1061,6 +1264,24 @@ const DECKS = [
     playstyle: 'Spielst Verzauberungen für Wert und erzeugst Spirit-Tokens mit Daxos Devotion-Trigger. Sigil of the Empty Throne und Necromancer\'s Covenant verwandeln dein Enchantment-Board in eine Wand aus fliegenden Geistern.',
     sealedPrice: 39.90,
     decklist: DAXOS,
+  },
+  {
+    name: 'Prosper, Tome-Bound',
+    commander: 'Prosper, Tome-Bound',
+    archetype: 'Rakdos Impulse-Draw / Treasure',
+    playstyle: 'Exiliert Karten oben vom Deck, spielt sie noch im selben Zug für Tempo aus und macht nebenbei einen Treasure pro Cast. Rakdos-Goodstuff trifft auf eine Card-Advantage-Engine, die wahnsinnig schwer auszuhungern ist.',
+    sealedPrice: null,
+    deckType: 'custom',
+    decklist: PROSPER,
+  },
+  {
+    name: 'Alania, Divergent Storm',
+    commander: 'Alania, Divergent Storm',
+    archetype: 'Izzet Spellslinger / Otter Storm',
+    playstyle: 'Castet günstige Instants und Sorceries — Alania kopiert das erste Spell pro Zug und buffed dazu deine Otter-Token. Combo aus Spell-Triggern, Storm-Count und Anthem-Synergien für lethal aus dem Nichts.',
+    sealedPrice: null,
+    deckType: 'custom',
+    decklist: ALANIA,
   },
 ]
 
