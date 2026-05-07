@@ -123,3 +123,15 @@ export function estimateBracket(cards, commanderName) {
     totalValue,
   }
 }
+
+// Returns the bracket-relevant category for a single card, or null.
+// Priority: Game Changer wins over Tutor (e.g. Demonic Tutor is in both sets).
+export function classifyCard(name) {
+  if (!name) return null
+  const n = name.toLowerCase()
+  if (GAME_CHANGERS.has(n)) return 'gc'
+  if (TUTORS.has(n)) return 'tutor'
+  if (EXTRA_TURNS.has(n)) return 'extra'
+  if (MLD.has(n)) return 'mld'
+  return null
+}

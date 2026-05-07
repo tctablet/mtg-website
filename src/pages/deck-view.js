@@ -474,15 +474,15 @@ function renderDeckStats(cards) {
   ).join('')
 
   const gcHtml = bracket.gameChangerCount > 0
-    ? `<div class="bracket-detail">${bracket.gameChangerCount} Game Changer${bracket.gameChangerCount > 1 ? '' : ''}</div>`
+    ? `<div class="bracket-detail bracket-detail-gc">${bracket.gameChangerCount} Game Changer${bracket.gameChangerCount > 1 ? '' : ''}</div>`
     : ''
   const tutorHtml = bracket.tutorCount > 0
-    ? `<div class="bracket-detail">${bracket.tutorCount} Tutors</div>`
+    ? `<div class="bracket-detail bracket-detail-tutor">${bracket.tutorCount} Tutors</div>`
     : ''
   const flagsHtml = [
-    bracket.hasExtraTurns ? 'Extra Turns' : '',
-    bracket.hasMLD ? 'MLD' : '',
-  ].filter(Boolean).map(f => `<div class="bracket-detail bracket-flag">${f}</div>`).join('')
+    bracket.hasExtraTurns ? '<div class="bracket-detail bracket-detail-extra">Extra Turns</div>' : '',
+    bracket.hasMLD ? '<div class="bracket-detail bracket-detail-mld">MLD</div>' : '',
+  ].filter(Boolean).join('')
 
   // Legality check
   const illegalCards = cards.filter(c => c.commander_legality && c.commander_legality !== 'legal')

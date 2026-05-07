@@ -1,6 +1,7 @@
 import { showPreview, hidePreview, showMobilePreview } from './card-preview.js'
 import { formatPrice } from '../utils.js'
 import { deleteCard, updateCardQuantity } from '../supabase.js'
+import { classifyCard } from '../bracket.js'
 
 let editMode = false
 
@@ -15,14 +16,18 @@ export function isEditMode() {
 export function createCardRow(card, onChanged) {
   const tr = document.createElement('tr')
   const isIllegal = card.commander_legality && card.commander_legality !== 'legal'
-  tr.className = 'card-row'
+  const bracketCat = classifyCard(card.name)
+  tr.className = 'card-row' + (bracketCat ? ` card-row-bracket-${bracketCat}` : '')
+  const nameClass = 'card-name'
+    + (isIllegal ? ' card-name-illegal' : '')
+    + (bracketCat ? ` card-name-bracket-${bracketCat}` : '')
 
   if (editMode) {
     tr.innerHTML = `
       <td class="card-qty">
         <input type="number" class="qty-input" value="${card.quantity}" min="1" max="99" />
       </td>
-      <td class="card-name${isIllegal ? ' card-name-illegal' : ''}">${card.name}</td>
+      <td class="${nameClass}">${card.name}</td>
       <td class="card-mana">${formatManaCost(card.mana_cost)}</td>
       <td class="card-price card-edit-actions">
         <button class="btn-delete-card" title="Karte entfernen">&times;</button>
@@ -49,7 +54,7 @@ export function createCardRow(card, onChanged) {
   } else {
     tr.innerHTML = `
       <td class="card-qty">${card.quantity}</td>
-      <td class="card-name${isIllegal ? ' card-name-illegal' : ''}">${card.name}</td>
+      <td class="${nameClass}">${card.name}</td>
       <td class="card-mana">${formatManaCost(card.mana_cost)}</td>
       <td class="card-price">${card.price_is_foil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(card.price_eur)}</td>
     `
@@ -59,13 +64,13 @@ export function createCardRow(card, onChanged) {
   const isDfc = card.name?.includes(' // ')
   const dfcInfo = isDfc && card.scryfall_id ? { scryfallId: card.scryfall_id } : null
   if (previewUri) {
-    tr.addEventListener('mouseenter', () => showPreview(previewUri, dfcInfo))
+    tr.addEventListener('mouseenter', () => showPreview(previewUri, dfcInfo, bracketCat))
     tr.addEventListener('mouseleave', () => hidePreview())
     tr.addEventListener('click', (e) => {
       if (editMode) return
       if (!('ontouchstart' in window)) return
       e.preventDefault()
-      showMobilePreview(previewUri, card.name, dfcInfo)
+      showMobilePreview(previewUri, card.name, dfcInfo, bracketCat)
     })
   }
 

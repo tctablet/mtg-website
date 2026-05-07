@@ -1032,9 +1032,46 @@ a:hover { color: var(--accent-hover); }
   border-radius: 10px;
 }
 
-.bracket-flag {
-  color: var(--error);
-  background: rgba(231, 76, 60, 0.1);
+/* Bracket category colors — used for row accent, name color, detail labels, preview frame */
+:root {
+  --bracket-gc: #f4c430;     /* Game Changer — gold */
+  --bracket-tutor: #a855f7;  /* Tutor — purple */
+  --bracket-extra: #3b82f6;  /* Extra Turn — blue */
+  --bracket-mld: #e74c3c;    /* Mass Land Destruction — red */
+}
+
+.bracket-detail-gc    { color: var(--bracket-gc);    background: rgba(244, 196, 48, 0.12); }
+.bracket-detail-tutor { color: var(--bracket-tutor); background: rgba(168, 85, 247, 0.12); }
+.bracket-detail-extra { color: var(--bracket-extra); background: rgba(59, 130, 246, 0.12); }
+.bracket-detail-mld   { color: var(--bracket-mld);   background: rgba(231, 76, 60, 0.12); }
+
+/* Card row accent — left border via inset shadow on first cell (no layout shift) */
+.card-row-bracket-gc    td:first-child { box-shadow: inset 3px 0 0 var(--bracket-gc); }
+.card-row-bracket-tutor td:first-child { box-shadow: inset 3px 0 0 var(--bracket-tutor); }
+.card-row-bracket-extra td:first-child { box-shadow: inset 3px 0 0 var(--bracket-extra); }
+.card-row-bracket-mld   td:first-child { box-shadow: inset 3px 0 0 var(--bracket-mld); }
+
+.card-name-bracket-gc    { color: var(--bracket-gc); }
+.card-name-bracket-tutor { color: var(--bracket-tutor); }
+.card-name-bracket-extra { color: var(--bracket-extra); }
+.card-name-bracket-mld   { color: var(--bracket-mld); }
+
+/* Hover preview ring */
+#deck-card-preview.bracket-gc img,
+.mobile-card-overlay.bracket-gc .mobile-card-content img {
+  box-shadow: 0 0 0 3px var(--bracket-gc), 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+#deck-card-preview.bracket-tutor img,
+.mobile-card-overlay.bracket-tutor .mobile-card-content img {
+  box-shadow: 0 0 0 3px var(--bracket-tutor), 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+#deck-card-preview.bracket-extra img,
+.mobile-card-overlay.bracket-extra .mobile-card-content img {
+  box-shadow: 0 0 0 3px var(--bracket-extra), 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+#deck-card-preview.bracket-mld img,
+.mobile-card-overlay.bracket-mld .mobile-card-content img {
+  box-shadow: 0 0 0 3px var(--bracket-mld), 0 12px 48px rgba(0, 0, 0, 0.6);
 }
 
 /* ===== Legality ===== */

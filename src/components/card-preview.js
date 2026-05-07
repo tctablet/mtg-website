@@ -14,11 +14,12 @@ export function setDefaultPreview(imageUri) {
   hideFlipButton()
 }
 
-export function showPreview(imageUri, dfcInfo) {
+export function showPreview(imageUri, dfcInfo, bracketCat) {
   const el = document.getElementById('deck-card-preview')
   if (!el || !imageUri) return
   const img = ensureImg(el)
   img.src = imageUri
+  setBracketClass(el, bracketCat)
 
   if (dfcInfo?.scryfallId) {
     currentDfc = { frontUri: imageUri, scryfallId: dfcInfo.scryfallId, showingBack: false }
@@ -27,6 +28,11 @@ export function showPreview(imageUri, dfcInfo) {
     currentDfc = null
     hideFlipButton()
   }
+}
+
+function setBracketClass(el, bracketCat) {
+  el.classList.remove('bracket-gc', 'bracket-tutor', 'bracket-extra', 'bracket-mld')
+  if (bracketCat) el.classList.add(`bracket-${bracketCat}`)
 }
 
 export function movePreview() {}
@@ -82,7 +88,7 @@ async function handleFlip() {
   }
 }
 
-export function showMobilePreview(imageUri, cardName, dfcInfo) {
+export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat) {
   // Close existing overlay with animation
   const existing = document.getElementById('mobile-card-overlay')
   if (existing) {
@@ -93,7 +99,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo) {
 
   const overlay = document.createElement('div')
   overlay.id = 'mobile-card-overlay'
-  overlay.className = 'mobile-card-overlay'
+  overlay.className = 'mobile-card-overlay' + (bracketCat ? ` bracket-${bracketCat}` : '')
   overlay.innerHTML = `
     <div class="mobile-card-content">
       <img src="${imageUri}" alt="${cardName || ''}" />
