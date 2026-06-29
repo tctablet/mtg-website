@@ -97,6 +97,55 @@ async function* streamScryfallCards(url) {
   }
 }
 
+/**
+ * Propagates the freshly-computed cheapest prices onto every card in every deck
+ * (the `cards` table), so decks stay current even if nobody opens them. This is
+ * the same data the in-app "Preise aktualisieren" button writes, just applied to
+ * all decks at once. Pure DB work — no Scryfall calls. Matches by card name with
+ * a DFC front-face fallback, mirroring src/pages/deck-view.js refreshPrices().
+ */
+async function propagateToDeckCards(priceMap, now) {
+  // 1. Fetch all deck cards (paginated — PostgREST caps at 1000 rows/response).
+  const cards = []
+  const PAGE = 1000
+  for (let offset = 0; ; offset += PAGE) {
+    const res = await supabaseRpc(`cards?select=id,name&order=id&limit=${PAGE}&offset=${offset}`)
+    const page = await res.json()
+    cards.push(...page)
+    if (page.length < PAGE) break
+  }
+  console.log(`Fetched ${cards.length} deck cards`)
+
+  // 2. Group card ids by name → target price (DFC front-face fallback).
+  const byName = new Map() // name -> { ids:[], price, is_foil }
+  let unmatched = 0
+  for (const c of cards) {
+    let info = priceMap.get(c.name)
+    if (!info && c.name.includes(' // ')) info = priceMap.get(c.name.split(' // ')[0])
+    if (!info) { unmatched++; continue }
+    const g = byName.get(c.name) || { ids: [], price: info.eur, is_foil: info.is_foil }
+    g.ids.push(c.id)
+    byName.set(c.name, g)
+  }
+  const matched = cards.length - unmatched
+  console.log(`Matched ${matched} deck cards to a price (${unmatched} without one)`)
+
+  // 3. PATCH grouped by name (one request updates that card across all decks).
+  const groups = [...byName.values()]
+  const CONC = 10
+  for (let i = 0; i < groups.length; i += CONC) {
+    const chunk = groups.slice(i, i + CONC)
+    await Promise.all(chunk.map(g =>
+      supabaseRpc(`cards?id=in.(${g.ids.join(',')})`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: { price_eur: g.price, price_is_foil: g.is_foil, price_updated_at: now },
+      })
+    ))
+  }
+  console.log(`Updated prices on ${matched} deck cards across ${groups.length} names`)
+}
+
 async function main() {
   // 1. Get bulk data download URL
   console.log('Fetching bulk data URL...')
@@ -170,6 +219,10 @@ async function main() {
     })
     console.log(`Upserted ${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length}`)
   }
+
+  // 5. Propagate the fresh prices onto every deck's cards.
+  console.log('Propagating prices to deck cards...')
+  await propagateToDeckCards(priceMap, now)
 
   console.log('Done!')
 }
