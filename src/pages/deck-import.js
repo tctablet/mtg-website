@@ -1,6 +1,6 @@
 import { getPlayer } from '../auth.js'
 import { navigate } from '../router.js'
-import { createDeck, insertCards } from '../supabase.js'
+import { createDeck, insertCards, fetchCheapestPrices } from '../supabase.js'
 import { fetchCardCollection, extractCardData, getCardArtCrop, getPartnerType, getCardNormalImage } from '../scryfall.js'
 import { parseDeckList, getTypeCategory } from '../utils.js'
 
@@ -403,8 +403,21 @@ async function doImport() {
         cmc: sd.cmc,
         image_uri: sd.image_uri,
         price_eur: sd.price_eur,
+        price_is_foil: sd.price_is_foil,
         price_updated_at: sd.price_updated_at,
       })
+    }
+
+    // Prefer the cheapest price across all printings (scryfall_prices); the
+    // per-printing price from the Scryfall lookup is often null for digital or
+    // token printings. Fall back to the printing price if not yet synced.
+    const priceLookup = await fetchCheapestPrices(cardRows.map(r => r.name))
+    for (const row of cardRows) {
+      const info = priceLookup.get(row.name)
+      if (info && info.price != null) {
+        row.price_eur = info.price
+        row.price_is_foil = info.isFoil
+      }
     }
 
     if (cardRows.length > 0) {

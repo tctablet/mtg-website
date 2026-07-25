@@ -103,6 +103,54 @@ export async function insertCards(cards) {
   if (error) throw error
 }
 
+// Resolves the cheapest EUR price per card name from the pre-synced
+// scryfall_prices table (cheapest across all printings), with a DFC front-face
+// fallback. Returns Map<name, { price, isFoil }>. Used by import/add so a card
+// never stores a null price when a cheapest price exists — Scryfall's
+// per-printing price is often null for digital/token printings.
+export async function fetchCheapestPrices(names) {
+  const unique = [...new Set(names)]
+  const lookup = new Map()
+
+  const queryChunked = async (queryNames, onRow) => {
+    for (let i = 0; i < queryNames.length; i += 150) {
+      const chunk = queryNames.slice(i, i + 150)
+      if (!chunk.length) continue
+      const { data, error } = await supabase
+        .from('scryfall_prices')
+        .select('name, cheapest_eur, is_foil')
+        .in('name', chunk)
+      if (error) {
+        // Don't throw: callers fall back to the per-printing price. Surface it
+        // so a silent DB failure can't quietly re-introduce null prices.
+        console.warn('fetchCheapestPrices: scryfall_prices query failed:', error.message)
+        continue
+      }
+      for (const row of data || []) onRow(row)
+    }
+  }
+
+  await queryChunked(unique, row => {
+    lookup.set(row.name, { price: row.cheapest_eur, isFoil: !!row.is_foil })
+  })
+
+  // DFC front-face fallback for "A // B" names not matched by full name.
+  const missing = unique.filter(n => !lookup.has(n) && n.includes(' // '))
+  if (missing.length) {
+    const fronts = [...new Set(missing.map(n => n.split(' // ')[0]))]
+    const frontLookup = new Map()
+    await queryChunked(fronts, row => {
+      frontLookup.set(row.name, { price: row.cheapest_eur, isFoil: !!row.is_foil })
+    })
+    for (const n of missing) {
+      const info = frontLookup.get(n.split(' // ')[0])
+      if (info) lookup.set(n, info)
+    }
+  }
+
+  return lookup
+}
+
 export async function updateCardPrices(deckId, priceMap, legalityMap = {}) {
   const now = new Date().toISOString()
   const entries = Object.entries(priceMap)

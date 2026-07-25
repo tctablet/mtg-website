@@ -1,4 +1,4 @@
-import { supabase, getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards } from '../supabase.js'
+import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards, fetchCheapestPrices } from '../supabase.js'
 import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, autocompleteCard } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
@@ -287,6 +287,9 @@ function setupAddCard(deckId, cards, deck, onAdded) {
       }
 
       const data = extractCardData(scryfallCard)
+      // Prefer the cheapest price across all printings (scryfall_prices); the
+      // per-printing price is often null for digital/token printings.
+      const cheapest = (await fetchCheapestPrices([data.name])).get(data.name)
       const cardRow = {
         deck_id: deckId,
         name: data.name,
@@ -296,8 +299,8 @@ function setupAddCard(deckId, cards, deck, onAdded) {
         mana_cost: data.mana_cost,
         cmc: data.cmc,
         image_uri: data.image_uri,
-        price_eur: data.price_eur,
-        price_is_foil: data.price_is_foil,
+        price_eur: cheapest?.price != null ? cheapest.price : data.price_eur,
+        price_is_foil: cheapest?.price != null ? cheapest.isFoil : data.price_is_foil,
         price_updated_at: data.price_updated_at,
         commander_legality: data.commander_legality,
         quantity: 1,
@@ -648,30 +651,7 @@ async function refreshPrices(deckId, cards) {
 
     // Step 2: Fetch cheapest prices from pre-synced Supabase table
     setProgress(40, 'Günstigste Preise laden...')
-    const uniqueNames = [...new Set(cards.map(c => c.name))]
-    const { data: priceRows } = await supabase
-      .from('scryfall_prices')
-      .select('name, cheapest_eur, is_foil')
-      .in('name', uniqueNames)
-
-    const priceLookup = new Map()
-    for (const row of (priceRows || [])) {
-      priceLookup.set(row.name, { price: row.cheapest_eur, isFoil: row.is_foil })
-    }
-
-    // Also try front-face name for DFCs not matched by full name
-    const missing = uniqueNames.filter(n => !priceLookup.has(n) && n.includes(' // '))
-    if (missing.length) {
-      const frontNames = missing.map(n => n.split(' // ')[0])
-      const { data: dfcRows } = await supabase
-        .from('scryfall_prices')
-        .select('name, cheapest_eur, is_foil')
-        .in('name', frontNames)
-      for (let i = 0; i < missing.length; i++) {
-        const row = (dfcRows || []).find(r => r.name === frontNames[i])
-        if (row) priceLookup.set(missing[i], { price: row.cheapest_eur, isFoil: row.is_foil })
-      }
-    }
+    const priceLookup = await fetchCheapestPrices(cards.map(c => c.name))
 
     const priceMap = {}
     for (const c of cards) {
