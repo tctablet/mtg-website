@@ -4,6 +4,14 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+// fetch with an abort timeout so a hung connection eventually rejects (and can
+// be retried) instead of leaving a spinner stuck forever.
+function fetchWithTimeout(url, ms, opts = {}) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer))
+}
+
 export async function fetchCardCollection(cardNames) {
   const found = []
   const notFound = []
@@ -161,10 +169,36 @@ export async function fetchCheapestPrice(cardName) {
   return { price: null, isFoil: false }
 }
 
-export async function fetchCardPrintings(cardName) {
+// Returns an array of printings on success (possibly empty = card genuinely has
+// no eligible printings), or null on failure (network error/timeout/rate-limit
+// exhausted after retries). Callers cache arrays but never null, so a transient
+// failure doesn't stick as "no printings" for the session.
+export async function fetchCardPrintings(cardName, retries = 2) {
   const url = `${API_BASE}/cards/search?q=!"${encodeURIComponent(cardName)}"&unique=prints&order=released`
-  const res = await fetch(url)
-  if (!res.ok) return []
+  let res
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetchWithTimeout(url, 10000)
+    } catch (err) {
+      // Thrown network error (WebKit "Load failed") or timeout — back off and
+      // retry, then signal failure. Bursting Scryfall's rate limit makes these
+      // transient, so a retry usually succeeds.
+      if (attempt >= retries) {
+        console.warn(`fetchCardPrintings: "${cardName}" failed after ${retries + 1} tries:`, err.message)
+        return null
+      }
+      await delay(400 * (attempt + 1))
+      continue
+    }
+    if (res.status === 429 && attempt < retries) {
+      const retryAfter = parseFloat(res.headers.get('retry-after'))
+      const wait = Number.isFinite(retryAfter) ? retryAfter * 1000 : 500 * (attempt + 1)
+      await delay(Math.min(wait, 5000)) // cap so the spinner can't hang for long
+      continue
+    }
+    break
+  }
+  if (!res.ok) return res.status === 404 ? [] : null // 404 = no such card (genuine empty)
   const data = await res.json()
   const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
   return (data.data || []).filter(c => {

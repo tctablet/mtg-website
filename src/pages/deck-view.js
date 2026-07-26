@@ -673,8 +673,9 @@ async function refreshPrices(deckId, cards) {
 }
 
 // --- Printings Cache ---
-const PRINTS_CACHE_VER = 'v2'
+const PRINTS_CACHE_VER = 'v3'
 const printingsCache = new Map()
+let prefetchInFlight = false
 
 // Invalidate old cache versions
 if (sessionStorage.getItem('prints:ver') !== PRINTS_CACHE_VER) {
@@ -685,31 +686,46 @@ if (sessionStorage.getItem('prints:ver') !== PRINTS_CACHE_VER) {
 }
 
 async function prefetchPrintings(cardNames) {
-  const toFetch = cardNames.filter(n => !printingsCache.has(n.toLowerCase()))
-  // Check sessionStorage
-  for (let i = toFetch.length - 1; i >= 0; i--) {
-    const cached = sessionStorage.getItem(`prints:${toFetch[i].toLowerCase()}`)
-    if (cached) {
-      try {
-        printingsCache.set(toFetch[i].toLowerCase(), JSON.parse(cached))
-        toFetch.splice(i, 1)
-      } catch { /* ignore corrupt cache */ }
+  // Re-entrancy guard: renderProxyArtworks() re-runs on every tab switch, and a
+  // sequential prefetch of a big deck takes a while. Without this, overlapping
+  // runs would request the same uncached names concurrently — reproducing the
+  // very burst this throttling is meant to prevent.
+  if (prefetchInFlight) return
+  prefetchInFlight = true
+  try {
+    const toFetch = cardNames.filter(n => !printingsCache.has(n.toLowerCase()))
+    // Check sessionStorage
+    for (let i = toFetch.length - 1; i >= 0; i--) {
+      const cached = sessionStorage.getItem(`prints:${toFetch[i].toLowerCase()}`)
+      if (cached) {
+        try {
+          printingsCache.set(toFetch[i].toLowerCase(), JSON.parse(cached))
+          toFetch.splice(i, 1)
+        } catch { /* ignore corrupt cache */ }
+      }
     }
-  }
-  if (toFetch.length === 0) return
+    if (toFetch.length === 0) return
 
-  // Fetch in parallel batches, 10 per second (Scryfall rate limit)
-  const BATCH = 10
-  for (let i = 0; i < toFetch.length; i += BATCH) {
-    const batch = toFetch.slice(i, i + BATCH)
-    await Promise.all(batch.map(async name => {
+    // Fetch sequentially, ~100ms apart. Scryfall's limit is ~10 req/sec with
+    // 50–100ms between requests; bursting 10 at once tripped it and produced
+    // intermittent "Load failed" network errors. Cache arrays (incl. a genuine
+    // empty one) but never a null failure — that would stick as "Keine Printings
+    // gefunden" for the whole session. Uncached cards fall back to the on-demand
+    // fetch (which retries) when the picker is opened.
+    for (const name of toFetch) {
       try {
         const printings = await fetchCardPrintings(name)
-        printingsCache.set(name.toLowerCase(), printings)
-        sessionStorage.setItem(`prints:${name.toLowerCase()}`, JSON.stringify(printings))
-      } catch { /* skip failures */ }
-    }))
-    if (i + BATCH < toFetch.length) await new Promise(r => setTimeout(r, 120))
+        if (printings) {
+          printingsCache.set(name.toLowerCase(), printings)
+          sessionStorage.setItem(`prints:${name.toLowerCase()}`, JSON.stringify(printings))
+        }
+      } catch (err) {
+        console.warn('prefetchPrintings: unexpected error for', name, err)
+      }
+      await new Promise(r => setTimeout(r, 100))
+    }
+  } finally {
+    prefetchInFlight = false
   }
 }
 
@@ -801,8 +817,17 @@ async function openArtworkPicker(card, cardEl, allCards) {
     let printings = printingsCache.get(card.name.toLowerCase())
     if (!printings) {
       printings = await fetchCardPrintings(card.name)
-      printingsCache.set(card.name.toLowerCase(), printings)
-      sessionStorage.setItem(`prints:${card.name.toLowerCase()}`, JSON.stringify(printings))
+      // Cache a real result (incl. a genuine empty array) but never a null
+      // failure — that would stick for the session; on reopen it retries.
+      if (printings) {
+        printingsCache.set(card.name.toLowerCase(), printings)
+        sessionStorage.setItem(`prints:${card.name.toLowerCase()}`, JSON.stringify(printings))
+      }
+    }
+
+    if (printings === null) {
+      pickerGrid.innerHTML = '<p>Konnte Artworks nicht laden. Bitte nochmal öffnen.</p>'
+      return
     }
 
     if (printings.length === 0) {
