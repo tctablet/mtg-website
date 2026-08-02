@@ -88,14 +88,25 @@ async function handleFlip() {
   }
 }
 
+// Raeumt den keydown-Listener der aktuell offenen Vorschau auf
+let releaseMobilePreview = null
+
+function dismissMobilePreview(overlay) {
+  if (!overlay || overlay.dataset.closing === '1') return
+  overlay.dataset.closing = '1'
+  if (releaseMobilePreview) releaseMobilePreview()
+  overlay.classList.remove('visible')
+  overlay.classList.add('closing')
+  // Timer statt transitionend: feuert auch bei reduced motion und wenn
+  // die Transition gar nicht erst startet
+  setTimeout(() => overlay.remove(), 300)
+}
+
 export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat) {
-  // Close existing overlay with animation
-  const existing = document.getElementById('mobile-card-overlay')
-  if (existing) {
-    existing.classList.add('closing')
-    existing.addEventListener('transitionend', () => existing.remove(), { once: true })
-    return
-  }
+  // Offene Vorschau direkt ersetzen — ein Tap auf die naechste Karte soll
+  // sie zeigen, nicht nur die alte schliessen
+  if (releaseMobilePreview) releaseMobilePreview()
+  document.getElementById('mobile-card-overlay')?.remove()
 
   const overlay = document.createElement('div')
   overlay.id = 'mobile-card-overlay'
@@ -111,8 +122,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat) {
 
   overlay.addEventListener('click', (e) => {
     if (e.target.closest('.flip-btn')) return
-    overlay.classList.add('closing')
-    overlay.addEventListener('transitionend', () => overlay.remove(), { once: true })
+    dismissMobilePreview(overlay)
   })
 
   if (dfcInfo?.scryfallId) {
@@ -135,4 +145,14 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat) {
   document.body.appendChild(overlay)
   overlay.offsetHeight
   overlay.classList.add('visible')
+
+  const onKey = (e) => {
+    if (e.key === 'Escape') dismissMobilePreview(overlay)
+  }
+  document.addEventListener('keydown', onKey)
+  const release = () => {
+    document.removeEventListener('keydown', onKey)
+    if (releaseMobilePreview === release) releaseMobilePreview = null
+  }
+  releaseMobilePreview = release
 }

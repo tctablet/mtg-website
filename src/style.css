@@ -689,6 +689,16 @@ a:hover { color: var(--accent-hover); }
   border-bottom-color: var(--accent);
 }
 
+/* Tab-Inhalt blendet beim Wechsel weich ein */
+.tab-panel-enter {
+  animation: tab-panel-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tab-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ===== Proxy Artwork Grid ===== */
 .proxy-artwork-grid {
   display: flex;
@@ -702,7 +712,8 @@ a:hover { color: var(--accent-hover); }
 
 .proxy-card-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0,…) statt 1fr: sonst sprengen lange Kartennamen die Spur */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-top: 12px;
 }
@@ -711,6 +722,14 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+  animation: proxy-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--stagger, 0) * 28ms);
+}
+
+@keyframes proxy-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
 }
 
 .proxy-card-img-wrap {
@@ -752,6 +771,7 @@ a:hover { color: var(--accent-hover); }
   justify-content: space-between;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
 .proxy-card-name {
@@ -760,6 +780,7 @@ a:hover { color: var(--accent-hover); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .proxy-card-qty {
@@ -772,13 +793,18 @@ a:hover { color: var(--accent-hover); }
 .artwork-picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  transition: background 0.22s ease;
 }
+
+.artwork-picker-overlay.visible { background: rgba(0, 0, 0, 0.8); }
+/* Beim Ausblenden keine Taps mehr abfangen — die Seite darunter ist wieder aktiv */
+.artwork-picker-overlay.closing { background: rgba(0, 0, 0, 0); pointer-events: none; }
 
 .artwork-picker {
   background: var(--bg-card);
@@ -790,8 +816,21 @@ a:hover { color: var(--accent-hover); }
   max-height: 85dvh;
   display: flex;
   flex-direction: column;
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .artwork-picker:focus { outline: none; }
+
+.artwork-picker-overlay.visible .artwork-picker {
+  opacity: 1;
+  transform: none;
+}
+
+.artwork-picker-overlay.closing .artwork-picker {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}
 
 /* Hintergrund-Scroll sperren solange das Modal offen ist */
 body.modal-open { overflow: hidden; }
@@ -851,7 +890,7 @@ body.modal-open { overflow: hidden; }
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 16px;
 }
 
@@ -860,7 +899,19 @@ body.modal-open { overflow: hidden; }
   border-radius: var(--radius);
   border: 2px solid transparent;
   padding: 4px;
-  transition: border-color 0.15s;
+  min-width: 0;
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  animation: proxy-card-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--stagger, 0) * 24ms);
+}
+
+/* Feedback beim Auswählen, bevor das Modal schließt.
+   animation:none ist noetig — eine laufende Animation mit fill-mode both
+   gewinnt in der Kaskade sonst gegen dieses transform. */
+.artwork-option.artwork-picking {
+  animation: none;
+  border-color: var(--accent);
+  transform: scale(0.94);
 }
 
 @media (hover: hover) {
@@ -1702,6 +1753,7 @@ body.modal-open { overflow: hidden; }
   background: rgba(0, 0, 0, 0);
   -webkit-backdrop-filter: blur(0px);
   backdrop-filter: blur(0px);
+  pointer-events: none;
 }
 
 .mobile-card-content {
@@ -1808,7 +1860,7 @@ body.modal-open { overflow: hidden; }
   .artwork-picker-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important; }
 
   /* Proxy artwork grid */
-  .proxy-card-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .proxy-card-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
 }
 
 /* Mobile */
@@ -1912,10 +1964,10 @@ body.modal-open { overflow: hidden; }
   .deck-tab { padding: 13px 12px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
 
   /* Proxy artwork grid: 2 Spalten, groessere Karten */
-  .proxy-card-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .proxy-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .proxy-card:active .proxy-card-img-wrap img { transform: scale(0.97); }
 
-  /* Artwork picker mobile: Fullscreen-Sheet */
+  /* Artwork picker mobile: Fullscreen-Sheet, faehrt von unten ein */
   .artwork-picker-overlay { padding: 0; align-items: stretch; }
   .artwork-picker {
     max-width: 100%;
@@ -1925,7 +1977,10 @@ body.modal-open { overflow: hidden; }
     max-height: 100dvh;
     border: none;
     border-radius: 0;
+    transform: translateY(100%);
+    transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
+  .artwork-picker-overlay.closing .artwork-picker { transform: translateY(100%); }
   .artwork-picker-header {
     flex-wrap: wrap;
     gap: 8px;
@@ -1951,7 +2006,7 @@ body.modal-open { overflow: hidden; }
     padding: 10px 12px;
   }
   .artwork-picker-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px;
     padding: 12px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -2288,4 +2343,19 @@ body.modal-open { overflow: hidden; }
   display: flex;
   gap: 8px;
   margin-top: 6px;
+}
+
+/* ===== Reduced Motion =====
+   Respektiert die System-Einstellung: Animationen aus, Funktion bleibt.
+   Nicht auf 0s setzen — transitionend muss weiterhin feuern. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

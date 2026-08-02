@@ -181,6 +181,8 @@ export async function renderDeckView(container, params) {
   // Tab switching
   container.querySelectorAll('.deck-tab').forEach(tab => {
     tab.addEventListener('click', () => {
+      // Klick auf den bereits aktiven Tab: nichts neu rendern/animieren
+      if (tab.classList.contains('deck-tab-active')) return
       container.querySelectorAll('.deck-tab').forEach(t => t.classList.remove('deck-tab-active'))
       tab.classList.add('deck-tab-active')
       const target = tab.dataset.tab
@@ -189,6 +191,10 @@ export async function renderDeckView(container, params) {
       if (target === 'proxy') {
         renderProxyArtworks(cards, isOwner)
       }
+      const panel = document.getElementById(target === 'proxy' ? 'tab-proxy' : 'tab-cards')
+      panel.classList.remove('tab-panel-enter')
+      void panel.offsetWidth // Reflow erzwingen, sonst startet die Animation nicht neu
+      panel.classList.add('tab-panel-enter')
     })
   })
 
@@ -754,10 +760,11 @@ function renderProxyArtworks(cards, isOwner) {
     const grid = document.createElement('div')
     grid.className = 'proxy-card-grid'
 
-    for (const c of unique) {
+    unique.forEach((c, i) => {
       const imgSrc = c.proxy_image_uri || c.image_uri
       const div = document.createElement('div')
       div.className = 'proxy-card'
+      div.style.setProperty('--stagger', String(Math.min(i, 8)))
       div.dataset.cardId = c.id
       div.dataset.cardName = c.name
       div.innerHTML = `
@@ -775,7 +782,7 @@ function renderProxyArtworks(cards, isOwner) {
         div.addEventListener('click', () => openArtworkPicker(c, div, cards))
       }
       grid.appendChild(div)
-    }
+    })
 
     section.appendChild(grid)
     container.appendChild(section)
@@ -791,6 +798,8 @@ let closeActiveArtworkPicker = null
 async function openArtworkPicker(card, cardEl, allCards) {
   // Alte Instanz sauber schließen (inkl. Listener), nie roh entfernen
   if (closeActiveArtworkPicker) closeActiveArtworkPicker()
+  // Eine noch ausblendende Instanz sofort entfernen — sonst doppelte IDs
+  document.getElementById('artwork-picker-modal')?.remove()
 
   const modal = document.createElement('div')
   modal.id = 'artwork-picker-modal'
@@ -809,6 +818,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
   `
   document.body.appendChild(modal)
   document.body.classList.add('modal-open')
+  requestAnimationFrame(() => modal.classList.add('visible'))
 
   const openHash = location.hash
   function onHashChange() {
@@ -819,12 +829,18 @@ async function openArtworkPicker(card, cardEl, allCards) {
   function onKeyDown(e) {
     if (e.key === 'Escape') closeModal()
   }
+  let closing = false
   function closeModal() {
+    if (closing) return
+    closing = true
     window.removeEventListener('hashchange', onHashChange)
     document.removeEventListener('keydown', onKeyDown)
-    modal.remove()
     document.body.classList.remove('modal-open')
     if (closeActiveArtworkPicker === closeModal) closeActiveArtworkPicker = null
+    modal.classList.remove('visible')
+    modal.classList.add('closing')
+    // Timer statt transitionend: feuert auch bei reduced motion zuverlaessig
+    setTimeout(() => modal.remove(), 300)
   }
   closeActiveArtworkPicker = closeModal
 
@@ -863,7 +879,9 @@ async function openArtworkPicker(card, cardEl, allCards) {
       return
     }
 
-    function renderPrintings(filter) {
+    // animate nur beim ersten Aufbau — sonst flackert das Grid bei jedem
+    // Tastendruck in der Suche neu ein
+    function renderPrintings(filter, animate = false) {
       const query = (filter || '').toLowerCase()
       const filtered = query
         ? printings.filter(p => p.set.toLowerCase().includes(query) || p.set_code.toLowerCase().includes(query))
@@ -895,8 +913,16 @@ async function openArtworkPicker(card, cardEl, allCards) {
           `
         }).join(''))
 
-      pickerGrid.querySelectorAll('.artwork-option').forEach(opt => {
+      pickerGrid.querySelectorAll('.artwork-option').forEach((opt, i) => {
+        if (animate) {
+          // Nur die ersten Reihen staffeln — sonst warten spaete Optionen sichtbar
+          opt.style.setProperty('--stagger', String(Math.min(i, 8)))
+        } else {
+          opt.style.animation = 'none'
+        }
         opt.addEventListener('click', async () => {
+          if (opt.classList.contains('artwork-picking')) return
+          opt.classList.add('artwork-picking')
           const isReset = opt.dataset.action === 'reset'
           const newUri = isReset ? null : opt.dataset.png || opt.dataset.image
 
@@ -921,13 +947,14 @@ async function openArtworkPicker(card, cardEl, allCards) {
 
             closeModal()
           } catch (err) {
+            opt.classList.remove('artwork-picking')
             alert('Fehler beim Speichern: ' + err.message)
           }
         })
       })
     }
 
-    renderPrintings('')
+    renderPrintings('', true)
     searchInput.addEventListener('input', () => renderPrintings(searchInput.value))
     // Auto-Focus nur auf Geraeten mit Maus — auf Touch wuerde sofort die Tastatur aufspringen
     if (window.matchMedia('(hover: hover)').matches) searchInput.focus()
