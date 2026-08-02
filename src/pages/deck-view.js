@@ -786,18 +786,21 @@ function renderProxyArtworks(cards, isOwner) {
   prefetchPrintings(allNames)
 }
 
+let closeActiveArtworkPicker = null
+
 async function openArtworkPicker(card, cardEl, allCards) {
-  document.getElementById('artwork-picker-modal')?.remove()
+  // Alte Instanz sauber schließen (inkl. Listener), nie roh entfernen
+  if (closeActiveArtworkPicker) closeActiveArtworkPicker()
 
   const modal = document.createElement('div')
   modal.id = 'artwork-picker-modal'
   modal.className = 'artwork-picker-overlay'
   modal.innerHTML = `
-    <div class="artwork-picker">
+    <div class="artwork-picker" role="dialog" aria-modal="true" aria-label="Artwork wählen: ${card.name}" tabindex="-1">
       <div class="artwork-picker-header">
         <h3>${card.name}</h3>
         <input type="text" class="artwork-search" placeholder="Set suchen..." />
-        <button class="artwork-picker-close">&times;</button>
+        <button class="artwork-picker-close" aria-label="Schließen">&times;</button>
       </div>
       <div class="artwork-picker-grid">
         <p class="loading">Lade Printings...</p>
@@ -805,9 +808,34 @@ async function openArtworkPicker(card, cardEl, allCards) {
     </div>
   `
   document.body.appendChild(modal)
+  document.body.classList.add('modal-open')
 
-  modal.querySelector('.artwork-picker-close').addEventListener('click', () => modal.remove())
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove() })
+  const openHash = location.hash
+  function onHashChange() {
+    // deck-view feuert synthetische hashchange-Events zum Force-Re-Render
+    // (z.B. nach Preis-Refresh) — nur bei ECHTER Navigation schließen
+    if (location.hash !== openHash) closeModal()
+  }
+  function onKeyDown(e) {
+    if (e.key === 'Escape') closeModal()
+  }
+  function closeModal() {
+    window.removeEventListener('hashchange', onHashChange)
+    document.removeEventListener('keydown', onKeyDown)
+    modal.remove()
+    document.body.classList.remove('modal-open')
+    if (closeActiveArtworkPicker === closeModal) closeActiveArtworkPicker = null
+  }
+  closeActiveArtworkPicker = closeModal
+
+  modal.querySelector('.artwork-picker-close').addEventListener('click', closeModal)
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
+  window.addEventListener('hashchange', onHashChange)
+  document.addEventListener('keydown', onKeyDown)
+
+  // aria-modal verlangt, dass der Fokus in den Dialog wandert — auf ALLEN
+  // Geräten und vor jedem Early-Return (Fehler-/Leer-Zustand)
+  modal.querySelector('.artwork-picker').focus()
 
   const pickerGrid = modal.querySelector('.artwork-picker-grid')
   const searchInput = modal.querySelector('.artwork-search')
@@ -891,7 +919,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
               badge.remove()
             }
 
-            modal.remove()
+            closeModal()
           } catch (err) {
             alert('Fehler beim Speichern: ' + err.message)
           }
@@ -901,7 +929,8 @@ async function openArtworkPicker(card, cardEl, allCards) {
 
     renderPrintings('')
     searchInput.addEventListener('input', () => renderPrintings(searchInput.value))
-    searchInput.focus()
+    // Auto-Focus nur auf Geraeten mit Maus — auf Touch wuerde sofort die Tastatur aufspringen
+    if (window.matchMedia('(hover: hover)').matches) searchInput.focus()
   } catch (err) {
     pickerGrid.innerHTML = `<p>Fehler: ${err.message}</p>`
   }
