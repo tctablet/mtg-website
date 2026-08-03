@@ -102,7 +102,13 @@ function dismissMobilePreview(overlay) {
   setTimeout(() => overlay.remove(), 300)
 }
 
-export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat) {
+// Alle Karten-Zeilen in Anzeigereihenfolge, die eine Vorschau haben.
+// Wird bei jedem Blättern frisch gelesen, damit Sortierung/Bearbeiten stimmen.
+function previewRows() {
+  return [...document.querySelectorAll('.card-row')].filter(r => r._cardPreview)
+}
+
+export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl) {
   // Offene Vorschau direkt ersetzen — ein Tap auf die naechste Karte soll
   // sie zeigen, nicht nur die alte schliessen
   if (releaseMobilePreview) releaseMobilePreview()
@@ -110,44 +116,92 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat) {
 
   const overlay = document.createElement('div')
   overlay.id = 'mobile-card-overlay'
-  overlay.className = 'mobile-card-overlay' + (bracketCat ? ` bracket-${bracketCat}` : '')
+  overlay.className = 'mobile-card-overlay'
   overlay.innerHTML = `
     <div class="mobile-card-content">
-      <img src="${imageUri}" alt="${cardName || ''}" />
-      ${dfcInfo?.scryfallId ? '<button class="flip-btn flip-btn-mobile" title="Karte umdrehen">&#x21C4;</button>' : ''}
+      <img alt="" />
+      <button class="flip-btn flip-btn-mobile" title="Karte umdrehen" hidden>&#x21C4;</button>
+      <div class="mobile-card-nav">
+        <button class="mobile-nav-btn" data-dir="-1" aria-label="Vorherige Karte">&#8249;</button>
+        <span class="mobile-nav-label"></span>
+        <button class="mobile-nav-btn" data-dir="1" aria-label="Nächste Karte">&#8250;</button>
+      </div>
     </div>
   `
 
+  const img = overlay.querySelector('img')
+  const flipBtn = overlay.querySelector('.flip-btn')
+  const label = overlay.querySelector('.mobile-nav-label')
+  const navBtns = [...overlay.querySelectorAll('.mobile-nav-btn')]
+
+  let current = { imageUri, cardName, dfcInfo, bracketCat, row: rowEl }
   let showingBack = false
 
+  function render(data, animate) {
+    current = data
+    showingBack = false
+    img.src = data.imageUri
+    img.alt = data.cardName || ''
+    label.textContent = data.cardName || ''
+    flipBtn.hidden = !data.dfcInfo?.scryfallId
+    overlay.classList.remove('bracket-gc', 'bracket-tutor', 'bracket-extra', 'bracket-mld')
+    if (data.bracketCat) overlay.classList.add(`bracket-${data.bracketCat}`)
+
+    const rows = previewRows()
+    const i = data.row ? rows.indexOf(data.row) : -1
+    navBtns.forEach(b => {
+      const target = i < 0 ? -1 : i + Number(b.dataset.dir)
+      b.disabled = i < 0 || target < 0 || target >= rows.length
+    })
+    // Blaettern nur zeigen, wenn es ueberhaupt Nachbarn gibt
+    overlay.querySelector('.mobile-card-nav').hidden = rows.length < 2 || i < 0
+
+    if (animate) {
+      img.classList.remove('card-swap')
+      void img.offsetWidth
+      img.classList.add('card-swap')
+    }
+  }
+
+  function step(dir) {
+    const rows = previewRows()
+    const i = rows.indexOf(current.row)
+    const next = rows[i + dir]
+    if (!next?._cardPreview) return
+    render({ ...next._cardPreview, row: next }, true)
+  }
+
   overlay.addEventListener('click', (e) => {
-    if (e.target.closest('.flip-btn')) return
+    if (e.target.closest('.flip-btn') || e.target.closest('.mobile-card-nav')) return
     dismissMobilePreview(overlay)
   })
 
-  if (dfcInfo?.scryfallId) {
-    overlay.querySelector('.flip-btn').addEventListener('click', async () => {
-      const img = overlay.querySelector('img')
-      if (!img) return
-      if (showingBack) {
-        img.src = imageUri
-        showingBack = false
-      } else {
-        const backUri = await fetchCardBackImage(dfcInfo.scryfallId)
-        if (backUri) {
-          img.src = backUri
-          showingBack = true
-        }
-      }
-    })
-  }
+  navBtns.forEach(b => b.addEventListener('click', () => step(Number(b.dataset.dir))))
 
+  flipBtn.addEventListener('click', async () => {
+    if (!current.dfcInfo?.scryfallId) return
+    if (showingBack) {
+      img.src = current.imageUri
+      showingBack = false
+      return
+    }
+    const backUri = await fetchCardBackImage(current.dfcInfo.scryfallId)
+    // Waehrend des Ladens kann weitergeblaettert worden sein
+    if (backUri && current.dfcInfo?.scryfallId) {
+      img.src = backUri
+      showingBack = true
+    }
+  })
+
+  render(current, false)
   document.body.appendChild(overlay)
   overlay.offsetHeight
   overlay.classList.add('visible')
 
   const onKey = (e) => {
     if (e.key === 'Escape') dismissMobilePreview(overlay)
+    else if (e.key === 'ArrowLeft') step(-1)
+    else if (e.key === 'ArrowRight') step(1)
   }
   document.addEventListener('keydown', onKey)
   const release = () => {

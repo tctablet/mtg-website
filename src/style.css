@@ -1790,6 +1790,66 @@ body.modal-open { overflow: hidden; }
   position: relative;
 }
 
+/* ===== Blaettern in der Vollbild-Vorschau ===== */
+.mobile-card-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px auto 0;
+  max-width: 300px;
+  cursor: default;
+}
+
+.mobile-card-nav[hidden] { display: none; }
+
+.mobile-nav-btn {
+  flex-shrink: 0;
+  width: 52px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: transform 0.12s ease, background 0.15s ease, opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-nav-btn:active { transform: scale(0.92); background: rgba(0, 0, 0, 0.75); }
+
+.mobile-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.mobile-nav-label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bildwechsel beim Blaettern */
+@keyframes card-swap-in {
+  from { opacity: 0.35; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.mobile-card-content img.card-swap {
+  animation: card-swap-in 0.22s ease both;
+}
+
 /* ===== Flip Button (DFC) ===== */
 .flip-btn {
   position: absolute;
@@ -1810,6 +1870,9 @@ body.modal-open { overflow: hidden; }
   transition: background 0.15s, transform 0.15s;
   z-index: 10;
 }
+
+/* display:flex wuerde das hidden-Attribut sonst ueberstimmen */
+.flip-btn[hidden] { display: none; }
 
 .flip-btn:hover {
   background: rgba(0, 0, 0, 0.9);

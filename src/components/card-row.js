@@ -64,13 +64,16 @@ export function createCardRow(card, onChanged) {
   const isDfc = card.name?.includes(' // ')
   const dfcInfo = isDfc && card.scryfall_id ? { scryfallId: card.scryfall_id } : null
   if (previewUri) {
+    // Vorschau-Daten an der Zeile hinterlegen, damit die Vollbild-Ansicht
+    // zur naechsten/vorherigen Karte blaettern kann
+    tr._cardPreview = { imageUri: previewUri, cardName: card.name, dfcInfo, bracketCat }
     tr.addEventListener('mouseenter', () => showPreview(previewUri, dfcInfo, bracketCat))
     tr.addEventListener('mouseleave', () => hidePreview())
     tr.addEventListener('click', (e) => {
       if (editMode) return
       if (!('ontouchstart' in window)) return
       e.preventDefault()
-      showMobilePreview(previewUri, card.name, dfcInfo, bracketCat)
+      showMobilePreview(previewUri, card.name, dfcInfo, bracketCat, tr)
     })
   }
 
