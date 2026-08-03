@@ -29,7 +29,8 @@ export async function renderDeckImport(container) {
           <input type="text" id="deck-name" placeholder="z.B. Atraxa Superfriends" />
         </label>
         <label>Kartenliste
-          <textarea id="deck-list" rows="20" placeholder="1 Sol Ring
+          <textarea id="deck-list" rows="20" autocapitalize="none" autocorrect="off"
+                    autocomplete="off" spellcheck="false" placeholder="1 Sol Ring
 1 Command Tower
 1x Arcane Signet
 ..."></textarea>
@@ -150,9 +151,10 @@ async function doAnalyze() {
       }
     }
 
-    // Disable step 1 inputs
-    nameEl.disabled = true
-    listEl.disabled = true
+    // Schritt-1-Felder einfrieren. readOnly statt disabled: disabled graut den
+    // eingegebenen Text aus und verhindert Kopieren/Scrollen der Liste.
+    nameEl.readOnly = true
+    listEl.readOnly = true
     btn.hidden = true
     document.querySelector('.file-upload').hidden = true
 
@@ -174,12 +176,21 @@ async function doAnalyze() {
     renderCommanderPicker()
 
     // Scroll to commander picker
-    document.getElementById('commander-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollBelowNav(document.getElementById('commander-picker'))
   } catch (err) {
     showStatus(statusEl, `Fehler: ${err.message}`, 'error')
     btn.disabled = false
     btn.textContent = 'Weiter'
   }
+}
+
+// block:'start' würde das Ziel unter die sticky Nav schieben — Scroll-Margin
+// dynamisch auf die echte Nav-Höhe setzen (mobil ~100px, Desktop ~54px)
+function scrollBelowNav(el) {
+  if (!el) return
+  const navH = document.getElementById('nav')?.offsetHeight || 140
+  el.style.scrollMarginTop = `${navH + 8}px`
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function renderCommanderPicker() {
@@ -190,50 +201,67 @@ function renderCommanderPicker() {
     <div class="cmdr-picker">
       <div class="cmdr-picker-header">
         <h3>Commander waehlen</h3>
-        <input type="text" id="cmdr-filter" class="cmdr-filter" placeholder="Karten filtern..." />
+        <input type="text" id="cmdr-filter" class="cmdr-filter" placeholder="Karten filtern..."
+               autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" />
       </div>
       <div id="cmdr-grid" class="cmdr-grid"></div>
       <div id="partner-picker" hidden>
         <div class="cmdr-picker-header">
           <h3 id="partner-picker-title">Partner Commander waehlen</h3>
-          <input type="text" id="partner-filter" class="cmdr-filter" placeholder="Partner filtern..." />
+          <input type="text" id="partner-filter" class="cmdr-filter" placeholder="Partner filtern..."
+                 autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" />
         </div>
         <div id="partner-grid" class="cmdr-grid"></div>
       </div>
       <div id="cmdr-selection" class="cmdr-selection" hidden>
         <div id="cmdr-selection-preview" class="cmdr-selection-preview"></div>
         <button id="import-btn" class="btn">Deck importieren</button>
+        <div id="import-status-bottom" hidden></div>
       </div>
     </div>
   `
 
-  renderCandidateGrid('cmdr-grid', commanderCandidates, '', selectMainCommander)
+  renderCandidateGrid('cmdr-grid', commanderCandidates, '', selectMainCommander, true)
 
+  // Debounce: jedes input-Event baut sonst das komplette Grid (innerHTML) neu —
+  // auf dem Handy ruckelt das bei jedem Tastendruck (Muster aus deck-view.js)
+  let cmdrFilterTimer
   document.getElementById('cmdr-filter').addEventListener('input', (e) => {
-    renderCandidateGrid('cmdr-grid', commanderCandidates, e.target.value, selectMainCommander)
+    clearTimeout(cmdrFilterTimer)
+    cmdrFilterTimer = setTimeout(() => {
+      renderCandidateGrid('cmdr-grid', commanderCandidates, e.target.value, selectMainCommander)
+    }, 250)
   })
 
+  let partnerFilterTimer
   document.getElementById('partner-filter')?.addEventListener('input', (e) => {
-    const partnerCandidates = getPartnerCandidates()
-    renderCandidateGrid('partner-grid', partnerCandidates, e.target.value, selectPartnerCommander)
+    clearTimeout(partnerFilterTimer)
+    partnerFilterTimer = setTimeout(() => {
+      const partnerCandidates = getPartnerCandidates()
+      renderCandidateGrid('partner-grid', partnerCandidates, e.target.value, selectPartnerCommander)
+    }, 250)
   })
 
   document.getElementById('import-btn').addEventListener('click', doImport)
 }
 
-function renderCandidateGrid(gridId, candidates, filter, onSelect) {
+function renderCandidateGrid(gridId, candidates, filter, onSelect, animate = false) {
   const grid = document.getElementById(gridId)
   const query = (filter || '').toLowerCase()
   const filtered = query
     ? candidates.filter(c => c.name.toLowerCase().includes(query) || (c.type_line || '').toLowerCase().includes(query))
     : candidates
 
-  grid.innerHTML = filtered.map(c => {
+  // Entrance nur beim Erst-Render — Filter-/Auswahl-Re-Renders würden sonst
+  // bei jedem Tastendruck erneut auffächern
+  grid.classList.toggle('cmdr-grid-animate', animate)
+
+  grid.innerHTML = filtered.map((c, i) => {
     const img = getCardNormalImage(c) || ''
     const isSelected = (selectedCommander && c.name === selectedCommander.name) ||
                        (selectedCommander2 && c.name === selectedCommander2.name)
     return `
-      <div class="cmdr-card ${isSelected ? 'cmdr-card-selected' : ''}" data-name="${c.name.replace(/"/g, '&quot;')}">
+      <div class="cmdr-card ${isSelected ? 'cmdr-card-selected' : ''}" style="--stagger: ${Math.min(i, 8)}" data-name="${c.name.replace(/"/g, '&quot;')}">
         <img src="${img}" alt="${c.name}" loading="lazy" />
         <span class="cmdr-card-name">${c.name}</span>
       </div>
@@ -282,7 +310,9 @@ function selectMainCommander(card) {
     }
 
     const partnerCandidates = getPartnerCandidates()
-    renderCandidateGrid('partner-grid', partnerCandidates, '', selectPartnerCommander)
+    renderCandidateGrid('partner-grid', partnerCandidates, '', selectPartnerCommander, true)
+    // Der Partner-Picker öffnet unterhalb des Viewports — hinscrollen
+    scrollBelowNav(partnerPicker)
   } else {
     partnerPicker.hidden = true
   }
@@ -366,14 +396,22 @@ async function doImport() {
   const btn = document.getElementById('import-btn')
   const deckName = document.getElementById('deck-name').value.trim()
 
+  // Der Import-Button sitzt ganz unten, #import-status ganz oben im Formular —
+  // Meldungen zusätzlich direkt am Button zeigen, sonst sieht sie niemand
+  const bottomEl = document.getElementById('import-status-bottom')
+  const showImportStatus = (msg, type) => {
+    showStatus(statusEl, msg, type)
+    if (bottomEl) showStatus(bottomEl, msg, type)
+  }
+
   if (!selectedCommander) {
-    showStatus(statusEl, 'Bitte waehle einen Commander.', 'error')
+    showImportStatus('Bitte waehle einen Commander.', 'error')
     return
   }
 
   btn.disabled = true
   btn.textContent = 'Importiere...'
-  showStatus(statusEl, 'Speichere Deck...')
+  showImportStatus('Speichere Deck...')
 
   try {
     const commanderImage = getCardArtCrop(selectedCommander)
@@ -432,15 +470,15 @@ async function doImport() {
         <ul>${skipped.map(n => `<li>${n}</li>`).join('')}</ul>
       `
       errorsEl.hidden = false
-      showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert (${skipped.length} uebersprungen).`, 'success')
+      showImportStatus(`Deck "${deckName}" mit ${cardRows.length} Karten gespeichert (${skipped.length} uebersprungen).`, 'success')
       setTimeout(() => navigate(`/deck/${deck.id}`), 3000)
     } else {
       errorsEl.hidden = true
-      showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert!`, 'success')
+      showImportStatus(`Deck "${deckName}" mit ${cardRows.length} Karten gespeichert!`, 'success')
       setTimeout(() => navigate(`/deck/${deck.id}`), 1500)
     }
   } catch (err) {
-    showStatus(statusEl, `Fehler: ${err.message}`, 'error')
+    showImportStatus(`Fehler: ${err.message}`, 'error')
     btn.disabled = false
     btn.textContent = 'Deck importieren'
   }

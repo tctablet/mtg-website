@@ -1,11 +1,17 @@
 import { navigate } from '../router.js'
 import { getResterampeDecks, getDeckCards } from '../supabase.js'
-import { formatPrice, formatTotalPrice, getDeckColors } from '../utils.js'
+import { formatPrice, formatTotalPrice, getDeckColors, renderLoadError } from '../utils.js'
 
 export async function renderResterampe(container) {
   container.innerHTML = '<p class="loading">Lade Resterampe...</p>'
 
-  const decks = await getResterampeDecks()
+  let decks
+  try {
+    decks = await getResterampeDecks()
+  } catch (err) {
+    renderLoadError(container, err, () => renderResterampe(container))
+    return
+  }
 
   container.innerHTML = `
     <div class="page">
@@ -41,23 +47,28 @@ export async function renderResterampe(container) {
   const fill = async (decks, grid) => {
     const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
     const frag = document.createDocumentFragment()
-    decks.forEach((deck, i) => frag.appendChild(createResterampeCard(deck, cardLists[i])))
+    decks.forEach((deck, i) => frag.appendChild(createResterampeCard(deck, cardLists[i], i)))
     grid.appendChild(frag)
   }
 
-  await Promise.all([
-    customDecks.length === 0
-      ? Promise.resolve(document.getElementById('section-custom').remove())
-      : fill(customDecks, customGrid),
-    preconDecks.length === 0
-      ? Promise.resolve(document.getElementById('section-precon').remove())
-      : fill(preconDecks, preconGrid),
-  ])
+  try {
+    await Promise.all([
+      customDecks.length === 0
+        ? Promise.resolve(document.getElementById('section-custom').remove())
+        : fill(customDecks, customGrid),
+      preconDecks.length === 0
+        ? Promise.resolve(document.getElementById('section-precon').remove())
+        : fill(preconDecks, preconGrid),
+    ])
+  } catch (err) {
+    renderLoadError(container, err, () => renderResterampe(container))
+  }
 }
 
-function createResterampeCard(deck, cards) {
+function createResterampeCard(deck, cards, index = 0) {
   const card = document.createElement('div')
   card.className = 'deck-card resterampe-card' + (deck.sold ? ' resterampe-card-sold' : '')
+  card.style.setProperty('--stagger', String(Math.min(index, 8)))
 
   const isCustom = deck.deck_type === 'custom'
   const singlesTotal = formatTotalPrice(cards)

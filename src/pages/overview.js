@@ -1,5 +1,5 @@
 import { getAllDecksWithPlayers, getDeckCards, getAllPlayers } from '../supabase.js'
-import { formatPrice } from '../utils.js'
+import { formatPrice, renderLoadError } from '../utils.js'
 import { navigate, routeHref } from '../router.js'
 import { getPlayer } from '../auth.js'
 
@@ -8,20 +8,25 @@ export async function renderOverview(container) {
 
   container.innerHTML = '<p class="loading">Lade Übersicht...</p>'
 
-  const [decks, allPlayers] = await Promise.all([
-    getAllDecksWithPlayers(),
-    getAllPlayers(),
-  ])
+  let decks, allPlayers, cardLists
+  try {
+    ;[decks, allPlayers] = await Promise.all([
+      getAllDecksWithPlayers(),
+      getAllPlayers(),
+    ])
+    // Parallel statt nacheinander — sonst summiert sich pro Deck eine volle
+    // Netzwerk-Runde, auf dem Handy schnell mehrere Sekunden
+    cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+  } catch (err) {
+    renderLoadError(container, err, () => renderOverview(container))
+    return
+  }
 
   // Group decks by player and calculate values
   const playerMap = {}
   for (const p of allPlayers) {
     playerMap[p.id] = { id: p.id, name: p.name, decks: [], totalValue: 0 }
   }
-
-  // Parallel statt nacheinander — sonst summiert sich pro Deck eine volle
-  // Netzwerk-Runde, auf dem Handy schnell mehrere Sekunden
-  const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
 
   decks.forEach((deck, i) => {
     const pid = deck.player_id

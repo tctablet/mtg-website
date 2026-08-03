@@ -33,10 +33,11 @@ async function refreshPlayerList(container) {
             </tr>
           </thead>
           <tbody id="player-rows">
-            ${(players || []).map(p => playerRow(p)).join('')}
+            ${(players || []).map((p, i) => playerRow(p, i)).join('')}
           </tbody>
         </table>
       </div>
+      <p id="admin-table-error" class="error" hidden></p>
       <div class="admin-add">
         <h3>Neuen Spieler anlegen</h3>
         <div class="admin-add-form">
@@ -49,6 +50,14 @@ async function refreshPlayerList(container) {
     </div>
   `
 
+  // Ein Fehlerkanal für die Tabelle — inline wie beim Anlege-Formular,
+  // keine alert()-Mischung mehr
+  const tableError = document.getElementById('admin-table-error')
+  const showTableError = (msg) => {
+    tableError.textContent = msg
+    tableError.hidden = false
+  }
+
   // Edit code handlers
   container.querySelectorAll('.save-code-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -56,17 +65,25 @@ async function refreshPlayerList(container) {
       const input = container.querySelector(`.code-input[data-id="${id}"]`)
       const code = input.value.trim()
       if (!/^\d{4}$/.test(code)) {
-        alert('Code muss 4-stellig sein.')
+        input.classList.add('input-error')
+        showTableError('Code muss 4-stellig sein.')
+        input.select()
         return
       }
+      input.classList.remove('input-error')
       const { error } = await supabase.from('players').update({ code }).eq('id', id)
       if (error) {
-        alert(`Fehler: ${error.message}`)
+        showTableError(`Fehler: ${error.message}`)
       } else {
-        btn.textContent = 'Gespeichert!'
-        setTimeout(() => btn.textContent = 'Speichern', 1500)
+        tableError.hidden = true
+        // Erfolg ohne Textwechsel (der Button würde sonst breiter springen)
+        btn.classList.add('saved')
+        setTimeout(() => btn.classList.remove('saved'), 1500)
       }
     })
+  })
+  container.querySelectorAll('.code-input').forEach(input => {
+    input.addEventListener('input', () => input.classList.remove('input-error'))
   })
 
   // Toggle admin handlers
@@ -76,7 +93,7 @@ async function refreshPlayerList(container) {
       const current = btn.dataset.admin === 'true'
       const { error } = await supabase.from('players').update({ is_admin: !current }).eq('id', id)
       if (error) {
-        alert(`Fehler: ${error.message}`)
+        showTableError(`Fehler: ${error.message}`)
       } else {
         await refreshPlayerList(container)
       }
@@ -90,7 +107,7 @@ async function refreshPlayerList(container) {
       if (!confirm(`"${name}" wirklich löschen? Alle Decks gehen verloren!`)) return
       const { error } = await supabase.from('players').delete().eq('id', btn.dataset.id)
       if (error) {
-        alert(`Fehler: ${error.message}`)
+        showTableError(`Fehler: ${error.message}`)
       } else {
         await refreshPlayerList(container)
       }
@@ -122,12 +139,12 @@ async function refreshPlayerList(container) {
   })
 }
 
-function playerRow(p) {
+function playerRow(p, i = 0) {
   const currentPlayer = getPlayer()
   const isSelf = p.id === currentPlayer.id
 
   return `
-    <tr>
+    <tr style="--stagger: ${Math.min(i, 8)}">
       <td class="admin-name">${p.name}</td>
       <td>
         <div class="admin-code-edit">

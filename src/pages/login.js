@@ -24,10 +24,13 @@ export async function renderLogin(container) {
   const error = document.getElementById('login-error')
 
   async function doLogin() {
+    if (btn.disabled) return
     const code = input.value.trim()
     if (!/^\d{4}$/.test(code)) {
       error.textContent = 'Bitte einen 4-stelligen Code eingeben.'
       error.hidden = false
+      // Synchron zur Geste — Feld markiert, Tastatur bleibt offen
+      input.select()
       return
     }
 
@@ -45,12 +48,19 @@ export async function renderLogin(container) {
       error.hidden = false
       btn.disabled = false
       btn.textContent = 'Anmelden'
+      // Falscher Code soll nicht zum Editieren stehen bleiben. Kein focus():
+      // nach dem await öffnet iOS die Tastatur ohnehin nicht erneut.
+      input.value = ''
     }
   }
 
   btn.addEventListener('click', doLogin)
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doLogin()
+  })
+  // 4. Ziffer getippt → direkt anmelden (Doppel-Submit fängt btn.disabled ab)
+  input.addEventListener('input', () => {
+    if (/^\d{4}$/.test(input.value.trim())) doLogin()
   })
 
   input.focus()

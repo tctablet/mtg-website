@@ -1,6 +1,6 @@
 import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards, fetchCheapestPrices, fetchPrintingsFromDB } from '../supabase.js'
 import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchPrintingsBulk, autocompleteCard } from '../scryfall.js'
-import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
+import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory, renderLoadError } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
 import { estimateBracket } from '../bracket.js'
@@ -11,7 +11,13 @@ export async function renderDeckView(container, params) {
   const { id } = params
   container.innerHTML = '<p class="loading">Lade Deck...</p>'
 
-  const [deck, cards] = await Promise.all([getDeck(id), getDeckCards(id)])
+  let deck, cards
+  try {
+    ;[deck, cards] = await Promise.all([getDeck(id), getDeckCards(id)])
+  } catch (err) {
+    renderLoadError(container, err, () => renderDeckView(container, params))
+    return
+  }
 
   if (!deck) {
     container.innerHTML = '<p>Deck nicht gefunden.</p>'
@@ -1149,7 +1155,7 @@ function showSaleMetaEditor(deck) {
   overlay.id = 'sale-meta-editor'
   overlay.className = 'modal-overlay'
   overlay.innerHTML = `
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Verkaufs-Info bearbeiten" tabindex="-1">
       <h3>Verkaufs-Info bearbeiten</h3>
       <label>
         Sealed-Preis (€)
@@ -1170,10 +1176,44 @@ function showSaleMetaEditor(deck) {
     </div>
   `
   document.body.appendChild(overlay)
+  document.body.classList.add('modal-open')
+  requestAnimationFrame(() => overlay.classList.add('visible'))
 
-  const close = () => overlay.remove()
-  overlay.addEventListener('click', e => { if (e.target === overlay) close() })
-  document.getElementById('cancel-sale-meta').addEventListener('click', close)
+  // Dirty-Guard: Wer auf dem Handy neben das Modal tippt (um die Tastatur
+  // loszuwerden), darf dabei nicht ungefragt seinen Text verlieren.
+  const fields = ['edit-sealed-price', 'edit-archetype', 'edit-playstyle']
+    .map(id => document.getElementById(id))
+  const initialValues = fields.map(f => f.value)
+  const isDirty = () => fields.some((f, i) => f.value !== initialValues[i])
+
+  let closing = false
+  const close = () => {
+    if (closing) return
+    closing = true
+    window.removeEventListener('route-change', onRouteChange)
+    document.removeEventListener('keydown', onKeyDown)
+    document.body.classList.remove('modal-open')
+    overlay.classList.remove('visible')
+    overlay.classList.add('closing')
+    // Timer statt transitionend: feuert auch bei reduced motion zuverlaessig
+    setTimeout(() => overlay.remove(), 300)
+  }
+  const requestClose = () => {
+    if (isDirty() && !confirm('Änderungen verwerfen?')) return
+    close()
+  }
+  const openPath = location.pathname
+  function onRouteChange() {
+    if (location.pathname !== openPath) close()
+  }
+  function onKeyDown(e) {
+    if (e.key === 'Escape') requestClose()
+  }
+  window.addEventListener('route-change', onRouteChange)
+  document.addEventListener('keydown', onKeyDown)
+  overlay.addEventListener('click', e => { if (e.target === overlay) requestClose() })
+  document.getElementById('cancel-sale-meta').addEventListener('click', requestClose)
+  overlay.querySelector('.modal').focus()
 
   document.getElementById('save-sale-meta').addEventListener('click', async () => {
     const priceVal = document.getElementById('edit-sealed-price').value.trim()
@@ -1187,6 +1227,7 @@ function showSaleMetaEditor(deck) {
 
     try {
       await updateDeck(deck.id, { sealed_price_eur, archetype, playstyle })
+      close()
       refreshRoute()
     } catch (err) {
       btn.disabled = false

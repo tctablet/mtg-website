@@ -1,7 +1,7 @@
 import { getPlayer } from '../auth.js'
 import { navigate } from '../router.js'
 import { getPlayerDecks, getDeckCards, deleteDeck } from '../supabase.js'
-import { formatTotalPrice } from '../utils.js'
+import { formatTotalPrice, renderLoadError } from '../utils.js'
 
 export async function renderMyDecks(container) {
   const player = getPlayer()
@@ -9,7 +9,13 @@ export async function renderMyDecks(container) {
 
   container.innerHTML = '<p class="loading">Lade Decks...</p>'
 
-  const decks = await getPlayerDecks(player.id)
+  let decks
+  try {
+    decks = await getPlayerDecks(player.id)
+  } catch (err) {
+    renderLoadError(container, err, () => renderMyDecks(container))
+    return
+  }
 
   container.innerHTML = `
     <div class="page">
@@ -29,12 +35,16 @@ export async function renderMyDecks(container) {
 
   if (decks.length > 0) {
     const grid = document.getElementById('deck-grid')
-    // Alle Decks parallel laden und in einem Rutsch einhaengen — sonst
-    // schiebt sich die Liste beim Scrollen Karte fuer Karte auseinander
-    const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
-    const frag = document.createDocumentFragment()
-    decks.forEach((deck, i) => frag.appendChild(createDeckCard(deck, cardLists[i], true)))
-    grid.appendChild(frag)
+    try {
+      // Alle Decks parallel laden und in einem Rutsch einhaengen — sonst
+      // schiebt sich die Liste beim Scrollen Karte fuer Karte auseinander
+      const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+      const frag = document.createDocumentFragment()
+      decks.forEach((deck, i) => frag.appendChild(createDeckCard(deck, cardLists[i], true)))
+      grid.appendChild(frag)
+    } catch (err) {
+      renderLoadError(container, err, () => renderMyDecks(container))
+    }
   }
 }
 
@@ -66,11 +76,26 @@ export function createDeckCard(deck, cards, showDelete = false) {
   })
 
   if (showDelete) {
-    card.querySelector('.deck-delete').addEventListener('click', async (e) => {
+    const delBtn = card.querySelector('.deck-delete')
+    delBtn.addEventListener('click', async (e) => {
       e.stopPropagation()
-      if (confirm(`Deck "${deck.name}" wirklich löschen?`)) {
+      if (!confirm(`Deck "${deck.name}" wirklich löschen?`)) return
+      delBtn.disabled = true
+      card.style.opacity = '0.5'
+      try {
         await deleteDeck(deck.id)
-        card.remove()
+      } catch (err) {
+        delBtn.disabled = false
+        card.style.opacity = ''
+        alert(`Löschen fehlgeschlagen: ${err.message}`)
+        return
+      }
+      card.remove()
+      // Letztes Deck weg → Leerzustand wiederherstellen (entsteht sonst nur
+      // beim initialen Render)
+      const grid = document.getElementById('deck-grid')
+      if (grid && !grid.querySelector('.deck-card')) {
+        grid.innerHTML = '<p class="empty">Noch keine Decks. Importiere dein erstes!</p>'
       }
     })
   }

@@ -115,3 +115,16 @@ export function getDeckColors(cards) {
   }
   return ['W', 'U', 'B', 'R', 'G'].filter(c => colors.has(c))
 }
+
+// Fehlerzustand fuer Seiten, deren Daten-Load fehlschlaegt — statt ewigem
+// "Lade..." oder einem faelschlichen Leerzustand
+export function renderLoadError(container, err, retry) {
+  const msg = String(err?.message || err).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))
+  container.innerHTML = `
+    <div class="page load-error">
+      <p>Daten konnten nicht geladen werden.<br /><span class="load-error-detail">${msg}</span></p>
+      <button class="btn" id="retry-load">Nochmal versuchen</button>
+    </div>
+  `
+  document.getElementById('retry-load').addEventListener('click', retry)
+}

@@ -1499,6 +1499,12 @@ body.modal-open { overflow: hidden; }
 .cmdr-filter:focus { border-color: var(--accent); }
 .cmdr-filter::placeholder { color: var(--text-dim); }
 
+/* Entrance nur beim Erst-Render (Klasse setzt renderCandidateGrid) — Filter-
+   Re-Renders faecheln nicht erneut auf */
+.cmdr-grid-animate .cmdr-card {
+  animation: proxy-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--stagger, 0) * 30ms) both;
+}
+
 .cmdr-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -1730,6 +1736,24 @@ body.modal-open { overflow: hidden; }
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.code-input.input-error { border-color: var(--error); }
+
+/* Erfolg ohne Textwechsel — Farbe statt "Gespeichert!", der Button
+   behält seine Breite */
+.save-code-btn.saved {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+/* Zeilen faecheln beim (Neu-)Aufbau kurz auf, statt hart umzuspringen */
+.admin-table tbody tr {
+  animation: row-fade-in 0.25s ease calc(var(--stagger, 0) * 30ms) both;
+}
+@keyframes row-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .code-input {
@@ -2079,6 +2103,13 @@ body.modal-open { overflow: hidden; }
 
   /* Import */
   .import-form { max-width: 100%; }
+  /* rows="20" ist auf dem Handy höher als der Viewport — die Liste soll neben
+     Tastatur und Nav noch sichtbar bleiben */
+  .import-form textarea {
+    height: 40vh;
+    min-height: 180px;
+    max-height: 45vh;
+  }
   .import-actions { flex-wrap: wrap; }
 
   /* Commander picker mobile */
@@ -2318,6 +2349,11 @@ body.modal-open { overflow: hidden; }
   max-width: 720px;
 }
 
+/* Gleiche Entrance wie .proxy-card — die Karten kommen seit dem parallelen
+   Laden in einem Rutsch und faecheln kurz auf */
+.resterampe-card {
+  animation: proxy-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--stagger, 0) * 40ms) both;
+}
 .resterampe-card {
   display: flex;
   flex-direction: column;
@@ -2538,7 +2574,12 @@ body.modal-open { overflow: hidden; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  /* Ein-/Ausblenden wie beim Artwork-Picker (.visible/.closing via JS) */
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
+.modal-overlay.visible { opacity: 1; }
+.modal-overlay.closing { opacity: 0; pointer-events: none; }
 
 .modal {
   background: var(--bg-card);
@@ -2612,3 +2653,15 @@ body.modal-open { overflow: hidden; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ===== Load Error ===== */
+.load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 64px 0;
+}
+.load-error p { color: var(--text); }
+.load-error-detail { color: var(--text-dim); font-size: 13px; }
