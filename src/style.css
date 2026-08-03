@@ -2092,7 +2092,8 @@ body.modal-open { overflow: hidden; }
   .admin-table th,
   .admin-table td { padding: 8px 6px; }
   .admin-code-edit { gap: 4px; }
-  .code-input { width: 64px; }
+  /* 16px-Schrift + 4px letter-spacing brauchen mehr Platz als vorher */
+  .code-input { width: 78px; }
   .admin-add { padding: 16px; }
   .admin-add-form {
     flex-direction: column;
@@ -2108,7 +2109,6 @@ body.modal-open { overflow: hidden; }
   input,
   textarea,
   select,
-  .login-form input,
   .meta-editor input,
   .add-card-input,
   .qty-input,
@@ -2125,8 +2125,10 @@ body.modal-open { overflow: hidden; }
     font-size: 16px;
   }
 
-  /* Eingabefelder ebenfalls bequem treffbar */
-  input:not([type='checkbox']):not([type='radio']),
+  /* Eingabefelder ebenfalls bequem treffbar.
+     .qty-input ist ausgenommen statt nachträglich überschrieben — jedes
+     :not() erhöht die Spezifität, ein späteres .qty-input würde verlieren. */
+  input:not([type='checkbox']):not([type='radio']):not(.qty-input),
   textarea,
   select {
     min-height: 44px;
@@ -2141,7 +2143,8 @@ body.modal-open { overflow: hidden; }
     min-height: 44px;
   }
   .btn,
-  .btn-small {
+  .btn-small,
+  .btn-edit-meta {
     display: inline-flex;
     align-items: center;
     justify-content: center;
