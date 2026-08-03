@@ -46,6 +46,9 @@ export async function renderResterampe(container) {
   // Beide Sektionen parallel laden statt Deck fuer Deck nacheinander
   const fill = async (decks, grid) => {
     const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+    // Schlug die Schwester-Sektion fehl, hat renderLoadError den Container
+    // ersetzt — dann nicht mehr in den losgelösten Grid-Knoten rendern
+    if (!grid.isConnected) return
     const frag = document.createDocumentFragment()
     decks.forEach((deck, i) => frag.appendChild(createResterampeCard(deck, cardLists[i], i)))
     grid.appendChild(frag)

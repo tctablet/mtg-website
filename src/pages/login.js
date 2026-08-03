@@ -38,19 +38,26 @@ export async function renderLogin(container) {
     btn.textContent = 'Lade...'
     error.hidden = true
 
-    const player = await loginWithCode(code)
+    let player = null
+    let failed = false
+    try {
+      player = await loginWithCode(code)
+    } catch {
+      failed = true
+    }
     if (player) {
       setPlayer(player)
       renderNav()
       navigate('/my-decks')
     } else {
-      error.textContent = 'Code nicht gefunden.'
+      error.textContent = failed ? 'Netzwerkfehler — bitte nochmal versuchen.' : 'Code nicht gefunden.'
       error.hidden = false
       btn.disabled = false
       btn.textContent = 'Anmelden'
-      // Falscher Code soll nicht zum Editieren stehen bleiben. Kein focus():
-      // nach dem await öffnet iOS die Tastatur ohnehin nicht erneut.
-      input.value = ''
+      // Falscher Code soll nicht zum Editieren stehen bleiben — aber nur,
+      // wenn der Nutzer ihn nicht längst korrigiert hat (langsames Netz).
+      // Kein focus(): nach dem await öffnet iOS die Tastatur ohnehin nicht.
+      if (!failed && input.value.trim() === code) input.value = ''
     }
   }
 

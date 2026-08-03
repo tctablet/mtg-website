@@ -1204,7 +1204,13 @@ function showSaleMetaEditor(deck) {
   }
   const openPath = location.pathname
   function onRouteChange() {
-    if (location.pathname !== openPath) close()
+    if (location.pathname === openPath) return
+    // Navigation (Back-Geste etc.) ist zu diesem Zeitpunkt schon passiert —
+    // ein confirm() kann sie nicht mehr aufhalten. Ungespeicherte Eingaben
+    // deshalb NICHT wegwerfen: Modal bleibt offen, Speichern geht weiter
+    // (deck.id ist gebunden); nur ein sauberes Modal schließt automatisch.
+    if (isDirty()) return
+    close()
   }
   function onKeyDown(e) {
     if (e.key === 'Escape') requestClose()

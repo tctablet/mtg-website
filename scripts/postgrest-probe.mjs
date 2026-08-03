@@ -43,10 +43,15 @@ try {
 } catch (err) {
   results.push(`FAIL Probe abgebrochen: ${err.message.split('\n')[0]}`)
 } finally {
-  // Cleanup: beide Sentinels restlos weg
-  await api(`scryfall_prices?name=like.${encodeURIComponent('~~printings-probe-*')}`, { method: 'DELETE' })
-  const gone = await (await api(`scryfall_prices?name=like.${encodeURIComponent('~~printings-probe-*')}&select=name`)).json()
-  check('Cleanup: Sentinels entfernt', gone.length === 0, JSON.stringify(gone))
+  // Cleanup: beide Sentinels restlos weg. Eigenes try/catch — wirft der
+  // Cleanup selbst, duerfen die gesammelten Ergebnisse nicht verloren gehen.
+  try {
+    await api(`scryfall_prices?name=like.${encodeURIComponent('~~printings-probe-*')}`, { method: 'DELETE' })
+    const gone = await (await api(`scryfall_prices?name=like.${encodeURIComponent('~~printings-probe-*')}&select=name`)).json()
+    check('Cleanup: Sentinels entfernt', gone.length === 0, JSON.stringify(gone))
+  } catch (err) {
+    check('Cleanup: Sentinels entfernt', false, err.message.split('\n')[0])
+  }
 }
 console.log(results.join('\n'))
 if (results.some(r => r.startsWith('FAIL'))) process.exit(1)

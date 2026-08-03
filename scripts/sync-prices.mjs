@@ -187,7 +187,16 @@ async function syncPrintings(rows, deckNames, runStamp) {
   const countRes = await supabaseRpc(`${staleFilter}&limit=1`, {
     headers: { Prefer: 'count=exact' },
   })
-  const staleCount = parseInt((countRes.headers.get('content-range') || '').split('/')[1], 10) || 0
+  // Fail-closed: ohne parsbaren exakten Count wird NICHT geloescht — ein
+  // stiller Fallback auf 0 wuerde das Sicherheitsnetz genau dann aushebeln,
+  // wenn es gebraucht wird.
+  const staleCount = parseInt((countRes.headers.get('content-range') || '').split('/')[1], 10)
+  if (!Number.isFinite(staleCount)) {
+    throw new Error(
+      `Cleanup übersprungen: kein exakter Count im Content-Range-Header ` +
+      `("${countRes.headers.get('content-range')}") — fail-closed.`
+    )
+  }
   const staleLimit = Math.max(500, Math.round(rows.length * 0.2))
   if (staleCount > staleLimit) {
     throw new Error(
@@ -384,7 +393,10 @@ async function main() {
     try {
       await syncPrintings(printingRows, deckNames, runStamp)
     } catch (err) {
-      console.log(`::warning::Printings-Sync fehlgeschlagen: ${err.message.split('\n')[0]}`)
+      // ::error:: statt ::warning::: taucht rot in den Actions-Annotations auf.
+      // Exit bleibt bewusst 0 — die Preise SIND synchron, nur der Printings-
+      // Teil hakt; ein roter Job würde fälschlich "Preise kaputt" signalisieren.
+      console.log(`::error::Printings-Sync fehlgeschlagen: ${err.message.split('\n')[0]}`)
     }
   }
 

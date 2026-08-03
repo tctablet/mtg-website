@@ -1427,6 +1427,11 @@ body.modal-open { overflow: hidden; }
 .import-form input:focus,
 .import-form textarea:focus { border-color: var(--accent); }
 
+/* readOnly graut nicht automatisch aus (anders als disabled) — den
+   eingefrorenen Schritt-1-Zustand trotzdem sichtbar machen */
+.import-form input[readonly],
+.import-form textarea[readonly] { opacity: 0.6; }
+
 .import-form textarea {
   font-family: 'Fira Code', 'Cascadia Code', monospace;
   font-size: 13px;
@@ -2027,6 +2032,8 @@ body.modal-open { overflow: hidden; }
     gap: 16px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* Quer-Wischen endet in der Leiste, nicht als Browser-Back-Geste */
+    overscroll-behavior-x: contain;
     scrollbar-width: none;
   }
   .nav-links::-webkit-scrollbar { display: none; }
@@ -2580,6 +2587,9 @@ body.modal-open { overflow: hidden; }
 }
 .modal-overlay.visible { opacity: 1; }
 .modal-overlay.closing { opacity: 0; pointer-events: none; }
+/* Programmatischer Fokus beim Oeffnen — kein Fokusrahmen um die ganze Karte
+   (gleiches Muster wie .artwork-picker:focus) */
+.modal:focus { outline: none; }
 
 .modal {
   background: var(--bg-card);
