@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MTG Deck Tracker</title>
+    <script>
+      // Gegenstück zu 404.html (GitHub Pages SPA-Fallback): stellt aus
+      // ?/deck/5 wieder die echte URL /mtg-website/deck/5 her, bevor die App lädt.
+      ;(function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&')
+          }).join('?')
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash)
+        }
+      })(window.location)
+    </script>
     <link href="//cdn.jsdelivr.net/npm/mana-font@1.18.0/css/mana.min.css" rel="stylesheet" />
   </head>
   <body>

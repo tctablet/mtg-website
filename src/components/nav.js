@@ -1,5 +1,5 @@
 import { getPlayer, logout } from '../auth.js'
-import { navigate } from '../router.js'
+import { navigate, routeHref } from '../router.js'
 
 export function renderNav() {
   const nav = document.getElementById('nav')
@@ -10,10 +10,10 @@ export function renderNav() {
       <div class="nav-inner">
         <div class="nav-brand">MTG Deck Tracker</div>
         <div class="nav-links">
-          <a href="#/resterampe">Philips Resterampe</a>
+          <a href="${routeHref('/resterampe')}">Philips Resterampe</a>
         </div>
         <div class="nav-user">
-          <a href="#/login" class="btn-small">Login</a>
+          <a href="${routeHref('/login')}" class="btn-small">Login</a>
         </div>
       </div>
     `
@@ -24,11 +24,11 @@ export function renderNav() {
     <div class="nav-inner">
       <div class="nav-brand">MTG Deck Tracker</div>
       <div class="nav-links">
-        <a href="#/overview">Übersicht</a>
-        <a href="#/my-decks">Meine Decks</a>
-        <a href="#/resterampe">Philips Resterampe</a>
-        <a href="#/info">Info</a>
-        ${player.is_admin ? '<a href="#/admin">Admin</a>' : ''}
+        <a href="${routeHref('/overview')}">Übersicht</a>
+        <a href="${routeHref('/my-decks')}">Meine Decks</a>
+        <a href="${routeHref('/resterampe')}">Philips Resterampe</a>
+        <a href="${routeHref('/info')}">Info</a>
+        ${player.is_admin ? `<a href="${routeHref('/admin')}">Admin</a>` : ''}
       </div>
       <div class="nav-user">
         <span>Eingeloggt als <strong>${player.name}</strong></span>
@@ -40,6 +40,6 @@ export function renderNav() {
   document.getElementById('logout-btn').addEventListener('click', () => {
     logout()
     renderNav()
-    navigate('#/resterampe')
+    navigate('/resterampe')
   })
 }

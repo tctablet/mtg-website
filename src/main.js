@@ -11,14 +11,14 @@ import { renderInfo } from './pages/info.js'
 import { renderResterampe } from './pages/resterampe.js'
 
 // Routes registrieren
-registerRoute('#/login', renderLogin)
-registerRoute('#/overview', renderOverview)
-registerRoute('#/my-decks', renderMyDecks)
-registerRoute('#/deck/:id', renderDeckView)
-registerRoute('#/import', renderDeckImport)
-registerRoute('#/admin', renderAdmin)
-registerRoute('#/info', renderInfo)
-registerRoute('#/resterampe', renderResterampe)
+registerRoute('/login', renderLogin)
+registerRoute('/overview', renderOverview)
+registerRoute('/my-decks', renderMyDecks)
+registerRoute('/deck/:id', renderDeckView)
+registerRoute('/import', renderDeckImport)
+registerRoute('/admin', renderAdmin)
+registerRoute('/info', renderInfo)
+registerRoute('/resterampe', renderResterampe)
 
 // Navigation rendern
 renderNav()

@@ -1,10 +1,10 @@
 import { getAllDecksWithPlayers, getDeckCards, getAllPlayers } from '../supabase.js'
 import { formatPrice } from '../utils.js'
-import { navigate } from '../router.js'
+import { navigate, routeHref } from '../router.js'
 import { getPlayer } from '../auth.js'
 
 export async function renderOverview(container) {
-  if (!getPlayer()) { navigate('#/login'); return }
+  if (!getPlayer()) { navigate('/login'); return }
 
   container.innerHTML = '<p class="loading">Lade Übersicht...</p>'
 
@@ -48,7 +48,7 @@ export async function renderOverview(container) {
           ${p.decks.length ? `
             <div class="overview-deck-grid">
               ${p.decks.map(d => `
-                <a href="#/deck/${d.id}" class="deck-tile" ${d.commander_image ? `style="background-image: linear-gradient(to bottom, rgba(15,15,20,0.1) 0%, rgba(15,15,20,0.85) 70%), url('${d.commander_image}'); background-size: cover; background-position: center top;"` : ''}>
+                <a href="${routeHref(`/deck/${d.id}`)}" class="deck-tile" ${d.commander_image ? `style="background-image: linear-gradient(to bottom, rgba(15,15,20,0.1) 0%, rgba(15,15,20,0.85) 70%), url('${d.commander_image}'); background-size: cover; background-position: center top;"` : ''}>
                   <div class="deck-tile-bottom">
                     <span class="deck-tile-name">${d.name}</span>
                     <span class="deck-tile-commander">${d.commander}</span>

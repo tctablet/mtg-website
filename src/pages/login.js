@@ -39,7 +39,7 @@ export async function renderLogin(container) {
     if (player) {
       setPlayer(player)
       renderNav()
-      navigate('#/my-decks')
+      navigate('/my-decks')
     } else {
       error.textContent = 'Code nicht gefunden.'
       error.hidden = false

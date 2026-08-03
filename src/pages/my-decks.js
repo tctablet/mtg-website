@@ -5,7 +5,7 @@ import { formatTotalPrice } from '../utils.js'
 
 export async function renderMyDecks(container) {
   const player = getPlayer()
-  if (!player) { navigate('#/login'); return }
+  if (!player) { navigate('/login'); return }
 
   container.innerHTML = '<p class="loading">Lade Decks...</p>'
 
@@ -24,7 +24,7 @@ export async function renderMyDecks(container) {
   `
 
   document.getElementById('new-deck-btn').addEventListener('click', () => {
-    navigate('#/import')
+    navigate('/import')
   })
 
   if (decks.length > 0) {
@@ -62,7 +62,7 @@ export function createDeckCard(deck, cards, showDelete = false) {
 
   card.addEventListener('click', (e) => {
     if (e.target.closest('.deck-delete')) return
-    navigate(`#/deck/${deck.id}`)
+    navigate(`/deck/${deck.id}`)
   })
 
   if (showDelete) {

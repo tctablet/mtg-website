@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MTG Deck Tracker</title>
+    <script>
+      // GitHub Pages SPA-Fallback (spa-github-pages):
+      // Pages kennt kein Server-Rewrite — Deep-Links wie /mtg-website/deck/5
+      // landen hier. Wir kodieren den Pfad in die Query (?/deck/5) und leiten
+      // auf index.html um, wo das Snippet im <head> die URL wiederherstellt.
+      var pathSegmentsToKeep = 1 // '/mtg-website'
+
+      var l = window.location
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      )
+    </script>
+  </head>
+  <body></body>
+</html>

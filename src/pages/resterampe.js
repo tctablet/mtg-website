@@ -118,7 +118,7 @@ function createResterampeCard(deck, cards) {
   `
 
   card.addEventListener('click', () => {
-    navigate(`#/deck/${deck.id}`)
+    navigate(`/deck/${deck.id}`)
   })
 
   return card

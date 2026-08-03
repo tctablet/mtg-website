@@ -13,7 +13,7 @@ let selectedCommander2 = null
 
 export async function renderDeckImport(container) {
   const player = getPlayer()
-  if (!player) { navigate('#/login'); return }
+  if (!player) { navigate('/login'); return }
 
   scryfallMap = {}
   parsedCards = []
@@ -433,11 +433,11 @@ async function doImport() {
       `
       errorsEl.hidden = false
       showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert (${skipped.length} uebersprungen).`, 'success')
-      setTimeout(() => navigate(`#/deck/${deck.id}`), 3000)
+      setTimeout(() => navigate(`/deck/${deck.id}`), 3000)
     } else {
       errorsEl.hidden = true
       showStatus(statusEl, `Deck "${deckName}" mit ${cardRows.length} Karten gespeichert!`, 'success')
-      setTimeout(() => navigate(`#/deck/${deck.id}`), 1500)
+      setTimeout(() => navigate(`/deck/${deck.id}`), 1500)
     }
   } catch (err) {
     showStatus(statusEl, `Fehler: ${err.message}`, 'error')

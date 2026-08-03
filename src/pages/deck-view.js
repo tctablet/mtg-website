@@ -5,7 +5,7 @@ import { createCardRow, setEditMode, isEditMode } from '../components/card-row.j
 import { setDefaultPreview } from '../components/card-preview.js'
 import { estimateBracket } from '../bracket.js'
 import { getPlayer } from '../auth.js'
-import { navigate } from '../router.js'
+import { navigate, refreshRoute, routeHref } from '../router.js'
 
 export async function renderDeckView(container, params) {
   const { id } = params
@@ -20,14 +20,14 @@ export async function renderDeckView(container, params) {
 
   const player = getPlayer()
   if (!player && !deck.for_sale) {
-    navigate('#/login')
+    navigate('/login')
     return
   }
   const isOwner = player && player.id === deck.player_id
   const stale = cards.some(c => isPriceStale(c.price_updated_at))
   const totalPrice = formatTotalPrice(cards)
   const isForSale = !!deck.for_sale
-  const backHref = isForSale ? '#/resterampe' : '#/my-decks'
+  const backHref = isForSale ? routeHref('/resterampe') : routeHref('/my-decks')
   const backLabel = isForSale ? 'Zur Resterampe' : 'Zurück'
 
   const headerBg = deck.commander_image
@@ -159,19 +159,19 @@ export async function renderDeckView(container, params) {
   document.getElementById('add-to-sale')?.addEventListener('click', async () => {
     if (!confirm(`"${deck.name}" zur Resterampe hinzufügen?`)) return
     await updateDeck(deck.id, { for_sale: true })
-    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    refreshRoute()
   })
 
   document.getElementById('remove-from-sale')?.addEventListener('click', async () => {
     if (!confirm(`"${deck.name}" aus der Resterampe entfernen?`)) return
     await updateDeck(deck.id, { for_sale: false, sold: false })
-    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    refreshRoute()
   })
 
   document.getElementById('toggle-sold')?.addEventListener('click', async () => {
     const newSold = !deck.sold
     await updateDeck(deck.id, { sold: newSold })
-    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    refreshRoute()
   })
 
   document.getElementById('edit-sale-meta')?.addEventListener('click', () => {
@@ -607,7 +607,7 @@ function showMetaEditor(deck) {
       }
 
       await updateDeck(deck.id, updates)
-      window.dispatchEvent(new HashChangeEvent('hashchange'))
+      refreshRoute()
     } catch (err) {
       saveBtn.textContent = `Fehler: ${err.message}`
       saveBtn.disabled = false
@@ -671,7 +671,7 @@ async function refreshPrices(deckId, cards) {
     setProgress(100, 'Fertig!')
     setTimeout(() => {
       // Force re-render even if hash unchanged
-      window.dispatchEvent(new HashChangeEvent('hashchange'))
+      refreshRoute()
     }, 500)
   } catch (err) {
     setProgress(0, `Fehler: ${err.message}`)
@@ -878,11 +878,11 @@ async function openArtworkPicker(card, cardEl, allCards) {
   document.body.classList.add('modal-open')
   requestAnimationFrame(() => modal.classList.add('visible'))
 
-  const openHash = location.hash
-  function onHashChange() {
-    // deck-view feuert synthetische hashchange-Events zum Force-Re-Render
-    // (z.B. nach Preis-Refresh) — nur bei ECHTER Navigation schließen
-    if (location.hash !== openHash) closeModal()
+  const openPath = location.pathname
+  function onRouteChange() {
+    // refreshRoute() re-rendert ohne Pfadwechsel (z.B. nach Preis-Refresh)
+    // — nur bei ECHTER Navigation schließen
+    if (location.pathname !== openPath) closeModal()
   }
   function onKeyDown(e) {
     if (e.key === 'Escape') closeModal()
@@ -891,7 +891,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
   function closeModal() {
     if (closing) return
     closing = true
-    window.removeEventListener('hashchange', onHashChange)
+    window.removeEventListener('route-change', onRouteChange)
     document.removeEventListener('keydown', onKeyDown)
     document.body.classList.remove('modal-open')
     if (closeActiveArtworkPicker === closeModal) closeActiveArtworkPicker = null
@@ -904,7 +904,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
 
   modal.querySelector('.artwork-picker-close').addEventListener('click', closeModal)
   modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
-  window.addEventListener('hashchange', onHashChange)
+  window.addEventListener('route-change', onRouteChange)
   document.addEventListener('keydown', onKeyDown)
 
   // aria-modal verlangt, dass der Fokus in den Dialog wandert — auf ALLEN
@@ -1165,7 +1165,7 @@ function showSaleMetaEditor(deck) {
 
     try {
       await updateDeck(deck.id, { sealed_price_eur, archetype, playstyle })
-      window.dispatchEvent(new HashChangeEvent('hashchange'))
+      refreshRoute()
     } catch (err) {
       btn.disabled = false
       btn.textContent = `Fehler: ${err.message}`

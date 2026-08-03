@@ -1,12 +1,12 @@
 import { getPlayer } from '../auth.js'
-import { navigate } from '../router.js'
+import { navigate, routeHref } from '../router.js'
 
 export function renderInfo(container) {
-  if (!getPlayer()) { navigate('#/login'); return }
+  if (!getPlayer()) { navigate('/login'); return }
 
   container.innerHTML = `
     <div class="page info-page">
-      <a href="#/my-decks" class="back-link">&larr; Zurück</a>
+      <a href="${routeHref('/my-decks')}" class="back-link">&larr; Zurück</a>
       <h2>Wie funktioniert's?</h2>
 
       <section class="info-section">

@@ -5,7 +5,7 @@ import { supabase } from '../supabase.js'
 export async function renderAdmin(container) {
   const player = getPlayer()
   if (!player || !player.is_admin) {
-    navigate('#/my-decks')
+    navigate('/my-decks')
     return
   }
 
