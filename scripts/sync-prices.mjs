@@ -210,6 +210,18 @@ async function main() {
   console.log(`Streamed ${cardCount} card objects`)
   console.log(`Found cheapest prices for ${priceMap.size} unique cards`)
 
+  // Nichts schreiben, wenn die Ausbeute unplausibel klein ist. Ein leeres oder
+  // halb übertragenes Bulk-File würde sonst als grüner Lauf durchgehen und die
+  // Preise still einfrieren — genau der Ausfall, der hier gerade behoben wurde.
+  // Referenz: ein gesunder Lauf liefert ~38.000 Namen aus ~116.000 Objekten.
+  const MIN_EXPECTED_NAMES = 20000
+  if (priceMap.size < MIN_EXPECTED_NAMES) {
+    throw new Error(
+      `Nur ${priceMap.size} Preise aus ${cardCount} Objekten — erwartet mindestens ${MIN_EXPECTED_NAMES}. ` +
+      'Bulk-Datei vermutlich unvollständig; es wird nichts geschrieben.'
+    )
+  }
+
   // 4. Upsert into Supabase in batches
   const now = new Date().toISOString()
   const rows = [...priceMap.entries()].map(([name, { eur, is_foil }]) => ({

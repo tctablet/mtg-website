@@ -234,10 +234,37 @@ function toPrinting(c) {
  * Liefert eine Map (kleingeschriebener Name → Printings). Namen, für die
  * nichts zurückkam, fehlen in der Map und bleiben dem Einzelabruf überlassen.
  */
+// Scryfall schneidet ein zu langes q still ab und antwortet dann mit HTTP 200
+// auf eine sinnlose Query (praktisch der gesamte Katalog). Die Grenze liegt bei
+// rund 1000 Zeichen im unkodierten q — 700 lässt reichlich Luft.
+const MAX_QUERY_CHARS = 700
+// Eine Karte hat selbst im Extremfall keine 400 Druckvarianten. Deutlich mehr
+// heißt: die Query wurde verstümmelt, das Ergebnis gehört nicht uns.
+const MAX_PLAUSIBLE_PER_NAME = 400
+
+function chunkByQueryLength(names, maxNames) {
+  // `!"Name"` sind 3 Zeichen Zuschlag, ` or ` als Trenner nochmal 4
+  const costOf = (name, isFirst) => name.length + 3 + (isFirst ? 0 : 4)
+  const chunks = []
+  let current = []
+  let length = 0
+  for (const name of names) {
+    const wouldExceed = length + costOf(name, false) > MAX_QUERY_CHARS
+    if (current.length && (wouldExceed || current.length >= maxNames)) {
+      chunks.push(current)
+      current = []
+      length = 0
+    }
+    length += costOf(name, current.length === 0)
+    current.push(name)
+  }
+  if (current.length) chunks.push(current)
+  return chunks
+}
+
 export async function fetchPrintingsBulk(cardNames, { chunkSize = 12, onChunk } = {}) {
   const result = new Map()
-  for (let i = 0; i < cardNames.length; i += chunkSize) {
-    const chunk = cardNames.slice(i, i + chunkSize)
+  for (const chunk of chunkByQueryLength(cardNames, chunkSize)) {
     const q = chunk.map(n => `!"${n.replace(/"/g, '')}"`).join(' or ')
     try {
       for (let page = 1; page <= 20; page++) {
@@ -245,6 +272,14 @@ export async function fetchPrintingsBulk(cardNames, { chunkSize = 12, onChunk } 
         const res = await fetchWithTimeout(url, 15000)
         if (!res.ok) break // inkl. 404 = kein Treffer im ganzen Chunk
         const data = await res.json()
+        // Absturzsicherung gegen die still abgeschnittene Query: lieber nichts
+        // übernehmen als fremde Printings, und keine 20 Seiten leerlaufen
+        if (page === 1 && data.total_cards > chunk.length * MAX_PLAUSIBLE_PER_NAME) {
+          console.warn(
+            `fetchPrintingsBulk: implausible Antwort (${data.total_cards} Treffer für ${chunk.length} Namen) — Chunk verworfen`
+          )
+          break
+        }
         for (const c of data.data || []) {
           if (!keepPrinting(c)) continue
           const key = c.name.toLowerCase()
@@ -252,6 +287,7 @@ export async function fetchPrintingsBulk(cardNames, { chunkSize = 12, onChunk } 
           result.get(key).push(toPrinting(c))
         }
         if (!data.has_more) break
+        if (page === 20) console.warn('fetchPrintingsBulk: Seitenlimit erreicht, Rest übersprungen')
         await delay(100)
       }
       if (onChunk) onChunk(result)
