@@ -29,10 +29,12 @@ export async function renderMyDecks(container) {
 
   if (decks.length > 0) {
     const grid = document.getElementById('deck-grid')
-    for (const deck of decks) {
-      const cards = await getDeckCards(deck.id)
-      grid.appendChild(createDeckCard(deck, cards, true))
-    }
+    // Alle Decks parallel laden und in einem Rutsch einhaengen — sonst
+    // schiebt sich die Liste beim Scrollen Karte fuer Karte auseinander
+    const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+    const frag = document.createDocumentFragment()
+    decks.forEach((deck, i) => frag.appendChild(createDeckCard(deck, cardLists[i], true)))
+    grid.appendChild(frag)
   }
 }
 

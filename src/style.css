@@ -219,9 +219,11 @@ a:hover { color: var(--accent-hover); }
   transition: border-color 0.2s, transform 0.2s;
   position: relative;
 }
-.deck-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .deck-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
 }
 
 .deck-card-art {
@@ -2157,15 +2159,23 @@ body.modal-open { overflow: hidden; }
   /* Sichtbares Feedback beim Antippen, da :hover auf Touch nichts tut */
   .btn:active,
   .btn-small:active,
-  .deck-tile:active {
+  .deck-tile:active,
+  .deck-card:active,
+  .cmdr-card:active {
     transform: scale(0.97);
   }
   .btn,
   .btn-small,
-  .deck-tile {
+  .deck-tile,
+  .deck-card,
+  .cmdr-card {
     transition: transform 0.12s ease;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Navigation: groessere Trefferflaechen */
+  .nav-links a { padding: 10px 0; }
+  .back-link { display: inline-block; padding: 8px 0; }
 }
 
 /* ===== Mana Pips ===== */
@@ -2428,10 +2438,15 @@ body.modal-open { overflow: hidden; }
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
   display: flex;
-  align-items: center;
+  /* flex-start + auto-Margins: zentriert bei genug Platz, gibt aber einen
+     Scrollweg frei, wenn die Tastatur den Viewport verkleinert */
+  align-items: flex-start;
   justify-content: center;
   z-index: 200;
-  padding: 20px;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .modal {
@@ -2441,6 +2456,7 @@ body.modal-open { overflow: hidden; }
   padding: 24px;
   width: 100%;
   max-width: 480px;
+  margin: auto 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2471,6 +2487,15 @@ body.modal-open { overflow: hidden; }
   outline: none;
   font-family: inherit;
   resize: vertical;
+}
+
+/* Steht bewusst NACH der Regel oben: der Mobile-Block weiter vorne im File
+   hat dieselbe Spezifitaet und wuerde per Quellreihenfolge verlieren. */
+@media (max-width: 480px) {
+  .modal input,
+  .modal textarea {
+    font-size: 16px;
+  }
 }
 
 .modal input:focus,

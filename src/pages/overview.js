@@ -19,17 +19,20 @@ export async function renderOverview(container) {
     playerMap[p.id] = { id: p.id, name: p.name, decks: [], totalValue: 0 }
   }
 
-  for (const deck of decks) {
+  // Parallel statt nacheinander — sonst summiert sich pro Deck eine volle
+  // Netzwerk-Runde, auf dem Handy schnell mehrere Sekunden
+  const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+
+  decks.forEach((deck, i) => {
     const pid = deck.player_id
     if (!playerMap[pid]) {
       const name = deck.players?.name || 'Unbekannt'
       playerMap[pid] = { id: pid, name, decks: [], totalValue: 0 }
     }
-    const cards = await getDeckCards(deck.id)
-    const value = cards.reduce((s, c) => s + (parseFloat(c.price_eur) || 0) * c.quantity, 0)
+    const value = cardLists[i].reduce((s, c) => s + (parseFloat(c.price_eur) || 0) * c.quantity, 0)
     playerMap[pid].decks.push({ ...deck, value })
     playerMap[pid].totalValue += value
-  }
+  })
 
   const players = Object.values(playerMap).sort((a, b) => b.totalValue - a.totalValue)
 

@@ -37,23 +37,22 @@ export async function renderResterampe(container) {
   const customGrid = document.getElementById('grid-custom')
   const preconGrid = document.getElementById('grid-precon')
 
-  if (customDecks.length === 0) {
-    document.getElementById('section-custom').remove()
-  } else {
-    for (const deck of customDecks) {
-      const cards = await getDeckCards(deck.id)
-      customGrid.appendChild(createResterampeCard(deck, cards))
-    }
+  // Beide Sektionen parallel laden statt Deck fuer Deck nacheinander
+  const fill = async (decks, grid) => {
+    const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+    const frag = document.createDocumentFragment()
+    decks.forEach((deck, i) => frag.appendChild(createResterampeCard(deck, cardLists[i])))
+    grid.appendChild(frag)
   }
 
-  if (preconDecks.length === 0) {
-    document.getElementById('section-precon').remove()
-  } else {
-    for (const deck of preconDecks) {
-      const cards = await getDeckCards(deck.id)
-      preconGrid.appendChild(createResterampeCard(deck, cards))
-    }
-  }
+  await Promise.all([
+    customDecks.length === 0
+      ? Promise.resolve(document.getElementById('section-custom').remove())
+      : fill(customDecks, customGrid),
+    preconDecks.length === 0
+      ? Promise.resolve(document.getElementById('section-precon').remove())
+      : fill(preconDecks, preconGrid),
+  ])
 }
 
 function createResterampeCard(deck, cards) {
