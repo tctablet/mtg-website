@@ -950,7 +950,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
     const sets = [...setsByCode.values()].sort((a, b) => b.released.localeCompare(a.released))
     setSelect.innerHTML = `<option value="">Alle Sets (${printings.length})</option>`
       + sets.map(s =>
-        `<option value="${s.code}">${escapeHtml(s.name)} (${s.released.substring(0, 4) || '?'})${s.count > 1 ? ` · ${s.count}` : ''}</option>`
+        `<option value="${escapeHtml(s.code)}">${escapeHtml(s.name)} (${s.released.substring(0, 4) || '?'})${s.count > 1 ? ` · ${s.count}` : ''}</option>`
       ).join('')
     // Bei nur einem Set bringt die Auswahl nichts
     setSelect.hidden = sets.length < 2
@@ -966,8 +966,10 @@ async function openArtworkPicker(card, cardEl, allCards) {
         return p.set.toLowerCase().includes(query) || p.set_code.toLowerCase().includes(query)
       })
 
+      // Die Reset-Kachel ist ein Bedienelement, kein Printing — sie bleibt
+      // auch bei aktivem Set-Filter erreichbar
       let resetHtml = ''
-      if (card.proxy_image_uri && !query && !setCode) {
+      if (card.proxy_image_uri && !query) {
         resetHtml = `
           <div class="artwork-option artwork-reset" data-action="reset">
             <div class="artwork-option-img-wrap">
@@ -979,15 +981,15 @@ async function openArtworkPicker(card, cardEl, allCards) {
       }
 
       pickerGrid.innerHTML = resetHtml + (filtered.length === 0
-        ? `<p class="artwork-no-results">Kein Artwork gefunden${filter ? ` für "${escapeHtml(filter)}"` : ''}</p>`
+        ? `<p class="artwork-no-results">Kein Artwork gefunden${filter ? ` für "${escapeHtml(filter)}"` : ''}${setCode ? ` im Set ${escapeHtml(setsByCode.get(setCode)?.name || setCode)}` : ''}</p>`
         : filtered.map(p => {
           const isSelected = card.proxy_image_uri === p.image_normal || (!card.proxy_image_uri && card.image_uri === p.image_normal)
           return `
             <div class="artwork-option ${isSelected ? 'artwork-selected' : ''}" data-image="${p.image_normal}" data-png="${p.image_png || p.image_normal}">
               <div class="artwork-option-img-wrap">
-                <img src="${p.image_small || p.image_normal}" alt="${p.set}" loading="lazy" decoding="async" />
+                <img src="${p.image_small || p.image_normal}" alt="${escapeHtml(p.set)}" loading="lazy" decoding="async" />
               </div>
-              <span class="artwork-option-set">${p.set} (${p.released?.substring(0, 4) || '?'})</span>
+              <span class="artwork-option-set">${escapeHtml(p.set)} (${p.released?.substring(0, 4) || '?'})</span>
             </div>
           `
         }).join(''))

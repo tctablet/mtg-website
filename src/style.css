@@ -839,6 +839,10 @@ body.modal-open { overflow: hidden; }
 
 .artwork-picker-header {
   display: flex;
+  /* wrap ist noetig, damit die Set-Auswahl (flex-basis:100%) eine eigene
+     Zeile bekommt — ohne das quetscht sie sich neben die Suche */
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
