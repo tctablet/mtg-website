@@ -15,8 +15,11 @@ export async function loginWithCode(code) {
     .eq('code', code)
     .single()
 
-  if (error || !data) return null
-  return data
+  // PGRST116 = kein Treffer (falscher Code) → null. Alles andere (auch von
+  // postgrest-js eingefangene Netzausfälle) wirft, damit der Login
+  // "Netzwerkfehler" statt fälschlich "Code nicht gefunden" zeigen kann.
+  if (error && error.code !== 'PGRST116') throw error
+  return data || null
 }
 
 export async function getAllPlayers() {

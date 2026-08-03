@@ -1206,10 +1206,11 @@ function showSaleMetaEditor(deck) {
   function onRouteChange() {
     if (location.pathname === openPath) return
     // Navigation (Back-Geste etc.) ist zu diesem Zeitpunkt schon passiert —
-    // ein confirm() kann sie nicht mehr aufhalten. Ungespeicherte Eingaben
-    // deshalb NICHT wegwerfen: Modal bleibt offen, Speichern geht weiter
-    // (deck.id ist gebunden); nur ein sauberes Modal schließt automatisch.
-    if (isDirty()) return
+    // aufhalten geht nicht mehr. Bei ungespeicherten Eingaben entscheidet der
+    // Nutzer: behalten (Modal bleibt bewusst über der neuen Seite offen,
+    // Speichern wirkt weiter auf dieses Deck) oder verwerfen (Modal schließt,
+    // die neue Seite ist frei). Sauberes Modal schließt kommentarlos.
+    if (isDirty() && confirm('Ungespeicherte Verkaufs-Infos behalten?')) return
     close()
   }
   function onKeyDown(e) {
