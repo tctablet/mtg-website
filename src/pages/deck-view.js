@@ -1,5 +1,5 @@
 import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards, fetchCheapestPrices } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, autocompleteCard } from '../scryfall.js'
+import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchPrintingsBulk, autocompleteCard } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { setDefaultPreview } from '../components/card-preview.js'
@@ -679,16 +679,61 @@ async function refreshPrices(deckId, cards) {
 }
 
 // --- Printings Cache ---
-const PRINTS_CACHE_VER = 'v3'
+// v4: image_small ergänzt, Ablage in localStorage statt sessionStorage
+const PRINTS_CACHE_VER = 'v4'
+const PRINTS_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const printingsCache = new Map()
 let prefetchInFlight = false
 
-// Invalidate old cache versions
-if (sessionStorage.getItem('prints:ver') !== PRINTS_CACHE_VER) {
-  for (const key of Object.keys(sessionStorage)) {
-    if (key.startsWith('prints:')) sessionStorage.removeItem(key)
+function clearStoredPrintings() {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith('prints:')) localStorage.removeItem(key)
   }
-  sessionStorage.setItem('prints:ver', PRINTS_CACHE_VER)
+}
+
+// Alte Cache-Versionen verwerfen — auch die frühere sessionStorage-Ablage
+if (localStorage.getItem('prints:ver') !== PRINTS_CACHE_VER) {
+  clearStoredPrintings()
+  localStorage.setItem('prints:ver', PRINTS_CACHE_VER)
+}
+for (const key of Object.keys(sessionStorage)) {
+  if (key.startsWith('prints:')) sessionStorage.removeItem(key)
+}
+
+function readStoredPrintings(name) {
+  const raw = localStorage.getItem(`prints:${name}`)
+  if (!raw) return null
+  try {
+    const { t, p } = JSON.parse(raw)
+    if (!Array.isArray(p) || !t || Date.now() - t > PRINTS_TTL_MS) {
+      localStorage.removeItem(`prints:${name}`)
+      return null
+    }
+    return p
+  } catch {
+    localStorage.removeItem(`prints:${name}`)
+    return null
+  }
+}
+
+function storePrintings(name, printings) {
+  const payload = JSON.stringify({ t: Date.now(), p: printings })
+  try {
+    localStorage.setItem(`prints:${name}`, payload)
+  } catch {
+    // Quota voll: alten Bestand verwerfen und diesen Eintrag nochmal versuchen
+    clearStoredPrintings()
+    localStorage.setItem('prints:ver', PRINTS_CACHE_VER)
+    try {
+      localStorage.setItem(`prints:${name}`, payload)
+    } catch { /* dann eben nur im Speicher */ }
+  }
+}
+
+function cachePrintings(name, printings) {
+  const key = name.toLowerCase()
+  printingsCache.set(key, printings)
+  storePrintings(key, printings)
 }
 
 async function prefetchPrintings(cardNames) {
@@ -700,36 +745,32 @@ async function prefetchPrintings(cardNames) {
   prefetchInFlight = true
   try {
     const toFetch = cardNames.filter(n => !printingsCache.has(n.toLowerCase()))
-    // Check sessionStorage
+    // Was schon auf der Platte liegt, muss nicht erneut geholt werden
     for (let i = toFetch.length - 1; i >= 0; i--) {
-      const cached = sessionStorage.getItem(`prints:${toFetch[i].toLowerCase()}`)
+      const cached = readStoredPrintings(toFetch[i].toLowerCase())
       if (cached) {
-        try {
-          printingsCache.set(toFetch[i].toLowerCase(), JSON.parse(cached))
-          toFetch.splice(i, 1)
-        } catch { /* ignore corrupt cache */ }
+        printingsCache.set(toFetch[i].toLowerCase(), cached)
+        toFetch.splice(i, 1)
       }
     }
     if (toFetch.length === 0) return
 
-    // Fetch sequentially, ~100ms apart. Scryfall's limit is ~10 req/sec with
-    // 50–100ms between requests; bursting 10 at once tripped it and produced
-    // intermittent "Load failed" network errors. Cache arrays (incl. a genuine
-    // empty one) but never a null failure — that would stick as "Keine Printings
-    // gefunden" for the whole session. Uncached cards fall back to the on-demand
-    // fetch (which retries) when the picker is opened.
-    for (const name of toFetch) {
-      try {
-        const printings = await fetchCardPrintings(name)
-        if (printings) {
-          printingsCache.set(name.toLowerCase(), printings)
-          sessionStorage.setItem(`prints:${name.toLowerCase()}`, JSON.stringify(printings))
+    // Sammel-Abfrage: ~10 Abrufe für ein ganzes Deck statt einem pro Karte.
+    // Namen, die dabei nichts liefern, holt der Einzelabruf beim Öffnen nach
+    // (der kennt Retries) — ein Fehlschlag darf sich nie als leeres Ergebnis
+    // im Cache festsetzen.
+    const found = await fetchPrintingsBulk(toFetch, {
+      onChunk: (map) => {
+        for (const [key, printings] of map) {
+          if (!printingsCache.has(key)) cachePrintings(key, printings)
         }
-      } catch (err) {
-        console.warn('prefetchPrintings: unexpected error for', name, err)
-      }
-      await new Promise(r => setTimeout(r, 100))
+      },
+    })
+    for (const [key, printings] of found) {
+      if (!printingsCache.has(key)) cachePrintings(key, printings)
     }
+  } catch (err) {
+    console.warn('prefetchPrintings failed:', err)
   } finally {
     prefetchInFlight = false
   }
@@ -788,9 +829,12 @@ function renderProxyArtworks(cards, isOwner) {
     container.appendChild(section)
   }
 
-  // Prefetch all printings in background
-  const allNames = [...new Set(cards.map(c => c.name))]
-  prefetchPrintings(allNames)
+  // Im Hintergrund vorladen — in ANZEIGE-Reihenfolge, damit die Karten oben
+  // im Raster (die zuerst angetippt werden) als erste bereit sind
+  const displayOrder = [...new Set(
+    [...container.querySelectorAll('.proxy-card')].map(el => el.dataset.cardName)
+  )]
+  prefetchPrintings(displayOrder)
 }
 
 let closeActiveArtworkPicker = null
@@ -859,14 +903,12 @@ async function openArtworkPicker(card, cardEl, allCards) {
   try {
     // Use cache if available, otherwise fetch
     let printings = printingsCache.get(card.name.toLowerCase())
+      || readStoredPrintings(card.name.toLowerCase())
     if (!printings) {
       printings = await fetchCardPrintings(card.name)
       // Cache a real result (incl. a genuine empty array) but never a null
       // failure — that would stick for the session; on reopen it retries.
-      if (printings) {
-        printingsCache.set(card.name.toLowerCase(), printings)
-        sessionStorage.setItem(`prints:${card.name.toLowerCase()}`, JSON.stringify(printings))
-      }
+      if (printings) cachePrintings(card.name, printings)
     }
 
     if (printings === null) {
@@ -892,7 +934,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
         resetHtml = `
           <div class="artwork-option artwork-reset" data-action="reset">
             <div class="artwork-option-img-wrap">
-              <img src="${card.image_uri}" alt="Default" />
+              <img src="${card.image_uri}" alt="Default" decoding="async" />
             </div>
             <span class="artwork-option-set">Default zuruecksetzen</span>
           </div>
@@ -906,7 +948,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
           return `
             <div class="artwork-option ${isSelected ? 'artwork-selected' : ''}" data-image="${p.image_normal}" data-png="${p.image_png || p.image_normal}">
               <div class="artwork-option-img-wrap">
-                <img src="${p.image_normal}" alt="${p.set}" loading="lazy" />
+                <img src="${p.image_small || p.image_normal}" alt="${p.set}" loading="lazy" decoding="async" />
               </div>
               <span class="artwork-option-set">${p.set} (${p.released?.substring(0, 4) || '?'})</span>
             </div>

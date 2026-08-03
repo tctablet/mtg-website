@@ -200,22 +200,68 @@ export async function fetchCardPrintings(cardName, retries = 2) {
   }
   if (!res.ok) return res.status === 404 ? [] : null // 404 = no such card (genuine empty)
   const data = await res.json()
-  const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
-  return (data.data || []).filter(c => {
-    if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
-    if (c.digital) return false
-    if (c.promo) return false
-    if (EXCLUDED_SET_TYPES.includes(c.set_type)) return false
-    const img = c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal
-    return img != null
-  }).map(c => ({
+  return (data.data || []).filter(keepPrinting).map(toPrinting)
+}
+
+const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
+
+function keepPrinting(c) {
+  if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
+  if (c.digital) return false
+  if (c.promo) return false
+  if (EXCLUDED_SET_TYPES.includes(c.set_type)) return false
+  return (c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal) != null
+}
+
+function toPrinting(c) {
+  const img = c.image_uris || c.card_faces?.[0]?.image_uris || {}
+  return {
     scryfall_id: c.id,
     set: c.set_name,
     set_code: c.set,
     released: c.released_at,
-    image_normal: c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal,
-    image_png: c.image_uris?.png || c.card_faces?.[0]?.image_uris?.png,
-  }))
+    // small (~11 KB) fürs Auswahl-Grid, normal/png erst für die getroffene Wahl
+    image_small: img.small || img.normal,
+    image_normal: img.normal,
+    image_png: img.png || img.normal,
+  }
+}
+
+/**
+ * Holt die Printings vieler Karten mit möglichst wenigen Requests.
+ * Scryfall erlaubt `!"A" or !"B" or …` und liefert 175 Treffer pro Seite —
+ * für ein 100-Karten-Deck sind das ~10 Abrufe statt ~100.
+ * Liefert eine Map (kleingeschriebener Name → Printings). Namen, für die
+ * nichts zurückkam, fehlen in der Map und bleiben dem Einzelabruf überlassen.
+ */
+export async function fetchPrintingsBulk(cardNames, { chunkSize = 12, onChunk } = {}) {
+  const result = new Map()
+  for (let i = 0; i < cardNames.length; i += chunkSize) {
+    const chunk = cardNames.slice(i, i + chunkSize)
+    const q = chunk.map(n => `!"${n.replace(/"/g, '')}"`).join(' or ')
+    try {
+      for (let page = 1; page <= 20; page++) {
+        const url = `${API_BASE}/cards/search?q=${encodeURIComponent(q)}&unique=prints&order=released&page=${page}`
+        const res = await fetchWithTimeout(url, 15000)
+        if (!res.ok) break // inkl. 404 = kein Treffer im ganzen Chunk
+        const data = await res.json()
+        for (const c of data.data || []) {
+          if (!keepPrinting(c)) continue
+          const key = c.name.toLowerCase()
+          if (!result.has(key)) result.set(key, [])
+          result.get(key).push(toPrinting(c))
+        }
+        if (!data.has_more) break
+        await delay(100)
+      }
+      if (onChunk) onChunk(result)
+    } catch (err) {
+      // Chunk übersprungen — die betroffenen Namen holt der Einzelabruf nach
+      console.warn('fetchPrintingsBulk: chunk failed', err.message)
+    }
+    await delay(100)
+  }
+  return result
 }
 
 export function extractCardData(scryfallCard) {
