@@ -43,58 +43,61 @@ async function supabaseRpc(path, { method = 'GET', body, headers = {} } = {}) {
 }
 
 /**
- * Streams a Scryfall bulk-data file (a JSON array of card objects) and yields
- * one parsed card object at a time. The full file is ~530 MB and growing, which
- * exceeds V8's max single-string length (~512 MB), so `res.json()` throws
- * ERR_STRING_TOO_LONG. We instead scan the byte stream, track brace depth
- * (ignoring braces inside strings), and JSON.parse each top-level object on its
- * own — the working buffer never holds more than one object plus one chunk.
+ * Streams a Scryfall bulk-data file and yields one parsed card object at a time.
+ *
+ * Scryfall serves gzipped JSONL (one card object per line) from data.scryfall.io
+ * with `content-type: application/gzip` and no `content-encoding`, so fetch hands
+ * us the compressed bytes and we have to gunzip ourselves. Streaming line by line
+ * also keeps the working buffer at one object: the uncompressed file is ~530 MB,
+ * well past V8's max string length, so buffering it whole would throw
+ * ERR_STRING_TOO_LONG.
+ *
+ * Lines that are just an array bracket or carry a trailing comma are tolerated,
+ * so a plain JSON array with one object per line parses too.
  */
 async function* streamScryfallCards(url) {
   const res = await fetch(url, { headers: SCRYFALL_HEADERS })
   if (!res.ok) {
     throw new Error(`Scryfall bulk download failed: ${res.status}`)
   }
+
+  // DecompressionStream keeps this on web streams, so the byte loop below stays
+  // exactly the one that already ran fine in this workflow.
+  const gzipped = url.endsWith('.gz')
+    || (res.headers.get('content-type') || '').includes('gzip')
+  const source = gzipped
+    ? res.body.pipeThrough(new DecompressionStream('gzip'))
+    : res.body
+
   const decoder = new TextDecoder('utf-8')
   let buf = ''
-  let scanPos = 0
-  let depth = 0
-  let inStr = false
-  let esc = false
-  let objStart = -1
+  let lineNo = 0
 
-  for await (const chunk of res.body) {
-    buf += decoder.decode(chunk, { stream: true })
-    for (; scanPos < buf.length; scanPos++) {
-      const c = buf[scanPos]
-      if (inStr) {
-        if (esc) esc = false
-        else if (c === '\\') esc = true
-        else if (c === '"') inStr = false
-        continue
-      }
-      if (c === '"') {
-        inStr = true
-      } else if (c === '{') {
-        if (depth++ === 0) objStart = scanPos
-      } else if (c === '}') {
-        if (--depth === 0 && objStart >= 0) {
-          yield JSON.parse(buf.slice(objStart, scanPos + 1))
-          objStart = -1
-        }
-      }
-    }
-    // Compact the buffer so memory stays bounded: keep only a pending partial
-    // object, otherwise drop everything already scanned.
-    if (objStart >= 0) {
-      buf = buf.slice(objStart)
-      scanPos -= objStart
-      objStart = 0
-    } else {
-      buf = ''
-      scanPos = 0
+  const parseLine = (raw) => {
+    const line = raw.trim().replace(/,$/, '')
+    if (!line || line === '[' || line === ']') return null
+    try {
+      return JSON.parse(line)
+    } catch (err) {
+      throw new Error(`Bulk line ${lineNo} is not valid JSON: ${err.message}`)
     }
   }
+
+  for await (const chunk of source) {
+    buf += decoder.decode(chunk, { stream: true })
+    let nl
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const raw = buf.slice(0, nl)
+      buf = buf.slice(nl + 1)
+      lineNo++
+      const card = parseLine(raw)
+      if (card) yield card
+    }
+  }
+  buf += decoder.decode()
+  lineNo++
+  const last = parseLine(buf)
+  if (last) yield last
 }
 
 /**
@@ -156,11 +159,17 @@ async function main() {
     throw new Error(`Scryfall bulk-data lookup failed: ${bulkRes.status} ${await bulkRes.text()}`)
   }
   const bulkMeta = await bulkRes.json()
-  const downloadUrl = bulkMeta.download_uri
+  // Scryfall switched to gzipped JSONL in 2026 and renamed both fields; keep the
+  // old names as a fallback so this works either way.
+  const downloadUrl = bulkMeta.jsonl_download_uri || bulkMeta.download_uri
   if (!downloadUrl) {
-    throw new Error(`Scryfall bulk-data response has no download_uri: ${JSON.stringify(bulkMeta)}`)
+    throw new Error(
+      `Scryfall bulk-data response has no download URL. Keys: ${Object.keys(bulkMeta).join(', ')}`
+    )
   }
-  console.log(`Downloading ${bulkMeta.name} (${(bulkMeta.size / 1024 / 1024).toFixed(0)} MB)...`)
+  const sizeBytes = bulkMeta.compressed_size ?? bulkMeta.size
+  const sizeLabel = sizeBytes ? `${(sizeBytes / 1024 / 1024).toFixed(0)} MB` : 'unbekannte Größe'
+  console.log(`Downloading ${bulkMeta.name} (${sizeLabel})...`)
 
   // 2. Download and parse (streamed — the file is too large for res.json()).
   // 3. Find cheapest price per card name while streaming.

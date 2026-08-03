@@ -678,6 +678,9 @@ async function refreshPrices(deckId, cards) {
   }
 }
 
+// Basics haben je ~850 Druckvarianten — vom Vorladen ausgenommen (s. renderProxyArtworks)
+const BASIC_LANDS = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'])
+
 // --- Printings Cache ---
 // v4: image_small ergänzt, Ablage in localStorage statt sessionStorage
 const PRINTS_CACHE_VER = 'v4'
@@ -830,10 +833,13 @@ function renderProxyArtworks(cards, isOwner) {
   }
 
   // Im Hintergrund vorladen — in ANZEIGE-Reihenfolge, damit die Karten oben
-  // im Raster (die zuerst angetippt werden) als erste bereit sind
+  // im Raster (die zuerst angetippt werden) als erste bereit sind.
+  // Basics bleiben aussen vor: Island/Plains/Swamp haben zusammen ~2500
+  // Druckvarianten und dominieren damit die Ladezeit. Beim Antippen werden
+  // sie ganz normal einzeln geholt (~0,3s).
   const displayOrder = [...new Set(
     [...container.querySelectorAll('.proxy-card')].map(el => el.dataset.cardName)
-  )]
+  )].filter(n => !BASIC_LANDS.has(n))
   prefetchPrintings(displayOrder)
 }
 
