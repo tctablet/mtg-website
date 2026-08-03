@@ -1644,10 +1644,17 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ===== Admin ===== */
+/* Tabelle darf breiter sein als das Handy — dann scrollt sie in sich,
+   statt die ganze Seite quer zu schieben */
+.admin-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 32px;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 32px;
 }
 
 .admin-table th {
@@ -2022,13 +2029,77 @@ body.modal-open { overflow: hidden; }
   .admin-table th,
   .admin-table td { padding: 8px 6px; }
   .admin-code-edit { gap: 4px; }
-  .code-input { width: 60px; font-size: 13px; }
+  .code-input { width: 64px; }
   .admin-add { padding: 16px; }
   .admin-add-form {
     flex-direction: column;
     align-items: stretch;
   }
   .admin-add-form input { width: 100% !important; }
+
+  /* --- Mobile-Grundregeln fuer ALLE Seiten --- */
+
+  /* 16px verhindert, dass iOS beim Fokussieren in das Feld zoomt.
+     Die Klassen sind einzeln genannt, weil sie sonst die Element-Regel
+     ueberstimmen (Klassen-Spezifitaet). */
+  input,
+  textarea,
+  select,
+  .login-form input,
+  .meta-editor input,
+  .add-card-input,
+  .qty-input,
+  .artwork-search,
+  .autocomplete-wrapper input,
+  .import-form input[type='text'],
+  .import-form textarea,
+  .cmdr-filter,
+  .code-input,
+  .admin-add-form input,
+  .modal input,
+  .modal textarea,
+  .sort-select {
+    font-size: 16px;
+  }
+
+  /* Eingabefelder ebenfalls bequem treffbar */
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    min-height: 44px;
+  }
+  .qty-input { min-height: 38px; }
+
+  /* Bequem tippbare Buttons */
+  .btn,
+  .btn-small,
+  .deck-delete,
+  .btn-edit-meta {
+    min-height: 44px;
+  }
+  .btn,
+  .btn-small {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .deck-delete,
+  .btn-edit-meta {
+    min-width: 44px;
+  }
+
+  /* Sichtbares Feedback beim Antippen, da :hover auf Touch nichts tut */
+  .btn:active,
+  .btn-small:active,
+  .deck-tile:active {
+    transform: scale(0.97);
+  }
+  .btn,
+  .btn-small,
+  .deck-tile {
+    transition: transform 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* ===== Mana Pips ===== */

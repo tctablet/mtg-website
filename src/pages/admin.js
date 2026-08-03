@@ -22,19 +22,21 @@ async function refreshPlayerList(container) {
   container.innerHTML = `
     <div class="page">
       <h2>Admin – Spieler verwalten</h2>
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Code</th>
-            <th>Admin</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="player-rows">
-          ${(players || []).map(p => playerRow(p)).join('')}
-        </tbody>
-      </table>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code</th>
+              <th>Admin</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="player-rows">
+            ${(players || []).map(p => playerRow(p)).join('')}
+          </tbody>
+        </table>
+      </div>
       <div class="admin-add">
         <h3>Neuen Spieler anlegen</h3>
         <div class="admin-add-form">
