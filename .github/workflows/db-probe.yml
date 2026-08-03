@@ -1,0 +1,22 @@
+name: DB Probe (PostgREST-Semantik)
+
+# Nur manuell: verifiziert mit Sentinel-Rows gegen die echte Instanz, dass
+# merge-duplicates updated_at aus dem Body übernimmt und DELETE ?updated_at=lt.
+# korrekt filtert — die zwei Semantiken, an denen der card_printings-Sync hängt.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run PostgREST semantics probe
+        env:
+          SUPABASE_URL: https://jcbdjlqxmlsfqfenltws.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/postgrest-probe.mjs

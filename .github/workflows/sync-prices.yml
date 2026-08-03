@@ -5,9 +5,16 @@ on:
     - cron: '0 6 * * *' # Daily at 06:00 UTC
   workflow_dispatch: # Allow manual trigger
 
+# Nie zwei Sync-Läufe gleichzeitig: der card_printings-Cleanup (DELETE nach
+# updated_at) wäre sonst ein Race. Wartende Duplikate ersetzt GitHub durch den
+# neuesten Pending-Run — für einen idempotenten Voll-Sync genau richtig.
+concurrency:
+  group: price-sync
+
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

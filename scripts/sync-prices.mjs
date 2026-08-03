@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 /**
- * Downloads Scryfall bulk data (default_cards) and upserts the cheapest
- * EUR price per card name into the Supabase `scryfall_prices` table.
+ * Downloads Scryfall bulk data (default_cards) and, in one streamed pass:
+ *  1. upserts the cheapest EUR price per card name into `scryfall_prices`
+ *  2. refreshes `card_printings` with every eligible paper printing of the
+ *     cards that currently sit in any deck (the artwork picker reads it with
+ *     a single query instead of ~86 Scryfall requests)
  *
  * Env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY
  * Usage: node scripts/sync-prices.mjs
  */
+
+import { pathToFileURL } from 'node:url'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY
@@ -16,11 +21,6 @@ const USD_TO_EUR = 0.92
 const SCRYFALL_HEADERS = {
   'User-Agent': 'mtg-website-price-sync/1.0 (+https://github.com/tctablet/mtg-website)',
   Accept: 'application/json',
-}
-
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY')
-  process.exit(1)
 }
 
 async function supabaseRpc(path, { method = 'GET', body, headers = {} } = {}) {
@@ -100,6 +100,88 @@ async function* streamScryfallCards(url) {
   if (last) yield last
 }
 
+// ---- Printings-Cache (card_printings) ----
+// Der Artwork-Picker filtert Printings clientseitig (src/scryfall.js). Dieselbe
+// Logik hier beim Befüllen, damit die Tabelle exakt das enthält, was der Picker
+// zeigen würde. Beide Stellen synchron halten!
+const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
+
+export function keepPrinting(c) {
+  if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
+  if (c.digital) return false
+  if (c.promo) return false
+  if (EXCLUDED_SET_TYPES.includes(c.set_type)) return false
+  return (c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal) != null
+}
+
+export function toPrintingRow(c, updatedAt) {
+  const img = c.image_uris || c.card_faces?.[0]?.image_uris || {}
+  return {
+    scryfall_id: c.id,
+    name: c.name,
+    set_code: c.set,
+    set_name: c.set_name,
+    released_at: c.released_at || null,
+    image_small: img.small || img.normal,
+    image_normal: img.normal,
+    image_png: img.png || img.normal,
+    updated_at: updatedAt,
+  }
+}
+
+// Alle Kartennamen, die aktuell in irgendeinem Deck liegen (paginiert — PostgREST
+// cappt bei 1000 Rows). cards.name ist immer die volle Scryfall-Form (bei DFCs
+// "A // B"), matcht also exakt gegen card.name aus dem Bulk.
+async function fetchDeckNames() {
+  const names = new Set()
+  const PAGE = 1000
+  for (let offset = 0; ; offset += PAGE) {
+    const res = await supabaseRpc(`cards?select=name&order=id&limit=${PAGE}&offset=${offset}`)
+    const page = await res.json()
+    for (const c of page) names.add(c.name)
+    if (page.length < PAGE) break
+  }
+  return names
+}
+
+/**
+ * Upserts the collected printings and removes rows this run did not touch
+ * (cards that left every deck, printings Scryfall withdrew). The DELETE keys on
+ * updated_at < runStamp, which only works because every upserted row carries
+ * runStamp explicitly in its body — merge-duplicates would otherwise leave the
+ * column's old value in place and the cleanup would eat fresh rows.
+ */
+async function syncPrintings(rows, deckNames, runStamp) {
+  const matchedNames = new Set(rows.map(r => r.name))
+  const unmatched = [...deckNames].filter(n => !matchedNames.has(n))
+  if (unmatched.length) {
+    // Namentlich loggen: ein Name, der hier dauerhaft auftaucht, läuft in der
+    // App für immer über den (unauffälligen) Scryfall-Fallback.
+    console.log(`Printings: ${unmatched.length} Deck-Namen ohne Bulk-Treffer: ${unmatched.join(', ')}`)
+  }
+  if (matchedNames.size < deckNames.size * 0.8) {
+    throw new Error(
+      `nur ${matchedNames.size}/${deckNames.size} Deck-Namen im Bulk gematcht (<80%) — ` +
+      'Bulk-Anomalie? Upsert und Cleanup übersprungen.'
+    )
+  }
+
+  const BATCH = 500
+  for (let i = 0; i < rows.length; i += BATCH) {
+    await supabaseRpc('card_printings', { method: 'POST', body: rows.slice(i, i + BATCH) })
+    console.log(`Printings upserted ${Math.min(i + BATCH, rows.length)}/${rows.length}`)
+  }
+
+  // Cleanup erst NACH komplettem Upsert — bricht ein Batch ab, bleibt der alte
+  // Bestand unangetastet stehen (Fallback-Daten sind besser als keine).
+  const res = await supabaseRpc(
+    `card_printings?updated_at=lt.${encodeURIComponent(runStamp)}&select=scryfall_id`,
+    { method: 'DELETE', headers: { Prefer: 'return=representation' } }
+  )
+  const deleted = await res.json()
+  console.log(`Printings: ${rows.length} rows für ${matchedNames.size} Namen, ${deleted.length} veraltete entfernt`)
+}
+
 /**
  * Propagates the freshly-computed cheapest prices onto every card in every deck
  * (the `cards` table), so decks stay current even if nobody opens them. This is
@@ -150,6 +232,31 @@ async function propagateToDeckCards(priceMap, now) {
 }
 
 async function main() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY')
+    process.exit(1)
+  }
+
+  // 0. Printings-Cache vorbereiten: Tabelle da? Welche Namen liegen in Decks?
+  // Fehlt die Tabelle (Migration 003 noch nicht ausgeführt), läuft der
+  // Preis-Sync unverändert weiter — der Picker nutzt dann den Scryfall-Fallback.
+  let deckNames = null
+  try {
+    await supabaseRpc('card_printings?select=scryfall_id&limit=1')
+    deckNames = await fetchDeckNames()
+    console.log(`Printings-Cache aktiv: ${deckNames.size} Deck-Namen`)
+    if (deckNames.size < 50) {
+      // Leere/kaputte cards-Tabelle darf nicht als "alle Decks gelöscht"
+      // durchgehen und den kompletten Cache wegräumen.
+      console.log(`::warning::Nur ${deckNames.size} Deck-Namen gefunden — Printings-Sync übersprungen.`)
+      deckNames = null
+    }
+  } catch (err) {
+    console.log(`::warning::Printings-Cache inaktiv (${err.message.split('\n')[0]}) — migrations/003_printings_cache.sql schon ausgeführt?`)
+  }
+  const runStamp = new Date().toISOString()
+  const printingRows = []
+
   // 1. Get bulk data download URL
   console.log('Fetching bulk data URL...')
   const bulkRes = await fetch('https://api.scryfall.com/bulk-data/default_cards', {
@@ -178,6 +285,11 @@ async function main() {
 
   for await (const card of streamScryfallCards(downloadUrl)) {
     cardCount++
+
+    if (deckNames && deckNames.has(card.name) && keepPrinting(card)) {
+      printingRows.push(toPrintingRow(card, runStamp))
+    }
+
     if (card.digital) continue
 
     const name = card.name
@@ -245,10 +357,24 @@ async function main() {
   console.log('Propagating prices to deck cards...')
   await propagateToDeckCards(priceMap, now)
 
+  // 6. Printings-Cache aktualisieren. Fehler hier dürfen den (bereits
+  // erfolgreichen) Preis-Sync nie mit in den Abgrund reißen: warnen, Exit 0.
+  if (deckNames) {
+    try {
+      await syncPrintings(printingRows, deckNames, runStamp)
+    } catch (err) {
+      console.log(`::warning::Printings-Sync fehlgeschlagen: ${err.message.split('\n')[0]}`)
+    }
+  }
+
   console.log('Done!')
 }
 
-main().catch(err => {
-  console.error(err)
-  process.exit(1)
-})
+// Nur bei Direktaufruf starten — Tests importieren keepPrinting/toPrintingRow,
+// ohne dass dabei ein Sync losläuft.
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main().catch(err => {
+    console.error(err)
+    process.exit(1)
+  })
+}

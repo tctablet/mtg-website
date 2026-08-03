@@ -1,4 +1,4 @@
-import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards, fetchCheapestPrices } from '../supabase.js'
+import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards, fetchCheapestPrices, fetchPrintingsFromDB } from '../supabase.js'
 import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchPrintingsBulk, autocompleteCard } from '../scryfall.js'
 import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
@@ -765,11 +765,26 @@ async function prefetchPrintings(cardNames) {
     }
     if (toFetch.length === 0) return
 
-    // Sammel-Abfrage: ~10 Abrufe für ein ganzes Deck statt einem pro Karte.
-    // Namen, die dabei nichts liefern, holt der Einzelabruf beim Öffnen nach
-    // (der kennt Retries) — ein Fehlschlag darf sich nie als leeres Ergebnis
-    // im Cache festsetzen.
-    const found = await fetchPrintingsBulk(toFetch, {
+    // Erste Wahl: der täglich gesyncte card_printings-Cache — eine Supabase-
+    // Query-Runde fürs ganze Deck, kein Rate-Limit, kein Warten.
+    let rest = toFetch
+    const fromDb = await fetchPrintingsFromDB(toFetch)
+    if (fromDb) {
+      rest = []
+      for (const name of toFetch) {
+        const hit = fromDb.get(name.toLowerCase())
+        if (hit) cachePrintings(name, hit)
+        else rest.push(name)
+      }
+    }
+    if (rest.length === 0) return
+
+    // Scryfall-Fallback (Tabelle fehlt / Name noch nicht gesynct): Sammel-
+    // Abfrage, ~10 Abrufe für ein ganzes Deck statt einem pro Karte. Namen,
+    // die dabei nichts liefern, holt der Einzelabruf beim Öffnen nach (der
+    // kennt Retries) — ein Fehlschlag darf sich nie als leeres Ergebnis im
+    // Cache festsetzen.
+    const found = await fetchPrintingsBulk(rest, {
       onChunk: (map) => {
         for (const [key, printings] of map) {
           if (!printingsCache.has(key)) cachePrintings(key, printings)
@@ -915,14 +930,21 @@ async function openArtworkPicker(card, cardEl, allCards) {
   const searchInput = modal.querySelector('.artwork-search')
 
   try {
-    // Use cache if available, otherwise fetch
+    // Quellen-Reihenfolge: Cache → card_printings-DB (eine schnelle Query,
+    // deckt auch Basics ab) → Scryfall-Einzelabruf als letzter Fallback.
     let printings = printingsCache.get(card.name.toLowerCase())
       || readStoredPrintings(card.name.toLowerCase())
     if (!printings) {
+      const fromDb = await fetchPrintingsFromDB([card.name])
+      printings = fromDb?.get(card.name.toLowerCase()) || null
+    }
+    if (!printings) {
       printings = await fetchCardPrintings(card.name)
-      // Cache a real result (incl. a genuine empty array) but never a null
-      // failure — that would stick for the session; on reopen it retries.
-      if (printings) cachePrintings(card.name, printings)
+    }
+    // Cache a real result (incl. a genuine empty array) but never a null
+    // failure — that would stick for the session; on reopen it retries.
+    if (printings && !printingsCache.has(card.name.toLowerCase())) {
+      cachePrintings(card.name, printings)
     }
 
     if (printings === null) {

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { groupPrintingRows } from './printings.js'
 
 const SUPABASE_URL = 'https://jcbdjlqxmlsfqfenltws.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjYmRqbHF4bWxzZnFmZW5sdHdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzczNDUsImV4cCI6MjA4OTA1MzM0NX0.S87-oIgyMjB1Jdc-2LW4b0mlnUkoFw_SjltpMAB6lvc'
@@ -149,6 +150,36 @@ export async function fetchCheapestPrices(names) {
   }
 
   return lookup
+}
+
+// Holt die Printings aller angefragten Karten aus dem täglich gesyncten
+// card_printings-Cache — eine Query-Runde statt ~86 Scryfall-Requests.
+// Rückgabe wie fetchPrintingsBulk: Map<kleingeschriebener Name, Printing[]>;
+// Namen ohne Rows fehlen in der Map (Scryfall-Fallback übernimmt sie).
+// null = Cache nicht verfügbar (Tabelle fehlt/Query-Fehler) → kompletter Fallback.
+let printingsTableUnavailable = false
+export async function fetchPrintingsFromDB(names) {
+  if (printingsTableUnavailable) return null
+  const unique = [...new Set(names)]
+  const rows = []
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100)
+    const { data, error } = await supabase
+      .from('card_printings')
+      .select('scryfall_id, name, set_code, set_name, released_at, image_small, image_normal, image_png')
+      .in('name', chunk)
+    if (error) {
+      console.warn('fetchPrintingsFromDB: card_printings nicht verfügbar:', error.message)
+      // Fehlende Tabelle (Migration 003 noch nicht ausgeführt) für die Session
+      // merken — erspart jedem Picker-Öffnen den toten Roundtrip.
+      if (/card_printings/.test(error.message) && /find|exist|cache/i.test(error.message)) {
+        printingsTableUnavailable = true
+      }
+      return null
+    }
+    rows.push(...(data || []))
+  }
+  return groupPrintingRows(rows, unique)
 }
 
 export async function updateCardPrices(deckId, priceMap, legalityMap = {}) {
