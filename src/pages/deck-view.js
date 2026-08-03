@@ -678,6 +678,13 @@ async function refreshPrices(deckId, cards) {
   }
 }
 
+// Set-Namen und Suchtexte landen in Markup — Sonderzeichen entschärfen
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+}
+
 // Basics haben je ~850 Druckvarianten — vom Vorladen ausgenommen (s. renderProxyArtworks)
 const BASIC_LANDS = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'])
 
@@ -860,6 +867,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
         <h3>${card.name}</h3>
         <input type="text" class="artwork-search" placeholder="Set suchen..." />
         <button class="artwork-picker-close" aria-label="Schließen">&times;</button>
+        <select class="artwork-set-select" aria-label="Set auswählen" hidden></select>
       </div>
       <div class="artwork-picker-grid">
         <p class="loading">Lade Printings...</p>
@@ -927,16 +935,39 @@ async function openArtworkPicker(card, cardEl, allCards) {
       return
     }
 
+    // Set-Auswahl füllen: jedes Set einmal, neueste zuerst, mit Anzahl
+    const setSelect = modal.querySelector('.artwork-set-select')
+    const setsByCode = new Map()
+    for (const p of printings) {
+      const entry = setsByCode.get(p.set_code)
+      if (entry) {
+        entry.count++
+        if (p.released && p.released > entry.released) entry.released = p.released
+      } else {
+        setsByCode.set(p.set_code, { name: p.set, code: p.set_code, released: p.released || '', count: 1 })
+      }
+    }
+    const sets = [...setsByCode.values()].sort((a, b) => b.released.localeCompare(a.released))
+    setSelect.innerHTML = `<option value="">Alle Sets (${printings.length})</option>`
+      + sets.map(s =>
+        `<option value="${s.code}">${escapeHtml(s.name)} (${s.released.substring(0, 4) || '?'})${s.count > 1 ? ` · ${s.count}` : ''}</option>`
+      ).join('')
+    // Bei nur einem Set bringt die Auswahl nichts
+    setSelect.hidden = sets.length < 2
+
     // animate nur beim ersten Aufbau — sonst flackert das Grid bei jedem
     // Tastendruck in der Suche neu ein
     function renderPrintings(filter, animate = false) {
       const query = (filter || '').toLowerCase()
-      const filtered = query
-        ? printings.filter(p => p.set.toLowerCase().includes(query) || p.set_code.toLowerCase().includes(query))
-        : printings
+      const setCode = setSelect.value
+      const filtered = printings.filter(p => {
+        if (setCode && p.set_code !== setCode) return false
+        if (!query) return true
+        return p.set.toLowerCase().includes(query) || p.set_code.toLowerCase().includes(query)
+      })
 
       let resetHtml = ''
-      if (card.proxy_image_uri && !query) {
+      if (card.proxy_image_uri && !query && !setCode) {
         resetHtml = `
           <div class="artwork-option artwork-reset" data-action="reset">
             <div class="artwork-option-img-wrap">
@@ -948,7 +979,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
       }
 
       pickerGrid.innerHTML = resetHtml + (filtered.length === 0
-        ? `<p class="artwork-no-results">Kein Set gefunden fuer "${filter}"</p>`
+        ? `<p class="artwork-no-results">Kein Artwork gefunden${filter ? ` für "${escapeHtml(filter)}"` : ''}</p>`
         : filtered.map(p => {
           const isSelected = card.proxy_image_uri === p.image_normal || (!card.proxy_image_uri && card.image_uri === p.image_normal)
           return `
@@ -1004,6 +1035,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
 
     renderPrintings('', true)
     searchInput.addEventListener('input', () => renderPrintings(searchInput.value))
+    setSelect.addEventListener('change', () => renderPrintings(searchInput.value))
     // Auto-Focus nur auf Geraeten mit Maus — auf Touch wuerde sofort die Tastatur aufspringen
     if (window.matchMedia('(hover: hover)').matches) searchInput.focus()
   } catch (err) {

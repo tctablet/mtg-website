@@ -869,6 +869,21 @@ body.modal-open { overflow: hidden; }
 .artwork-search:focus { border-color: var(--accent); }
 .artwork-search::placeholder { color: var(--text-dim); }
 
+.artwork-set-select {
+  flex-basis: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-bright);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.artwork-set-select:focus { border-color: var(--accent); }
+.artwork-set-select[hidden] { display: none; }
+
 .artwork-no-results {
   grid-column: 1 / -1;
   color: var(--text-dim);
@@ -2077,6 +2092,10 @@ body.modal-open { overflow: hidden; }
     font-size: 16px; /* verhindert iOS-Auto-Zoom beim Fokussieren */
     padding: 10px 12px;
   }
+  .artwork-set-select {
+    order: 4;
+    padding: 10px 12px;
+  }
   .artwork-picker-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px;
@@ -2115,6 +2134,7 @@ body.modal-open { overflow: hidden; }
   .add-card-input,
   .qty-input,
   .artwork-search,
+  .artwork-set-select,
   .autocomplete-wrapper input,
   .import-form input[type='text'],
   .import-form textarea,
