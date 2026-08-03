@@ -40,6 +40,8 @@ try {
   const deleted = await del.json()
   const left = await (await api(`scryfall_prices?name=like.${encodeURIComponent('~~printings-probe-*')}&select=name`)).json()
   check('DELETE lt: trifft nur die alte Row', deleted.length === 1 && deleted[0].name === P2 && left.length === 1 && left[0].name === P1, `deleted=${JSON.stringify(deleted)} left=${JSON.stringify(left)}`)
+} catch (err) {
+  results.push(`FAIL Probe abgebrochen: ${err.message.split('\n')[0]}`)
 } finally {
   // Cleanup: beide Sentinels restlos weg
   await api(`scryfall_prices?name=like.${encodeURIComponent('~~printings-probe-*')}`, { method: 'DELETE' })

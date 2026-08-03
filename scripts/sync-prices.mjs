@@ -135,11 +135,17 @@ export function toPrintingRow(c, updatedAt) {
 async function fetchDeckNames() {
   const names = new Set()
   const PAGE = 1000
-  for (let offset = 0; ; offset += PAGE) {
-    const res = await supabaseRpc(`cards?select=name&order=id&limit=${PAGE}&offset=${offset}`)
+  // Keyset- statt Offset-Pagination: löscht jemand während des Laufs eine
+  // Karte, verschiebt ein Offset-Fenster sonst still eine Row aus dem Bild —
+  // und deren Printings würden am Ende als "nicht mehr im Deck" weggeräumt.
+  let lastId = null
+  for (;;) {
+    const filter = lastId === null ? '' : `&id=gt.${encodeURIComponent(lastId)}`
+    const res = await supabaseRpc(`cards?select=id,name&order=id&limit=${PAGE}${filter}`)
     const page = await res.json()
     for (const c of page) names.add(c.name)
     if (page.length < PAGE) break
+    lastId = page[page.length - 1].id
   }
   return names
 }
@@ -174,10 +180,25 @@ async function syncPrintings(rows, deckNames, runStamp) {
 
   // Cleanup erst NACH komplettem Upsert — bricht ein Batch ab, bleibt der alte
   // Bestand unangetastet stehen (Fallback-Daten sind besser als keine).
-  const res = await supabaseRpc(
-    `card_printings?updated_at=lt.${encodeURIComponent(runStamp)}&select=scryfall_id`,
-    { method: 'DELETE', headers: { Prefer: 'return=representation' } }
-  )
+  // Sicherheitsnetz davor: Wären unplausibel viele Rows "veraltet" (z.B. weil
+  // merge-duplicates updated_at wider Erwarten NICHT aus dem Body übernahm),
+  // würde das DELETE die halbe Tabelle fressen — dann lieber gar nicht löschen.
+  const staleFilter = `card_printings?updated_at=lt.${encodeURIComponent(runStamp)}&select=scryfall_id`
+  const countRes = await supabaseRpc(`${staleFilter}&limit=1`, {
+    headers: { Prefer: 'count=exact' },
+  })
+  const staleCount = parseInt((countRes.headers.get('content-range') || '').split('/')[1], 10) || 0
+  const staleLimit = Math.max(500, Math.round(rows.length * 0.2))
+  if (staleCount > staleLimit) {
+    throw new Error(
+      `Cleanup übersprungen: ${staleCount} Rows wären veraltet (Limit ${staleLimit} bei ` +
+      `${rows.length} upserteten) — updated_at-Semantik prüfen (db-probe.yml).`
+    )
+  }
+  const res = await supabaseRpc(staleFilter, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation' },
+  })
   const deleted = await res.json()
   console.log(`Printings: ${rows.length} rows für ${matchedNames.size} Namen, ${deleted.length} veraltete entfernt`)
 }

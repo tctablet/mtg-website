@@ -29,32 +29,38 @@ export async function getAllPlayers() {
 
 // --- Decks ---
 
+// Lese-Fehler werfen statt sie als [] zu tarnen — ein Netzfehler sah sonst
+// exakt aus wie "keine Decks vorhanden" (die Seiten fangen und zeigen Retry).
+
 export async function getPlayerDecks(playerId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('decks')
     .select('*')
     .eq('player_id', playerId)
     .eq('for_sale', false)
     .order('created_at', { ascending: false })
+  if (error) throw error
   return data || []
 }
 
 export async function getAllDecksWithPlayers() {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('decks')
     .select('*, players(name)')
     .eq('for_sale', false)
     .order('created_at', { ascending: false })
+  if (error) throw error
   return data || []
 }
 
 export async function getResterampeDecks() {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('decks')
     .select('*, players(name)')
     .eq('for_sale', true)
     .order('sold', { ascending: true })
     .order('created_at', { ascending: false })
+  if (error) throw error
   return data || []
 }
 
@@ -79,23 +85,27 @@ export async function deleteDeck(deckId) {
 }
 
 export async function getDeck(deckId) {
-  const { data } = await supabase
+  // maybeSingle: fehlendes Deck bleibt null ("Deck nicht gefunden"),
+  // nur echte Fehler werfen
+  const { data, error } = await supabase
     .from('decks')
     .select('*, players(name)')
     .eq('id', deckId)
-    .single()
+    .maybeSingle()
+  if (error) throw error
   return data
 }
 
 // --- Cards ---
 
 export async function getDeckCards(deckId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('cards')
     .select('*')
     .eq('deck_id', deckId)
     .order('type_category', { ascending: true })
     .order('name', { ascending: true })
+  if (error) throw error
   return data || []
 }
 
@@ -162,22 +172,32 @@ export async function fetchPrintingsFromDB(names) {
   if (printingsTableUnavailable) return null
   const unique = [...new Set(names)]
   const rows = []
+  // PostgREST kappt Antworten hart bei 1000 Rows OHNE error — ein Chunk voller
+  // Namen (oder eine einzelne Basic mit ~850 Printings) muss deshalb explizit
+  // durchpaginiert werden, sonst landet ein still abgeschnittenes Ergebnis
+  // für 7 Tage im localStorage-Cache.
+  const PAGE = 1000
   for (let i = 0; i < unique.length; i += 100) {
     const chunk = unique.slice(i, i + 100)
-    const { data, error } = await supabase
-      .from('card_printings')
-      .select('scryfall_id, name, set_code, set_name, released_at, image_small, image_normal, image_png')
-      .in('name', chunk)
-    if (error) {
-      console.warn('fetchPrintingsFromDB: card_printings nicht verfügbar:', error.message)
-      // Fehlende Tabelle (Migration 003 noch nicht ausgeführt) für die Session
-      // merken — erspart jedem Picker-Öffnen den toten Roundtrip.
-      if (/card_printings/.test(error.message) && /find|exist|cache/i.test(error.message)) {
-        printingsTableUnavailable = true
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('card_printings')
+        .select('scryfall_id, name, set_code, set_name, released_at, image_small, image_normal, image_png')
+        .in('name', chunk)
+        .order('scryfall_id')
+        .range(from, from + PAGE - 1)
+      if (error) {
+        console.warn('fetchPrintingsFromDB: card_printings nicht verfügbar:', error.message)
+        // Fehlende Tabelle (Migration 003 noch nicht ausgeführt) für die Session
+        // merken — erspart jedem Picker-Öffnen den toten Roundtrip.
+        if (/card_printings/.test(error.message) && /find|exist|cache/i.test(error.message)) {
+          printingsTableUnavailable = true
+        }
+        return null
       }
-      return null
+      rows.push(...(data || []))
+      if (!data || data.length < PAGE) break
     }
-    rows.push(...(data || []))
   }
   return groupPrintingRows(rows, unique)
 }

@@ -205,7 +205,7 @@ export async function fetchCardPrintings(cardName, retries = 2) {
 
 const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
 
-function keepPrinting(c) {
+export function keepPrinting(c) {
   if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
   if (c.digital) return false
   if (c.promo) return false
@@ -213,7 +213,7 @@ function keepPrinting(c) {
   return (c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal) != null
 }
 
-function toPrinting(c) {
+export function toPrinting(c) {
   const img = c.image_uris || c.card_faces?.[0]?.image_uris || {}
   return {
     scryfall_id: c.id,
