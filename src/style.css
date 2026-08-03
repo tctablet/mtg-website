@@ -28,7 +28,11 @@
 body { min-height: 100vh; }
 
 a { color: var(--accent); text-decoration: none; }
-a:hover { color: var(--accent-hover); }
+/* Hover nur auf echten Hover-Geräten — auf Touch bleibt der Zustand sonst
+   nach dem Tippen kleben (Nav-DOM überlebt jede Navigation) */
+@media (hover: hover) {
+  a:hover { color: var(--accent-hover); }
+}
 
 /* ===== Layout ===== */
 #app {
@@ -43,6 +47,10 @@ a:hover { color: var(--accent-hover); }
   z-index: 100;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  /* Full-bleed über das #app-Padding hinaus — sonst scrollt der Inhalt
+     sichtbar durch den Spalt neben der sticky Nav */
+  margin: 0 -16px;
+  padding: 0 16px;
 }
 
 .nav-inner {
@@ -68,7 +76,9 @@ a:hover { color: var(--accent-hover); }
   font-size: 14px;
   padding: 4px 0;
 }
-.nav-links a:hover { color: var(--text-bright); }
+@media (hover: hover) {
+  .nav-links a:hover { color: var(--text-bright); }
+}
 
 .nav-user {
   margin-left: auto;
@@ -91,7 +101,6 @@ a:hover { color: var(--accent-hover); }
   cursor: pointer;
   transition: background 0.2s;
 }
-.btn:hover { background: var(--accent-hover); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
@@ -99,7 +108,6 @@ a:hover { color: var(--accent-hover); }
   border: 1px solid var(--border);
   color: var(--text);
 }
-.btn-secondary:hover { background: var(--bg-card); }
 
 .btn-small {
   background: transparent;
@@ -110,7 +118,12 @@ a:hover { color: var(--accent-hover); }
   font-size: 13px;
   cursor: pointer;
 }
-.btn-small:hover { color: var(--text-bright); border-color: var(--text-dim); }
+
+@media (hover: hover) {
+  .btn:hover { background: var(--accent-hover); }
+  .btn-secondary:hover { background: var(--bg-card); }
+  .btn-small:hover { color: var(--text-bright); border-color: var(--text-dim); }
+}
 
 /* ===== Page ===== */
 .page { padding: 24px 0; }
@@ -119,8 +132,11 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 24px;
 }
+.page-header h2 { margin-bottom: 0; }
 
 .page h2 {
   color: var(--text-bright);
@@ -241,12 +257,14 @@ a:hover { color: var(--accent-hover); }
   color: var(--text-bright);
   font-size: 16px;
   margin-bottom: 4px;
+  overflow-wrap: anywhere;
 }
 
 .deck-commander {
   color: var(--text-dim);
   font-size: 13px;
   margin-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 
 .deck-card-stats {
@@ -278,7 +296,9 @@ a:hover { color: var(--accent-hover); }
   justify-content: center;
   line-height: 1;
 }
-.deck-delete:hover { color: var(--error); background: rgba(0, 0, 0, 0.8); }
+@media (hover: hover) {
+  .deck-delete:hover { color: var(--error); background: rgba(0, 0, 0, 0.8); }
+}
 
 /* ===== Deck View ===== */
 .deck-header-banner {
@@ -1289,6 +1309,7 @@ body.modal-open { overflow: hidden; }
   font-size: 18px;
   font-weight: 700;
   color: var(--text-bright);
+  overflow-wrap: anywhere;
 }
 
 .deck-tile-commander {
@@ -1296,6 +1317,7 @@ body.modal-open { overflow: hidden; }
   font-size: 13px;
   color: var(--text-dim);
   margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
 .deck-tile-meta {
@@ -1491,9 +1513,11 @@ body.modal-open { overflow: hidden; }
   transition: border-color 0.15s, transform 0.15s;
   background: var(--bg-card);
 }
-.cmdr-card:hover {
-  border-color: var(--text-dim);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .cmdr-card:hover {
+    border-color: var(--text-dim);
+    transform: translateY(-2px);
+  }
 }
 .cmdr-card-selected {
   border-color: var(--accent) !important;
@@ -1512,6 +1536,7 @@ body.modal-open { overflow: hidden; }
   color: var(--text);
   text-align: center;
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 .cmdr-empty {
   grid-column: 1 / -1;
@@ -1670,6 +1695,8 @@ body.modal-open { overflow: hidden; }
 .admin-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  /* Quer-Wischen endet in der Tabelle, nicht als Browser-Back-Geste */
+  overscroll-behavior-x: contain;
   margin-bottom: 32px;
 }
 
@@ -1959,21 +1986,40 @@ body.modal-open { overflow: hidden; }
   :root { font-size: 14px; }
 
   #app { padding: 0 12px; }
+  #nav { margin: 0 -12px; padding: 0 12px; }
 
-  /* Nav */
+  /* Nav: Brand + Logout in einer Zeile, darunter EINE 44px-Linkzeile, die bei
+     Platznot horizontal scrollt (gleiches Muster wie .deck-tabs) statt auf
+     drei Zeilen umzubrechen und die sticky Nav auf 140px aufzublasen */
   .nav-inner {
     flex-wrap: wrap;
-    gap: 6px;
-    padding: 10px 0;
+    gap: 0 6px;
+    padding: 6px 0;
   }
   .nav-brand { font-size: 16px; }
-  .nav-links { gap: 12px; width: 100%; }
-  .nav-links a { font-size: 13px; }
-  .nav-user {
+  .nav-links {
+    order: 3;
     width: 100%;
-    justify-content: space-between;
-    font-size: 13px;
+    gap: 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a {
+    font-size: 13px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-links a:active { color: var(--text-bright); opacity: 0.7; }
+  .nav-user { font-size: 13px; }
+  /* "Eingeloggt als X" braucht keinen Platz in der sticky Nav —
+     der Logout-Button (bzw. Login-Link) bleibt */
+  .nav-user span { display: none; }
 
   /* Page */
   .page { padding: 16px 0; }
@@ -2111,12 +2157,20 @@ body.modal-open { overflow: hidden; }
   /* Info */
   .info-criteria { grid-template-columns: 1fr; }
   .info-bracket { padding: 8px 10px; }
+  /* Quellen-Links mit Luft zum Danebentippen */
+  .info-sources li { padding: 12px 0; }
 
   /* Admin */
   .admin-table { font-size: 13px; }
   .admin-table th,
   .admin-table td { padding: 8px 6px; }
-  .admin-code-edit { gap: 4px; }
+  /* Code-Feld + Speichern übereinander — nebeneinander schiebt die 78px-Inputs
+     samt Buttons über den Tabellenrand hinaus */
+  .admin-code-edit {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
   /* 16px-Schrift + 4px letter-spacing brauchen mehr Platz als vorher */
   .code-input { width: 78px; }
   .admin-add { padding: 16px; }
@@ -2165,12 +2219,14 @@ body.modal-open { overflow: hidden; }
   .btn,
   .btn-small,
   .deck-delete,
-  .btn-edit-meta {
+  .btn-edit-meta,
+  .back-link {
     min-height: 44px;
   }
   .btn,
   .btn-small,
-  .btn-edit-meta {
+  .btn-edit-meta,
+  .back-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2197,9 +2253,19 @@ body.modal-open { overflow: hidden; }
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Navigation: groessere Trefferflaechen */
-  .nav-links a { padding: 10px 0; }
-  .back-link { display: inline-block; padding: 8px 0; }
+  /* Datei-Upload-Label als echtes Touch-Ziel (Prefix nötig: die generische
+     .import-form-label-Regel hätte sonst gleiche Spezifität und gewänne) */
+  .import-form .file-upload {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    margin-bottom: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .import-form .file-upload:active { background: var(--bg-card); }
 }
 
 /* ===== Mana Pips ===== */
@@ -2274,6 +2340,7 @@ body.modal-open { overflow: hidden; }
   margin-bottom: 0;
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .resterampe-archetype {
