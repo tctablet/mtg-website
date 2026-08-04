@@ -67,11 +67,22 @@ export async function renderDeckView(container, params) {
       </div>
       ${isForSale ? renderSaleBanner(deck, totalPrice, isOwner) : ''}
       <div class="deck-actions">
-        ${isOwner ? '<button id="refresh-prices" class="btn">Preise aktualisieren</button>' : ''}
-        ${isOwner ? '<button id="toggle-edit" class="btn btn-secondary">Bearbeiten</button>' : ''}
-        ${isOwner && !isForSale ? '<button id="add-to-sale" class="btn btn-secondary">Zur Resterampe</button>' : ''}
-        ${isOwner && isForSale ? '<button id="remove-from-sale" class="btn btn-secondary">Aus Resterampe</button>' : ''}
-        <button id="export-deck" class="btn btn-secondary">Exportieren</button>
+        <div class="deck-actions-buttons">
+          ${isOwner ? '<button id="refresh-prices" class="btn">Preise aktualisieren</button>' : ''}
+          ${isOwner ? '<button id="toggle-edit" class="btn btn-secondary">Bearbeiten</button>' : ''}
+          <button id="export-deck" class="btn btn-secondary">Exportieren</button>
+          ${isOwner && isForSale ? '<button id="remove-from-sale" class="btn btn-secondary">Aus Resterampe</button>' : ''}
+          <div class="sort-controls">
+            <label class="sort-label" for="sort-select">Sortierung:</label>
+            <select id="sort-select" class="sort-select">
+              <option value="type">Typ</option>
+              <option value="name">Name</option>
+              <option value="cmc">Manakosten</option>
+              <option value="price-desc">Preis ↓</option>
+              <option value="price-asc">Preis ↑</option>
+            </select>
+          </div>
+        </div>
         ${isOwner ? `
         <div id="add-card-bar" class="add-card-bar" hidden>
           <div class="autocomplete-wrapper">
@@ -81,16 +92,6 @@ export async function renderDeckView(container, params) {
           <span id="add-card-status" class="add-card-status"></span>
         </div>
         ` : ''}
-        <div class="sort-controls">
-          <span class="sort-label">Sortierung:</span>
-          <select id="sort-select" class="sort-select">
-            <option value="type">Typ</option>
-            <option value="name">Name</option>
-            <option value="cmc">Manakosten</option>
-            <option value="price-desc">Preis ↓</option>
-            <option value="price-asc">Preis ↑</option>
-          </select>
-        </div>
       </div>
       <div class="deck-tabs">
         <button class="deck-tab deck-tab-active" data-tab="cards">Karten</button>
@@ -160,12 +161,6 @@ export async function renderDeckView(container, params) {
 
   document.getElementById('edit-deck-meta')?.addEventListener('click', () => {
     showMetaEditor(deck)
-  })
-
-  document.getElementById('add-to-sale')?.addEventListener('click', async () => {
-    if (!confirm(`"${deck.name}" zur Resterampe hinzufügen?`)) return
-    await updateDeck(deck.id, { for_sale: true })
-    refreshRoute()
   })
 
   document.getElementById('remove-from-sale')?.addEventListener('click', async () => {
@@ -625,14 +620,14 @@ async function refreshPrices(deckId, cards) {
   const btn = document.getElementById('refresh-prices')
   btn.disabled = true
 
-  // Replace button with progress bar
-  const progress = document.createElement('div')
-  progress.className = 'price-progress'
-  progress.innerHTML = `
-    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-    <span class="progress-text" id="progress-text">Scryfall abfragen...</span>
+  // Fortschritt IM Button statt replaceWith — der Button behält seine Box,
+  // nichts im Aktionsbereich verschiebt sich (min-width fixiert die Breite)
+  btn.style.minWidth = `${btn.offsetWidth}px`
+  btn.classList.add('btn-progress')
+  btn.innerHTML = `
+    <span class="btn-progress-fill" id="progress-fill"></span>
+    <span class="btn-progress-text" id="progress-text">Scryfall abfragen...</span>
   `
-  btn.replaceWith(progress)
 
   const fill = document.getElementById('progress-fill')
   const text = document.getElementById('progress-text')
@@ -681,6 +676,13 @@ async function refreshPrices(deckId, cards) {
     }, 500)
   } catch (err) {
     setProgress(0, `Fehler: ${err.message}`)
+    // Nach Fehler wieder klickbar machen, Button-Label + Breiten-Lock zurücksetzen
+    setTimeout(() => {
+      btn.classList.remove('btn-progress')
+      btn.textContent = 'Preise aktualisieren'
+      btn.style.minWidth = ''
+      btn.disabled = false
+    }, 3000)
   }
 }
 

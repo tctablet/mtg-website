@@ -407,10 +407,23 @@ a { color: var(--accent); text-decoration: none; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Doppeltipp-Zoom deaktivieren (touch-action erbt nicht — daher universal).
+   Pan/Scroll bleiben erlaubt; iOS lässt Pinch aus Accessibility-Gründen
+   grundsätzlich zu, aber der Doppeltipp-Zoom auf Buttons/Preview ist damit weg. */
+* { touch-action: manipulation; }
+
 .deck-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 24px;
+}
+
+/* Button-Zeile: Aktionen links, Sortierung rechts; die Add-Card-Bar liegt als
+   eigene Zeile darunter, damit ihr Erscheinen die Buttons nicht verschiebt */
+.deck-actions-buttons {
+  display: flex;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -450,9 +463,10 @@ a { color: var(--accent); text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
   min-width: 200px;
 }
+/* display:flex schlaegt sonst das hidden-Attribut — Bar war permanent sichtbar */
+.add-card-bar[hidden] { display: none; }
 .add-card-bar .autocomplete-wrapper {
   flex: 1;
   max-width: 350px;
@@ -508,34 +522,22 @@ a { color: var(--accent); text-decoration: none; }
   text-align: right;
 }
 
-/* ===== Price Progress ===== */
-.price-progress {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  max-width: 400px;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 8px;
-  background: var(--bg-card);
-  border-radius: 4px;
+/* ===== Price Progress (läuft IM Button — keine Layout-Verschiebung) ===== */
+.btn-progress {
+  position: relative;
   overflow: hidden;
 }
-
-.progress-fill {
-  height: 100%;
+.btn-progress-fill {
+  position: absolute;
+  inset: 0;
   width: 0%;
-  background: var(--accent);
-  border-radius: 4px;
+  /* heller Schleier — auf dem Accent-Button klar als Fuellstand erkennbar */
+  background: rgba(255, 255, 255, 0.28);
   transition: width 0.3s ease;
+  pointer-events: none;
 }
-
-.progress-text {
-  font-size: 0.85rem;
-  color: var(--text-dim);
+.btn-progress-text {
+  position: relative;
   white-space: nowrap;
 }
 
@@ -2074,12 +2076,17 @@ body.modal-open { overflow: hidden; }
   .value-amount { font-size: 22px; }
   .deck-meta { font-size: 13px; }
 
-  /* Deck Actions */
-  .deck-actions { flex-wrap: wrap; }
-  .deck-actions .btn { font-size: 13px; padding: 7px 14px; }
-  .price-progress { max-width: 100%; }
+  /* Deck Actions: feste 2-Spalten-Struktur statt unruhigem flex-wrap.
+     Zeile 1: Preise aktualisieren + Bearbeiten, Zeile 2: Exportieren +
+     Sortierung — Positionen bleiben in jedem State identisch */
+  .deck-actions-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .deck-actions .btn { font-size: 13px; padding: 7px 10px; width: 100%; min-height: 44px; }
   .sort-controls { margin-left: 0; width: 100%; }
-  .sort-select { width: 100%; }
+  .sort-label { display: none; }
+  .sort-select { width: 100%; min-height: 44px; }
+  /* order haelt die [Export][Sortierung]-Paarung intakt — der Sale-Button
+     rutscht als volle Zeile ans Ende statt ein Grid-Loch zu reissen */
+  #remove-from-sale { grid-column: 1 / -1; order: 10; }
 
   /* Meta Editor */
   .meta-editor { max-width: 100%; }
