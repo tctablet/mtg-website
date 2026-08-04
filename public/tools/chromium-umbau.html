@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chromium — Der Umbau</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c11; --panel: #10131b; --line: #232838;
+  --gold: #c8a563; --gold-dim: #8a744d;
+  --ink: #e8e4d8; --dim: #98938a;
+  --out: #b0503c; --in: #4fa08c;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Alegreya Sans", sans-serif; line-height:1.45;
+  background-image:
+    radial-gradient(1100px 500px at 50% -100px, rgba(63,84,140,.28), transparent 70%),
+    radial-gradient(900px 600px at 90% 20%, rgba(200,165,99,.05), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 48px 28px 90px; }
+.kicker { color: var(--gold); letter-spacing:.35em; text-transform:uppercase; font-size:.72rem; text-align:center; }
+h1 {
+  font-family: Cinzel, serif; font-weight:900; text-align:center;
+  font-size: clamp(2rem, 5vw, 3.3rem); letter-spacing:.06em; margin:.25em 0 .1em;
+  background: linear-gradient(180deg, #f3ecd9 20%, #c8a563 75%, #8a744d);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.sub { text-align:center; color:var(--dim); font-size:1.02rem; max-width:640px; margin:0 auto; }
+.chips { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:26px 0 10px; }
+.chip {
+  border:1px solid var(--line); background:linear-gradient(180deg,#141826,#0e1017);
+  padding:8px 18px; border-radius:999px; font-size:.9rem; color:var(--dim);
+}
+.chip b { color:var(--ink); font-weight:700; }
+section { margin-top:64px; }
+.sec-head { display:flex; align-items:center; gap:18px; margin-bottom:8px; }
+.sec-head::before, .sec-head::after { content:""; height:1px; flex:1; background:linear-gradient(90deg, transparent, var(--line)); }
+.sec-head::after { background:linear-gradient(90deg, var(--line), transparent); }
+.stamp {
+  font-family:Cinzel, serif; font-weight:700; font-size:1.5rem; letter-spacing:.3em;
+  padding:6px 26px 4px; border:1px solid; border-radius:3px; text-transform:uppercase;
+}
+.s-out { color:var(--out); border-color:rgba(176,80,60,.5); box-shadow:0 0 30px rgba(176,80,60,.12) inset; }
+.s-in  { color:var(--in);  border-color:rgba(79,160,140,.5); box-shadow:0 0 30px rgba(79,160,140,.12) inset; }
+.sec-note { text-align:center; color:var(--dim); font-size:.92rem; font-style:italic; margin-bottom:26px; }
+.group { margin-top:34px; }
+.group-head { display:flex; justify-content:space-between; align-items:baseline; gap:16px; border-bottom:1px solid var(--line); padding-bottom:7px; margin-bottom:18px; }
+.group-head h3 {
+  font-family:Cinzel, serif; font-weight:700; font-size:1.02rem; letter-spacing:.08em;
+  color:var(--gold);
+}
+.group-head .meta { color:var(--dim); font-size:.85rem; white-space:nowrap; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(148px, 1fr)); gap:20px 16px; }
+.card { text-align:center; }
+.frame { position:relative; }
+.frame img {
+  width:100%; display:block; border-radius:4.6%;
+  box-shadow:0 4px 14px rgba(0,0,0,.55);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.card:hover .frame img { transform: translateY(-6px) scale(1.05); box-shadow:0 16px 34px rgba(0,0,0,.7); }
+section.out .frame img { filter: saturate(.55) brightness(.82); }
+section.out .card:hover .frame img { filter:none; }
+.price {
+  position:absolute; right:6px; bottom:6px; font-size:.74rem; font-weight:700;
+  background:rgba(8,9,13,.82); border:1px solid var(--line); color:var(--gold);
+  padding:2px 7px; border-radius:999px; backdrop-filter: blur(2px);
+}
+figcaption { margin-top:9px; }
+figcaption strong { display:block; font-size:.86rem; line-height:1.25; }
+figcaption span { display:block; color:var(--dim); font-size:.78rem; line-height:1.3; margin-top:2px; }
+.footnote {
+  margin-top:70px; border:1px solid var(--line); border-radius:10px;
+  background:linear-gradient(180deg,#12151f,#0d0f16); padding:20px 26px; color:var(--dim); font-size:.93rem;
+}
+.footnote b { color:var(--gold); }
+@media (max-width:520px) { .grid { grid-template-columns:repeat(auto-fill, minmax(118px,1fr)); gap:14px 10px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Flash · Esper · Commander-Umbau</p>
+  <h1>Chromium, the Mutable</h1>
+  <p class="sub">Vom trägen Token-Subtheme zum One-Shot-Voltron mit tutorfreien Win Cons — Control-Shell und cleanes Board bleiben unangetastet.</p>
+  <div class="chips">
+    <span class="chip"><b>13</b> Cuts (+3 Reserve)</span>
+    <span class="chip"><b>12</b> Spells + <b>2</b> Länder rein</span>
+    <span class="chip">Kern-Paket <b>43,18 €</b></span>
+    <span class="chip">Vollausbau <b>~121 €</b></span>
+  </div>
+
+  <section class="out">
+    <div class="sec-head"><span class="stamp s-out">Raus</span></div>
+    <p class="sec-note">Die Land-Swaps ersetzen zusätzlich 1 Insel und 1 Ebene.</p>
+    <div class="group">
+<header class="group-head"><h3>Klar raus — das träge Token-Subtheme</h3><span class="meta">6 Karten · 6 Slots</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/b/1be3ed47-072e-481a-b3d9-dc232ac4b24f.jpg?1783911937" alt="Talrand, Sky Summoner"><span class="price">0,40 €</span></div>
+  <figcaption><strong>Talrand, Sky Summoner</strong><span>Braucht Überlebenszeit + Spell-Dichte</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/e/9e68dcc2-bba4-4efa-97bb-3ed892037595.jpg?1783911941" alt="Murmuring Mystic"><span class="price">0,65 €</span></div>
+  <figcaption><strong>Murmuring Mystic</strong><span>Der schlechtere Talrand</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/6/96658239-3169-42ef-9983-cd4da24e0f4c.jpg?1783908169" alt="Docent of Perfection"><span class="price">0,37 €</span></div>
+  <figcaption><strong>Docent of Perfection</strong><span>Flippt nie rechtzeitig</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/3/a/3a769d7e-c749-4845-ba87-808f0386df80.jpg?1783927564" alt="Metallurgic Summonings"><span class="price">1,67 €</span></div>
+  <figcaption><strong>Metallurgic Summonings</strong><span>5 Mana ohne Sofortwirkung</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/0/90645549-20f1-4fe9-8363-7f67c20fa3b6.jpg?1783913033" alt="Bennie Bracks, Zoologist"><span class="price">7,12 €</span></div>
+  <figcaption><strong>Bennie Bracks, Zoologist</strong><span>Ohne Token-Strom kein Trigger</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/7/a/7aa3f166-c5d1-40f0-9b23-352424b8e13a.jpg?1783917131" alt="Corpse Knight"><span class="price">0,76 €</span></div>
+  <figcaption><strong>Corpse Knight</strong><span>Payoff ohne Token-Basis</span></figcaption>
+</figure></div>
+</div>
+<div class="group">
+<header class="group-head"><h3>Sehr wahrscheinlich raus</h3><span class="meta">7 Karten · 7 Slots</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/5/d53a775d-5898-41a8-b404-9b7d4721c6ba.jpg?1783911793" alt="Kambal, Profiteering Mayor"><span class="price">4,90 €</span></div>
+  <figcaption><strong>Kambal, Profiteering Mayor</strong><span>Nur noch Punisher-Modus übrig</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/7/9/79ba5c35-6e5c-406a-b95f-844d5ec296ab.jpg?1783914990" alt="Alela, Cunning Conqueror"><span class="price">10,00 €</span></div>
+  <figcaption><strong>Alela, Cunning Conqueror</strong><span>Kopf des Token-Plans</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/d/bdee441e-14ab-42d1-b447-5a6488fd713a.jpg?1783909496" alt="Fear of Impostors"><span class="price">0,14 €</span></div>
+  <figcaption><strong>Fear of Impostors</strong><span>Counter auf irrelevantem Body</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/5/b5e4087b-e692-4eb2-bb59-ff2a001d6dd4.jpg?1783908937" alt="Dictate of Kruphix"><span class="price">0,43 €</span></div>
+  <figcaption><strong>Dictate of Kruphix</strong><span>Füttert die Gegner mit</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/2/7/27855a38-a682-4f97-ad22-ac625e86faec.jpg?1783928268" alt="Behold the Multiverse"><span class="price">0,22 €</span></div>
+  <figcaption><strong>Behold the Multiverse</strong><span>Schwächster Draw-Spell</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/e/1e5530fc-0291-4a17-b048-c5d24e6f51d8.jpg?1783909087" alt="Aetherize"><span class="price">0,44 €</span></div>
+  <figcaption><strong>Aetherize</strong><span>Nur Tempo — Inkshield macht&#x27;s besser</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/8/18748b1d-4161-482c-a726-8762b4c1819c.jpg?1783908934" alt="Fog Bank"><span class="price">0,18 €</span></div>
+  <figcaption><strong>Fog Bank</strong><span>Reiner Blocker ohne Plan</span></figcaption>
+</figure></div>
+</div>
+<div class="group">
+<header class="group-head"><h3>Reserve-Cuts — nur falls Optionals reinkommen</h3><span class="meta">3 Karten · 3 Slots</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/0/4/049ce45b-ab07-4bce-bb4a-83f5720b6ee7.jpg?1783915411" alt="Wall of Denial"><span class="price">0,52 €</span></div>
+  <figcaption><strong>Wall of Denial</strong><span>Der bessere Wall — einer darf bleiben</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/8/1819a0af-0775-431d-9637-13f8f10830f5.jpg?1783909636" alt="Utter End"><span class="price">0,13 €</span></div>
+  <figcaption><strong>Utter End</strong><span>Removal-Suite ist auch so voll</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075" alt="Elesh Norn"><span class="price">5,89 €</span></div>
+  <figcaption><strong>Elesh Norn</strong><span>Stark, aber off-plan</span></figcaption>
+</figure></div>
+</div>
+  </section>
+
+  <section class="in">
+    <div class="sec-head"><span class="stamp s-in">Rein</span></div>
+    <p class="sec-note">Alle Karten Scryfall-verifiziert: Esper-Farbidentität, Commander-legal, Preise Stand 02.08.2026.</p>
+    <div class="group">
+<header class="group-head"><h3>Voltron-Kern — der One-Shot</h3><span class="meta">7 Karten · 21,28 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/5/45834bc6-be8d-4064-930d-efc73cf3c64d.jpg?1783904807" alt="Duelist&#x27;s Heritage"><span class="price">1,73 €</span></div>
+  <figcaption><strong>Duelist&#x27;s Heritage</strong><span>Double Strike bei jedem Angriff</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/0/d0f82007-99f6-4c6c-8182-ee631c33531f.jpg?1783941727" alt="Tainted Strike"><span class="price">1,97 €</span></div>
+  <figcaption><strong>Tainted Strike</strong><span>Mit DS: 16 Poison — 10 töten</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/0/90ef6b1c-2a86-415f-a5e3-c4b4f73a4de0.jpg?1783918477" alt="Howl from Beyond"><span class="price">0,08 €</span></div>
+  <figcaption><strong>Howl from Beyond</strong><span>+X/+0 instant · X=4 + DS = 22</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/2/4/240448cd-c308-49ae-9e4b-0c35adc59fba.jpg?1783921401" alt="Blackblade Reforged"><span class="price">0,96 €</span></div>
+  <figcaption><strong>Blackblade Reforged</strong><span>+1/+1 pro Land (~+8)</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/8/484fbce6-71bd-40eb-a71b-86958a094708.jpg?1783908906" alt="Fireshrieker"><span class="price">0,18 €</span></div>
+  <figcaption><strong>Fireshrieker</strong><span>DS-Redundanz — vor der Ability anlegen</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/5/3/531da950-dc96-4050-94a8-e01b73ddd965.jpg?1783928726" alt="Sigarda&#x27;s Aid"><span class="price">14,35 €</span></div>
+  <figcaption><strong>Sigarda&#x27;s Aid</strong><span>Equipment flashen + gratis anlegen</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/6/6/6675632d-d74a-4b1e-8539-ac678d5545a5.jpg?1783903212" alt="Swiftfoot Boots"><span class="price">2,01 €</span></div>
+  <figcaption><strong>Swiftfoot Boots</strong><span>Hexproof + Haste</span></figcaption>
+</figure></div>
+</div>
+<div class="group">
+<header class="group-head"><h3>Land-Swaps — für 2 Basics</h3><span class="meta">2 Karten · 7,73 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/4/4493b62b-f354-47ff-9dcf-cc6e29de77c6.jpg?1785497634" alt="Rogue&#x27;s Passage"><span class="price">0,22 €</span></div>
+  <figcaption><strong>Rogue&#x27;s Passage</strong><span>Unblockable im Land-Slot</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/3/435e9678-9ff3-4e5d-8061-3f806e1c2ed2.jpg?1783906993" alt="Command Beacon"><span class="price">7,51 €</span></div>
+  <figcaption><strong>Command Beacon</strong><span>Chromium ohne Tax zurück auf die Hand</span></figcaption>
+</figure></div>
+</div>
+<div class="group">
+<header class="group-head"><h3>Win Cons — tutorfrei, ohne Combat</h3><span class="meta">5 Karten · 14,17 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/d/fdf59a6e-7708-45a1-884d-d12e9f7b9ed9.jpg?1783936543" alt="Approach of the Second Sun"><span class="price">2,71 €</span></div>
+  <figcaption><strong>Approach of the Second Sun</strong><span>Zweiter Cast gewinnt bei Resolution</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/4/a42f8d69-dff4-4c35-a5fc-527ea5f1d21b.jpg?1783913292" alt="Debt to the Deathless"><span class="price">0,32 €</span></div>
+  <figcaption><strong>Debt to the Deathless</strong><span>Doppel-Drain pro X</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/1/f11d7311-4066-4a5d-ba28-9857fa707a0b.jpg?1783909073" alt="Exsanguinate"><span class="price">0,39 €</span></div>
+  <figcaption><strong>Exsanguinate</strong><span>Drain-Redundanz + Lifegain</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/7/9/79b0e035-8716-469d-99ae-a530cd96ef09.jpg?1783935756" alt="Revel in Riches"><span class="price">9,86 €</span></div>
+  <figcaption><strong>Revel in Riches</strong><span>Smothering Tithe + Wipes → Treasure-Win</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/f/af4d5acb-12d6-46d7-aaf9-3ace1520825a.jpg?1783925379" alt="Drown in Dreams"><span class="price">0,89 €</span></div>
+  <figcaption><strong>Drown in Dreams</strong><span>X ziehen + 2X millen, instant</span></figcaption>
+</figure></div>
+</div>
+<div class="group">
+<header class="group-head"><h3>Optional-Upgrades</h3><span class="meta">6 Karten · 77,69 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/7/f724dde1-84b0-4e3b-a9b8-44cd22bb9f79.jpg?1783906558" alt="Genji Glove"><span class="price">4,15 €</span></div>
+  <figcaption><strong>Genji Glove</strong><span>DS + Extra-Combat = 28 solo (vorher anlegen!)</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/7/a/7adbe69f-326d-4b4f-850f-c57a1860d17c.jpg?1783926486" alt="Vorpal Sword"><span class="price">1,31 €</span></div>
+  <figcaption><strong>Vorpal Sword</strong><span>1 Treffer = Spieler verliert das Spiel</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/6/0/608cdbdb-6f7e-438a-bab0-0e7782435f0f.jpg?1783913897" alt="Akroma&#x27;s Will"><span class="price">13,02 €</span></div>
+  <figcaption><strong>Akroma&#x27;s Will</strong><span>DS + Protection in einem Spell</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/2/3/2383a8d9-96fd-4f9a-bcf9-eb81fdb15ead.jpg?1783946517" alt="Hatred"><span class="price">32,59 €</span></div>
+  <figcaption><strong>Hatred</strong><span>X=14 → Ein-Karten-Kill aus dem Nichts</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/6/f69d77d1-5980-436c-bf48-790939b069aa.jpg?1783936036" alt="Torment of Hailfire"><span class="price">25,04 €</span></div>
+  <figcaption><strong>Torment of Hailfire</strong><span>X-Drain · Win bei Resolution</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/5/0/500a2aa4-712f-41be-920e-f2f448ff83d0.jpg?1783935183" alt="Blue Sun&#x27;s Zenith"><span class="price">1,58 €</span></div>
+  <figcaption><strong>Blue Sun&#x27;s Zenith</strong><span>Instant-X-Draw, findet die Win Cons</span></figcaption>
+</figure></div>
+</div>
+  </section>
+
+  <div class="footnote">
+    <b>Rechnung:</b> 13 Cuts gegen 12 Spell-Swaps — ein Slot bleibt frei für das erste Optional.
+    Jedes weitere Optional verdrängt einen Reserve-Cut.
+    <b>Kill-Linien:</b> Duelist&rsquo;s Heritage + beliebige +4 = 22 &middot; Tainted Strike + Double Strike = 16 Poison &middot;
+    Hatred solo (X=14) &middot; Vorpal Sword: 1 Treffer = Spieler verliert.
+    Fireshrieker/Leyline-Grants <i>vor</i> Chromiums Discard-Ability anlegen &mdash; statische +X/+X-Boni (Blackblade) z&auml;hlen dagegen immer.
+  </div>
+</div>
+</body>
+</html>

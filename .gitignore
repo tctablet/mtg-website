@@ -25,3 +25,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tool-Caches, lokale Modelle & Binaries (nicht committen)
+tools/.venv/
+tools/.model_cache/
+tools/.proxy_cache/
+tools/__pycache__/
+tools/models/
+tools/upscayl-bin
+tools/realesrgan-ncnn-vulkan
+foil-*.png

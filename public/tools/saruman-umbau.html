@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Saruman — Der Umbau</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0c11; --line:#232838; --gold:#c8a563; --ink:#e8e4d8; --dim:#98938a;
+  --out:#b0503c; --in:#4fa08c;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background:var(--bg); color:var(--ink); font-family:"Alegreya Sans",sans-serif; line-height:1.45;
+  background-image:
+    radial-gradient(900px 420px at 50% -80px, rgba(93,74,140,.25), transparent 70%),
+    radial-gradient(700px 500px at 90% 15%, rgba(200,165,99,.05), transparent 60%);
+}
+.banner {
+  position:relative; height:min(38vw,230px); min-height:150px;
+  background:url("https://cards.scryfall.io/art_crop/front/6/2/62c8fa9c-d8ba-4ce0-946c-42fdc26b49d1.jpg?1784733951") center 22%/cover no-repeat;
+}
+.banner::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,12,17,.25), rgba(10,12,17,.55) 60%, var(--bg)); }
+.wrap { max-width:1100px; margin:0 auto; padding:0 14px 70px; }
+header.top { margin-top:-46px; position:relative; z-index:1; text-align:center; }
+.kicker { color:var(--gold); letter-spacing:.3em; text-transform:uppercase; font-size:.66rem; }
+h1 {
+  font-family:Cinzel,serif; font-weight:900; font-size:clamp(1.5rem,6vw,2.9rem); letter-spacing:.04em; margin:.15em 0;
+  background:linear-gradient(180deg,#f3ecd9 20%,#c8a563 75%,#8a744d);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.sub { color:var(--dim); font-size:clamp(.85rem,3vw,1rem); max-width:560px; margin:0 auto; }
+.chips { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:18px 0 4px; }
+.chip { border:1px solid var(--line); background:linear-gradient(180deg,#141826,#0e1017); padding:6px 13px; border-radius:999px; font-size:.8rem; color:var(--dim); }
+.chip b { color:var(--ink); }
+a.chip { text-decoration:none; }
+a.chip.jump-in b { color:var(--in); } a.chip.jump-out b { color:var(--out); }
+section { margin-top:46px; }
+.sec-head { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+.sec-head::before,.sec-head::after { content:""; height:1px; flex:1; background:linear-gradient(90deg,transparent,var(--line)); }
+.sec-head::after { background:linear-gradient(90deg,var(--line),transparent); }
+.stamp { font-family:Cinzel,serif; font-weight:700; font-size:clamp(1.1rem,4.5vw,1.45rem); letter-spacing:.28em; padding:5px 20px 3px; border:1px solid; border-radius:3px; text-transform:uppercase; }
+.s-out { color:var(--out); border-color:rgba(176,80,60,.5); }
+.s-in { color:var(--in); border-color:rgba(79,160,140,.5); }
+.sec-note { text-align:center; color:var(--dim); font-size:.82rem; font-style:italic; margin-bottom:16px; padding:0 10px; }
+.group { margin-top:26px; }
+.group-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; border-bottom:1px solid var(--line); padding-bottom:6px; margin-bottom:12px; }
+.group-head h3 { font-family:Cinzel,serif; font-weight:700; font-size:clamp(.85rem,3.4vw,1rem); letter-spacing:.06em; color:var(--gold); }
+.group-head .meta { color:var(--dim); font-size:.76rem; white-space:nowrap; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:14px 10px; }
+@media (min-width:700px) { .grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:20px 16px; } .wrap { padding:0 26px 90px; } }
+.card { text-align:center; }
+.frame { position:relative; }
+.frame img { width:100%; display:block; border-radius:4.6%; box-shadow:0 3px 10px rgba(0,0,0,.55); transition:transform .15s ease; }
+.card:active .frame img { transform:scale(.96); }
+@media (hover:hover) { .card:hover .frame img { transform:translateY(-5px) scale(1.05); box-shadow:0 14px 30px rgba(0,0,0,.7); } }
+section.out .frame img { filter:saturate(.5) brightness(.8); }
+.price { position:absolute; right:4px; bottom:4px; font-size:.62rem; font-weight:700; background:rgba(8,9,13,.85); border:1px solid var(--line); color:var(--gold); padding:1px 6px; border-radius:999px; }
+figcaption { margin-top:7px; }
+figcaption strong { display:block; font-size:.72rem; line-height:1.2; }
+figcaption span { display:block; color:var(--dim); font-size:.65rem; line-height:1.25; margin-top:2px; }
+@media (min-width:700px) { figcaption strong { font-size:.86rem; } figcaption span { font-size:.78rem; } .price { font-size:.72rem; } }
+.footnote { margin-top:50px; border:1px solid var(--line); border-radius:10px; background:linear-gradient(180deg,#12151f,#0d0f16); padding:16px 18px; color:var(--dim); font-size:.85rem; }
+.footnote b { color:var(--gold); }
+</style>
+</head>
+<body>
+<div class="banner"></div>
+<div class="wrap">
+  <header class="top">
+    <p class="kicker">Esper · Draw-Go · The Hobbit</p>
+    <h1>Saruman of Many Colors</h1>
+    <p class="sub">Commander-Wechsel: Die Chromium-Shell bleibt zu ~85 % liegen — neu sind Engine, Win Cons, Anti-Combat und die Hobbit-Picks. Kein Combat nötig.</p>
+    <div class="chips">
+      <span class="chip">Kern-Paket <b>74,64 €</b> (22 Karten)</span>
+      <span class="chip">Optionals <b>~169 €</b></span>
+      <a class="chip jump-in" href="#rein"><b>▼ Rein</b></a>
+      <a class="chip jump-out" href="#raus"><b>▼ Raus</b></a>
+    </div>
+  </header>
+
+  <section class="in" id="rein">
+    <div class="sec-head"><span class="stamp s-in">Rein</span></div>
+    <p class="sec-note">Scryfall-verifiziert · Preise = günstigster Print, Stand 02.08.2026 · Hobbit-Karten erscheinen 14.08.</p>
+    <div class="group">
+<header class="group-head"><h3>Hobbit-Set-Picks</h3><span class="meta">7 Karten · 49,70 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/0/d/0de529a7-bdc5-4581-a169-1ad123bc099a.jpg?1785152406" alt="Wizard&#x27;s Staff"><span class="price">7,88 €</span></div>
+  <figcaption><strong>Wizard&#x27;s Staff</strong><span>Verdoppelt Sarumans kompletten Trigger — 2× Mill, 2× Gratis-Kopie</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/1/b19d533b-0081-4744-8fc8-5e864ddb39ba.jpg?1784980202" alt="Mithril Coat"><span class="price">16,47 €</span></div>
+  <figcaption><strong>Mithril Coat</strong><span>Flash + Gratis-Attach: macht eigene Wipes einseitig</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/6/9/692fcfe3-1057-4290-aaea-f4d50f642c05.jpg?1785647367" alt="Lotho, Corrupt Shirriff"><span class="price">9,03 €</span></div>
+  <figcaption><strong>Lotho, Corrupt Shirriff</strong><span>Treasure für den 2. Spell JEDES Spielers</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/5/45ad01f0-cda8-4931-82bb-cb4949e56ae9.jpg?1784894818" alt="Bilbo&#x27;s Gambit"><span class="price">7,99 €</span></div>
+  <figcaption><strong>Bilbo&#x27;s Gambit</strong><span>Reprieve + Silence in einem: Win-Turn-Schutz</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/a/fa2eca1b-96d6-4707-88ca-951bb7913cc9.jpg?1784377264" alt="Reprieve"><span class="price">0,66 €</span></div>
+  <figcaption><strong>Reprieve</strong><span>Pseudo-Counter + Cantrip, trifft Uncounterables</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/2/a/2a7b9598-9234-4621-90e4-f578f2f84983.jpg?1785647374" alt="Raise the Palisade"><span class="price">5,83 €</span></div>
+  <figcaption><strong>Raise the Palisade</strong><span>Board-Reset, verschont Saruman („Avatar“)</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/3/1/31a7a5e2-4cb8-48fc-8351-18344b4a7560.jpg?1785496349" alt="Settle the Wreckage"><span class="price">1,84 €</span></div>
+  <figcaption><strong>Settle the Wreckage</strong><span>Instant-Exil aller Angreifer — Anti-Isshin/Ozai</span></figcaption>
+</figure></div></div>
+<div class="group">
+<header class="group-head"><h3>Saruman-Engine</h3><span class="meta">8 Karten · 10,02 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/5/2/52884e67-c742-4799-9afd-55bc70b2cf40.jpg?1783916312" alt="Storm of Saruman"><span class="price">3,06 €</span></div>
+  <figcaption><strong>Storm of Saruman</strong><span>Kopiert deinen 2. Spell — X-Wahl bleibt erhalten!</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/d/dd547601-d650-4a02-a3a4-890bcef03a7c.jpg?1783903793" alt="Archmage Emeritus"><span class="price">1,17 €</span></div>
+  <figcaption><strong>Archmage Emeritus</strong><span>Draw auf jeden Cast UND jede Kopie</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/e/b/eb7b9762-740b-4c1c-a411-20dbf023aea5.jpg?1783922399" alt="Drown in the Loch"><span class="price">1,38 €</span></div>
+  <figcaption><strong>Drown in the Loch</strong><span>Counter + Removal, skaliert mit Saruman-Mill</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/b/bbc99a51-1501-4525-a3cc-f48249b64bed.jpg?1783907102" alt="Opt"><span class="price">0,16 €</span></div>
+  <figcaption><strong>Opt</strong><span>1-Mana-Trigger-Enabler, instant</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/f/4f28e706-c488-4525-ad8a-977a5fa77f80.jpg?1783904806" alt="Consider"><span class="price">0,56 €</span></div>
+  <figcaption><strong>Consider</strong><span>Trigger-Enabler + Surveil</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/5/b5545882-6963-4729-b2c6-fb4bdc75ffcc.jpg?1783904806" alt="Brainstorm"><span class="price">2,45 €</span></div>
+  <figcaption><strong>Brainstorm</strong><span>Trigger-Enabler + Handqualität</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/8/d8c5e52d-57ae-464b-8860-7dd39ebfef64.jpg?1783904806" alt="Frantic Search"><span class="price">0,95 €</span></div>
+  <figcaption><strong>Frantic Search</strong><span>Effektiv gratis zweiter Spell</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/f/df04c110-25f8-4989-ab82-265fb9cb89e5.jpg?1783940411" alt="Sphinx-Bone Wand"><span class="price">0,29 €</span></div>
+  <figcaption><strong>Sphinx-Bone Wand</strong><span>n-ter Spell = n Schaden — combat-frei</span></figcaption>
+</figure></div></div>
+<div class="group">
+<header class="group-head"><h3>Anti-Combat</h3><span class="meta">2 Karten · 9,03 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/5/b/5b8e092a-610d-4cea-bb92-65e01954b5c4.jpg?1783918417" alt="Crawlspace"><span class="price">6,90 €</span></div>
+  <figcaption><strong>Crawlspace</strong><span>Max. 2 Angreifer auf dich — Bitterblossom chumpt den Rest</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/c/ac943e31-26bc-4b54-b73f-460e6e402d86.jpg?1783903239" alt="Propaganda"><span class="price">2,13 €</span></div>
+  <figcaption><strong>Propaganda</strong><span>{2} Steuer pro Angreifer: „geh woanders hin“</span></figcaption>
+</figure></div></div>
+<div class="group">
+<header class="group-head"><h3>Win Cons — tutorfrei</h3><span class="meta">5 Karten · 5,89 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/d/fdf59a6e-7708-45a1-884d-d12e9f7b9ed9.jpg?1783936543" alt="Approach of the Second Sun"><span class="price">2,71 €</span></div>
+  <figcaption><strong>Approach of the Second Sun</strong><span>2. Cast gewinnt sofort · mit Necro: 2-Zug-Skript</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/4/a42f8d69-dff4-4c35-a5fc-527ea5f1d21b.jpg?1783913292" alt="Debt to the Deathless"><span class="price">0,32 €</span></div>
+  <figcaption><strong>Debt to the Deathless</strong><span>Mit Storm: X=8 → −32 je Gegner</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/1/f11d7311-4066-4a5d-ba28-9857fa707a0b.jpg?1783909073" alt="Exsanguinate"><span class="price">0,39 €</span></div>
+  <figcaption><strong>Exsanguinate</strong><span>Drain + Lifegain (füttert Aetherflux)</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/5/0/500a2aa4-712f-41be-920e-f2f448ff83d0.jpg?1783935183" alt="Blue Sun&#x27;s Zenith"><span class="price">1,58 €</span></div>
+  <figcaption><strong>Blue Sun&#x27;s Zenith</strong><span>Instant-X-Draw, spät Deck-Out</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/f/af4d5acb-12d6-46d7-aaf9-3ace1520825a.jpg?1783925379" alt="Drown in Dreams"><span class="price">0,89 €</span></div>
+  <figcaption><strong>Drown in Dreams</strong><span>X ziehen + 2X millen, instant</span></figcaption>
+</figure></div></div>
+<div class="group">
+<header class="group-head"><h3>Optionals</h3><span class="meta">9 Karten · 168,67 €</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/8/8/881b6202-6d02-489b-b79c-62142c42ed1f.jpg?1784377273" alt="Orcish Bowmasters"><span class="price">31,92 €</span></div>
+  <figcaption><strong>Orcish Bowmasters</strong><span>Bestraft jede Draw-Engine, Flash</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/b/1b258c47-48b8-4787-9af7-1635cc17dff6.jpg?1784377259" alt="Galadriel&#x27;s Dismissal"><span class="price">24,18 €</span></div>
+  <figcaption><strong>Galadriel&#x27;s Dismissal</strong><span>Phase-Out rettet vor ALLEM, gekickt = Fog</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/4/8/483fa1cb-1e35-44f2-a143-98c0f107f5ca.jpg?1783921926" alt="Teferi&#x27;s Protection"><span class="price">37,64 €</span></div>
+  <figcaption><strong>Teferi&#x27;s Protection</strong><span>Der Total-Reset: 1 Runde unantastbar</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/6/f69d77d1-5980-436c-bf48-790939b069aa.jpg?1783936036" alt="Torment of Hailfire"><span class="price">25,04 €</span></div>
+  <figcaption><strong>Torment of Hailfire</strong><span>Nachwipe-Finisher (~20 Mana realistisch)</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/6/96b6b2e1-c3e6-464c-8a13-b15deb34e862.jpg?1783937164" alt="Aetherflux Reservoir"><span class="price">15,16 €</span></div>
+  <figcaption><strong>Aetherflux Reservoir</strong><span>50-Life-Kill nach jedem X-Drain</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/0/f0aacf61-be23-400e-8e3c-5584b44df449.jpg?1783909936" alt="Nexus of Fate"><span class="price">3,91 €</span></div>
+  <figcaption><strong>Nexus of Fate</strong><span>Instant-Extra-Turn, shuffelt sich zurück</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/5/d56d1535-d9de-459f-bc31-0923f621e0e9.jpg?1783915683" alt="Bloodchief Ascension"><span class="price">15,76 €</span></div>
+  <figcaption><strong>Bloodchief Ascension</strong><span>Drain-Loop-Hälfte — Saruman lädt sie auf</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/8/8/8858a941-8175-476d-8177-2db4ffdcb3ad.jpg?1783922388" alt="Mindcrank"><span class="price">8,57 €</span></div>
+  <figcaption><strong>Mindcrank</strong><span>Loop-Hälfte 2, einseitig &amp; wipe-fest</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/c/1c2b13b1-31f0-4676-88a7-53f3a190e9a2.jpg?1783939940" alt="Silence"><span class="price">6,49 €</span></div>
+  <figcaption><strong>Silence</strong><span>Win-Turn absichern</span></figcaption>
+</figure></div></div>
+  </section>
+
+  <section class="out" id="raus">
+    <div class="sec-head"><span class="stamp s-out">Raus</span></div>
+    <p class="sec-note">22 Cuts = 22 neue Slots. <b style="color:var(--gold)">Bitterblossom bleibt</b> — als reine Blocker-Quelle für die Crawlspace-Kombo, nicht als Engine. Manabase unverändert (34 Länder).</p>
+    <div class="group">
+<header class="group-head"><h3>Fixe Cuts</h3><span class="meta">15 Karten</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/5/0/50c1de2c-1acc-47c8-9b5e-a9dae3da8a49.jpg?1783934522" alt="Chromium, the Mutable"><span class="price">0,60 €</span></div>
+  <figcaption><strong>Chromium, the Mutable</strong><span>Der alte Boss dankt ab</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/6/96658239-3169-42ef-9983-cd4da24e0f4c.jpg?1783908169" alt="Docent of Perfection"><span class="price">0,37 €</span></div>
+  <figcaption><strong>Docent of Perfection</strong><span>Flippt nie rechtzeitig</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/7/a/7aa3f166-c5d1-40f0-9b23-352424b8e13a.jpg?1783917131" alt="Corpse Knight"><span class="price">0,76 €</span></div>
+  <figcaption><strong>Corpse Knight</strong><span>Kein Token-Strom mehr</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/8/18748b1d-4161-482c-a726-8762b4c1819c.jpg?1783908934" alt="Fog Bank"><span class="price">0,18 €</span></div>
+  <figcaption><strong>Fog Bank</strong><span>Nur Blocker</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/d/bdee441e-14ab-42d1-b447-5a6488fd713a.jpg?1783909496" alt="Fear of Impostors"><span class="price">0,14 €</span></div>
+  <figcaption><strong>Fear of Impostors</strong><span>Schwacher Counter-Body</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/d/ad0997f0-865f-422b-b34e-485ff8178625.jpg?1783927860" alt="Stonecloaker"><span class="price">0,20 €</span></div>
+  <figcaption><strong>Stonecloaker</strong><span>Off-plan</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/0/4/049ce45b-ab07-4bce-bb4a-83f5720b6ee7.jpg?1783915411" alt="Wall of Denial"><span class="price">0,52 €</span></div>
+  <figcaption><strong>Wall of Denial</strong><span>Reine Defense</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/0/90645549-20f1-4fe9-8363-7f67c20fa3b6.jpg?1783913033" alt="Bennie Bracks, Zoologist"><span class="price">7,12 €</span></div>
+  <figcaption><strong>Bennie Bracks, Zoologist</strong><span>Trigger-los nach Umbau</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/e/1e5530fc-0291-4a17-b048-c5d24e6f51d8.jpg?1783909087" alt="Aetherize"><span class="price">0,44 €</span></div>
+  <figcaption><strong>Aetherize</strong><span>Settle/Inkshield sind besser</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/2/7/27855a38-a682-4f97-ad22-ac625e86faec.jpg?1783928268" alt="Behold the Multiverse"><span class="price">0,22 €</span></div>
+  <figcaption><strong>Behold the Multiverse</strong><span>Schwächster Draw</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/b/5/b5e4087b-e692-4eb2-bb59-ff2a001d6dd4.jpg?1783908937" alt="Dictate of Kruphix"><span class="price">0,43 €</span></div>
+  <figcaption><strong>Dictate of Kruphix</strong><span>Füttert die Gegner</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/5/d568c679-8421-4184-a73c-b18c4164fea5.jpg?1783931586" alt="Ashiok&#x27;s Erasure"><span class="price">0,19 €</span></div>
+  <figcaption><strong>Ashiok&#x27;s Erasure</strong><span>Klobig, malt Zielscheibe</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/b/9b5730aa-c74a-4c74-bb1b-a133a3c353ec.jpg?1783922462" alt="Reins of Power"><span class="price">1,96 €</span></div>
+  <figcaption><strong>Reins of Power</strong><span>Combat-Karte</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/e/2/e20da6b5-1057-4a28-9e85-07de714e262f.jpg?1783904979" alt="Wan Shi Tong, Librarian"><span class="price">38,53 €</span></div>
+  <figcaption><strong>Wan Shi Tong, Librarian</strong><span>Pod spielt kaum Tutoren — 38 € Restwert</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/f/6/f6589e02-8c84-4069-88d1-ebcc8520cae1.jpg?1783922823" alt="Archivist of Oghma"><span class="price">7,12 €</span></div>
+  <figcaption><strong>Archivist of Oghma</strong><span>Pod spielt kaum Tutoren</span></figcaption>
+</figure></div></div>
+<div class="group">
+<header class="group-head"><h3>Weitere Cuts</h3><span class="meta">7 Karten</span></header>
+<div class="grid"><figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/b/1be3ed47-072e-481a-b3d9-dc232ac4b24f.jpg?1783911937" alt="Talrand, Sky Summoner"><span class="price">0,40 €</span></div>
+  <figcaption><strong>Talrand, Sky Summoner</strong><span>Token = Combat</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/9/e/9e68dcc2-bba4-4efa-97bb-3ed892037595.jpg?1783911941" alt="Murmuring Mystic"><span class="price">0,65 €</span></div>
+  <figcaption><strong>Murmuring Mystic</strong><span>Token = Combat</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/3/a/3a769d7e-c749-4845-ba87-808f0386df80.jpg?1783927564" alt="Metallurgic Summonings"><span class="price">1,67 €</span></div>
+  <figcaption><strong>Metallurgic Summonings</strong><span>Träge</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/5/d53a775d-5898-41a8-b404-9b7d4721c6ba.jpg?1783911793" alt="Kambal, Profiteering Mayor"><span class="price">4,90 €</span></div>
+  <figcaption><strong>Kambal, Profiteering Mayor</strong><span>Board-Clutter</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075" alt="Elesh Norn"><span class="price">5,89 €</span></div>
+  <figcaption><strong>Elesh Norn</strong><span>Stark, aber off-plan</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/1/8/1819a0af-0775-431d-9637-13f8f10830f5.jpg?1783909636" alt="Utter End"><span class="price">0,13 €</span></div>
+  <figcaption><strong>Utter End</strong><span>Removal-Suite ist voll</span></figcaption>
+</figure>
+<figure class="card">
+  <div class="frame"><img loading="lazy" src="https://cards.scryfall.io/normal/front/a/a/aae08938-e563-4322-b2eb-db81913ea730.jpg?1783947003" alt="Tithe"><span class="price">30,34 €</span></div>
+  <figcaption><strong>Tithe</strong><span>30 € Restwert, kleiner Effekt</span></figcaption>
+</figure></div></div>
+  </section>
+
+  <div class="footnote">
+    <b>Anti-Combat-Schichten:</b> Crawlspace + Bitterblossom (Chump-Lock) &middot; Propaganda (Umleitung) &middot; Settle/Inkshield/Comeuppance (Blowout-Fogs) &middot; Damnation/Verdict + Mithril Coat (einseitige Wipes) &middot; X-Drains heilen 20–90 Leben. Bewusst verzichtet: No Mercy (schwach gegen Isshins Token-Breite), Silent Arbiter (stirbt an eigenen Wipes).
+    <b>Pilot-Regeln:</b> Teuren Spell als <i>zweiten</i> casten (MV deckelt die Gratis-Kopie) &middot; Storm-Kopien sind keine Casts &middot; Gratis-X-Spells = X&thinsp;0 &middot; Gitrog: Bojuka Bog gezielt auf IHN — die anderen Friedhöfe sind dein Kopier-Futter.
+    <b>Kill-Skripte:</b> Opt → Debt X=8 mit Storm = −32 je Gegner &middot; Approach + Necro = Sieg im Folgezug &middot; Exsanguinate X=10 → 65+ Leben → Aetherflux.
+  </div>
+</div>
+</body>
+</html>

@@ -25,7 +25,8 @@ import tempfile
 import webbrowser
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-import cgi
+import email.parser
+import io
 
 DEFAULT_PORT = 8765
 BINARY_NAMES = ['upscayl-bin', 'upscayl-bin.exe', 'realesrgan-ncnn-vulkan', 'realesrgan-ncnn-vulkan.exe']
@@ -142,13 +143,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         content_length = int(self.headers.get('Content-Length', 0))
 
         if 'multipart/form-data' in content_type:
-            form = cgi.FieldStorage(
-                fp=self.rfile, headers=self.headers,
-                environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': content_type}
-            )
-            item = form['image']
-            img_data = item.file.read()
-            ext = Path(item.filename or 'i.png').suffix or '.png'
+            body = self.rfile.read(content_length)
+            # Parse multipart body using email.parser
+            header_bytes = f'Content-Type: {content_type}\r\n\r\n'.encode()
+            msg = email.parser.BytesParser().parsebytes(header_bytes + body)
+            img_data = None
+            ext = '.png'
+            for part in msg.walk():
+                disp = part.get_content_disposition()
+                if disp == 'form-data':
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        img_data = payload
+                        fname = part.get_filename() or 'i.png'
+                        ext = Path(fname).suffix or '.png'
+                        break
+            if not img_data:
+                self.send_error(400, 'No image in multipart')
+                return
         else:
             img_data = self.rfile.read(content_length)
             ext = '.png'
