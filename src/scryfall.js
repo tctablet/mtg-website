@@ -6,10 +6,27 @@ function delay(ms) {
 
 // fetch with an abort timeout so a hung connection eventually rejects (and can
 // be retried) instead of leaving a spinner stuck forever.
-function fetchWithTimeout(url, ms, opts = {}) {
+// Exported: auch src/edhrec.js nutzt es (statt Duplikat).
+export function fetchWithTimeout(url, ms, opts = {}) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), ms)
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer))
+}
+
+// Kann diese Karte ein Commander sein? (aus deck-import.js hierher gezogen —
+// der Commander-Scan braucht dieselbe Prüfung)
+export function isCommanderEligible(scryfallCard) {
+  const typeLine = scryfallCard.type_line || ''
+  const oracleText = scryfallCard.oracle_text || scryfallCard.card_faces?.[0]?.oracle_text || ''
+
+  // Legendary Creature
+  if (typeLine.includes('Legendary') && typeLine.includes('Creature')) return true
+  // Planeswalker that can be commander
+  if (typeLine.includes('Planeswalker') && oracleText.includes('can be your commander')) return true
+  // Some cards explicitly say they can be your commander
+  if (oracleText.includes('can be your commander')) return true
+
+  return false
 }
 
 export async function fetchCardCollection(cardNames) {

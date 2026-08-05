@@ -11,6 +11,8 @@ export function renderNav() {
         <div class="nav-brand">MTG Deck Tracker</div>
         <div class="nav-links">
           <a href="${routeHref('/resterampe')}">Philips Resterampe</a>
+          <a href="${routeHref('/preise')}">Preise</a>
+          <a href="${routeHref('/scan')}">Scan</a>
         </div>
         <div class="nav-user">
           <a href="${routeHref('/login')}" class="btn-small">Login</a>
@@ -27,6 +29,8 @@ export function renderNav() {
         <a href="${routeHref('/overview')}">Übersicht</a>
         <a href="${routeHref('/my-decks')}">Meine Decks</a>
         <a href="${routeHref('/resterampe')}">Philips Resterampe</a>
+        <a href="${routeHref('/preise')}">Preise</a>
+        <a href="${routeHref('/scan')}">Scan</a>
         <a href="${routeHref('/info')}">Info</a>
         ${player.is_admin ? `<a href="${routeHref('/admin')}">Admin</a>` : ''}
       </div>

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { groupPrintingRows } from './printings.js'
+import { escapeLike } from './utils.js'
 
 const SUPABASE_URL = 'https://jcbdjlqxmlsfqfenltws.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjYmRqbHF4bWxzZnFmZW5sdHdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzczNDUsImV4cCI6MjA4OTA1MzM0NX0.S87-oIgyMjB1Jdc-2LW4b0mlnUkoFw_SjltpMAB6lvc'
@@ -130,7 +131,7 @@ export async function insertCardsReturning(cards) {
 // fallback. Returns Map<name, { price, isFoil }>. Used by import/add so a card
 // never stores a null price when a cheapest price exists — Scryfall's
 // per-printing price is often null for digital/token printings.
-export async function fetchCheapestPrices(names) {
+export async function fetchCheapestPrices(names, { throwOnError = false } = {}) {
   const unique = [...new Set(names)]
   const lookup = new Map()
 
@@ -143,8 +144,10 @@ export async function fetchCheapestPrices(names) {
         .select('name, cheapest_eur, is_foil')
         .in('name', chunk)
       if (error) {
-        // Don't throw: callers fall back to the per-printing price. Surface it
-        // so a silent DB failure can't quietly re-introduce null prices.
+        // throwOnError (Scan-Seite): "DB nicht erreichbar" muss von "alles
+        // preislos" unterscheidbar sein. Default bleibt schlucken+warnen —
+        // Bestands-Caller fallen auf den Per-Printing-Preis zurück.
+        if (throwOnError) throw error
         console.warn('fetchCheapestPrices: scryfall_prices query failed:', error.message)
         continue
       }
@@ -211,6 +214,70 @@ export async function fetchPrintingsFromDB(names) {
     }
   }
   return groupPrintingRows(rows, unique)
+}
+
+// EDHREC liefert DFCs als Front-Face ("A"), die Preis-DB speichert "A // B" —
+// pro Miss ein like-Lookup auf 'Front // %'. Einzelqueries statt .or(),
+// weil Kommas in Kartennamen die or-Syntax sprengen; Misses sind typisch <10.
+export async function fetchPricesByFrontFace(fronts) {
+  const result = new Map()
+  for (const front of [...new Set(fronts)]) {
+    const { data, error } = await supabase
+      .from('scryfall_prices')
+      .select('name, cheapest_eur, is_foil')
+      .like('name', `${escapeLike(front)} // %`)
+      .limit(1)
+    if (error) {
+      // Fehlertolerant pro Name (Critic-Fund): ein transienter Fehler bei
+      // Miss Nr. 7 darf nicht die gesamte Bepreisung abreißen — der Name
+      // landet dann ehrlich in der "ohne Preis"-Liste
+      console.warn('fetchPricesByFrontFace:', front, error.message)
+      continue
+    }
+    if (data?.length) {
+      result.set(front, { price: data[0].cheapest_eur, isFoil: !!data[0].is_foil, fullName: data[0].name })
+    }
+  }
+  return result
+}
+
+// --- Preisdatenbank-Seite ---
+
+const PRICE_SORT_COLUMNS = { name: 'name', price: 'cheapest_eur', updated: 'updated_at' }
+
+// Durchsuchbare, sortierte, paginierte Sicht auf scryfall_prices (~38k Rows).
+// Wirft bei Fehlern (die Seite zeigt renderLoadError) — anders als
+// fetchCheapestPrices, das bewusst schluckt. signal: AbortController-Support
+// für Search-as-you-type.
+export async function searchPrices({ query = '', sort = 'name', ascending = true, page = 0, pageSize = 50, signal } = {}) {
+  const column = PRICE_SORT_COLUMNS[sort] || 'name'
+
+  let req = supabase
+    .from('scryfall_prices')
+    .select('name, cheapest_eur, is_foil, updated_at', { count: 'exact' })
+  if (query) req = req.ilike('name', `%${escapeLike(query)}%`)
+  req = req.order(column, { ascending })
+  // Stabile Sekundärsortierung — sonst springt die Pagination bei
+  // Preis-/Datums-Gleichständen zwischen den Seiten
+  if (column !== 'name') req = req.order('name')
+  req = req.range(page * pageSize, page * pageSize + pageSize - 1)
+  if (signal) req = req.abortSignal(signal)
+
+  const { data, error, count } = await req
+  if (error) throw error
+  return { rows: data || [], total: count ?? 0 }
+}
+
+// Datenstand-Zeile: Gesamtzahl + jüngstes updated_at (= letzter Cron-Lauf,
+// der Sync überschreibt die Tabelle komplett)
+export async function getPriceDbInfo() {
+  const [{ count, error: countError }, { data: latest, error: latestError }] = await Promise.all([
+    supabase.from('scryfall_prices').select('*', { count: 'exact', head: true }),
+    supabase.from('scryfall_prices').select('updated_at').order('updated_at', { ascending: false }).limit(1),
+  ])
+  if (countError) throw countError
+  if (latestError) throw latestError
+  return { total: count ?? 0, lastUpdated: latest?.[0]?.updated_at ?? null }
 }
 
 export async function updateCardPrices(deckId, priceMap, legalityMap = {}) {

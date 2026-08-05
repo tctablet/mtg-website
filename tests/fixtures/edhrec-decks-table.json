@@ -1,0 +1,56 @@
+{
+ "table": [
+  {
+   "urlhash": "20wurU1QBswbq-4hDEpttA",
+   "savedate": "2026-08-05",
+   "price": 12299,
+   "salt": 96.45570029318333,
+   "creature": 26,
+   "instant": 24,
+   "sorcery": 10,
+   "artifact": 5,
+   "enchantment": 7,
+   "battle": 0,
+   "planeswalker": 0,
+   "land": 26,
+   "bracket": null,
+   "tags": [],
+   "budget_label": 0
+  },
+  {
+   "urlhash": "klAbSNNsPZIV7oTpW4af3g",
+   "savedate": "2026-08-05",
+   "price": 10831,
+   "salt": 93.28468345850706,
+   "creature": 35,
+   "instant": 19,
+   "sorcery": 6,
+   "artifact": 6,
+   "enchantment": 5,
+   "battle": 0,
+   "planeswalker": 0,
+   "land": 27,
+   "bracket": null,
+   "tags": [],
+   "budget_label": 0
+  },
+  {
+   "urlhash": "f_U_amMq6SAzDiXF3BL82w",
+   "savedate": "2026-08-05",
+   "price": 12396,
+   "salt": 97.6271498054266,
+   "creature": 25,
+   "instant": 26,
+   "sorcery": 9,
+   "artifact": 6,
+   "enchantment": 6,
+   "battle": 0,
+   "planeswalker": 0,
+   "land": 26,
+   "bracket": 5,
+   "tags": [],
+   "budget_label": 0
+  }
+ ],
+ "similar": []
+}

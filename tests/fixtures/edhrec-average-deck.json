@@ -1,0 +1,108 @@
+{
+ "deck": {
+  "commander": [
+   "Atraxa, Praetors' Voice"
+  ],
+  "cards": {
+   "Artifact": [
+    [
+     "Arcane Signet",
+     1
+    ],
+    [
+     "Astral Cornucopia",
+     1
+    ],
+    [
+     "Chromatic Lantern",
+     1
+    ]
+   ],
+   "Land": [
+    [
+     "Breeding Pool",
+     1
+    ],
+    [
+     "Command Tower",
+     1
+    ],
+    [
+     "Exotic Orchard",
+     1
+    ]
+   ],
+   "Creature": [
+    [
+     "Birds of Paradise",
+     1
+    ],
+    [
+     "Blightbelly Rat",
+     1
+    ],
+    [
+     "Blighted Agent",
+     1
+    ]
+   ],
+   "Enchantment": [
+    [
+     "Brokers Ascendancy",
+     1
+    ],
+    [
+     "Doubling Season",
+     1
+    ],
+    [
+     "Inexorable Tide",
+     1
+    ]
+   ],
+   "Instant": [
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Cyclonic Rift",
+     1
+    ],
+    [
+     "Experimental Augury",
+     1
+    ]
+   ],
+   "Planeswalker": [
+    [
+     "Ajani, Sleeper Agent",
+     1
+    ],
+    [
+     "Narset, Parter of Veils",
+     1
+    ],
+    [
+     "Oko, Thief of Crowns",
+     1
+    ]
+   ],
+   "Sorcery": [
+    [
+     "Cultivate",
+     1
+    ],
+    [
+     "Drown in Ichor",
+     1
+    ],
+    [
+     "Farseek",
+     1
+    ]
+   ]
+  }
+ },
+ "creature": 24
+}

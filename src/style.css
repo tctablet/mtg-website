@@ -3014,3 +3014,198 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 480px) {
   .card-row .card-name { overflow-wrap: anywhere; }
 }
+
+/* ===== Preisdatenbank /preise (M3) ===== */
+.price-db-meta { color: var(--text-dim); font-size: 13px; margin: 4px 0 12px; }
+.price-db-stale {
+  color: var(--error);
+  font-size: 13px;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.price-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+.price-search {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-bright);
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.price-search:focus { border-color: var(--accent); }
+.price-search::placeholder { color: var(--text-dim); }
+.price-sort-select { display: none; }
+
+.price-table .th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.price-table .sort-indicator { color: var(--text-dim); font-size: 10px; margin-left: 2px; }
+.price-table .th-sort-active { color: var(--accent); }
+.price-table .th-sort-active .sort-indicator { color: var(--accent); }
+@media (hover: hover) {
+  .price-table .th-sortable:hover { color: var(--text-bright); }
+  .price-row:hover { background: var(--bg-card-hover); cursor: pointer; }
+}
+.price-row:active { background: var(--bg-card-hover); }
+.price-table .th-updated { width: 110px; }
+.price-updated { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.price-table .empty { text-align: center; padding: 24px 8px; }
+
+.price-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+.price-page-info { color: var(--text-dim); font-size: 13px; }
+.price-load-more { width: 100%; margin-top: 12px; min-height: 44px; }
+@media (min-width: 481px) {
+  .price-load-more { display: none !important; }
+}
+
+/* Detail-Modal (nutzt artwork-picker-Shell) */
+.price-detail { max-width: 640px; }
+.price-detail-price { color: var(--text-bright); font-size: 15px; white-space: nowrap; }
+.price-detail-body {
+  display: grid !important;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.price-detail-image img {
+  width: 100%;
+  border-radius: 10px;
+}
+.price-detail-printings h4 { color: var(--text-bright); font-size: 14px; margin-bottom: 8px; }
+.price-printings-list { list-style: none; padding: 0; margin: 0; }
+.price-printings-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.price-printings-list li:last-child { border-bottom: none; }
+.printing-set { color: var(--text); min-width: 0; }
+.printing-meta { color: var(--text-dim); white-space: nowrap; }
+.price-detail-hint { color: var(--text-dim); font-size: 13px; }
+
+@media (max-width: 480px) {
+  .price-controls { flex-direction: column; align-items: stretch; }
+  .price-search {
+    font-size: 16px; /* iOS-Zoom */
+    position: sticky;
+    top: 8px;
+    z-index: 10;
+  }
+  .price-sort-select { display: block; width: 100%; }
+  /* Column-Priority: Aktualisiert wandert ins Detail; Sort läuft übers Select */
+  .price-table .th-updated, .price-updated { display: none; }
+  .price-table .sort-indicator { display: none; }
+  .price-pagination { display: none; }
+  .price-detail-body { grid-template-columns: 1fr; }
+  .price-detail-image { max-width: 260px; margin: 0 auto; }
+}
+
+/* ===== Commander-Scan /scan (M4) ===== */
+.scan-intro { color: var(--text-dim); font-size: 13px; margin: 4px 0 16px; }
+.scan-intro a { color: var(--accent); }
+.scan-search-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+  margin-bottom: 20px;
+}
+.scan-search-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-bright);
+  padding: 10px 14px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.scan-search-input:focus { border-color: var(--accent); }
+.scan-search-input::placeholder { color: var(--text-dim); }
+.scan-search-status { font-size: 13px; color: var(--text-dim); }
+.scan-search-status.scan-status-error { color: var(--error); }
+
+.scan-error-box {
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 8px 0 16px;
+  font-size: 14px;
+}
+.scan-error-box code { color: var(--text-bright); }
+.scan-error-detail { color: var(--text-dim); font-size: 13px; margin-top: 6px; }
+.scan-error-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+
+.scan-deck-title { color: var(--text-bright); margin: 8px 0 12px; }
+.scan-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.scan-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.scan-tile-label { color: var(--text-dim); font-size: 12px; }
+.scan-tile-value { color: var(--text-bright); font-size: 18px; font-weight: 600; }
+.scan-tile-small { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.scan-import-btn { margin: 4px 0 16px; }
+
+.scan-tables { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; }
+.scan-top10 h4 { color: var(--text-bright); font-size: 14px; margin-bottom: 8px; }
+.scan-missing summary, .scan-full-list summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 6px 0;
+  min-height: 32px;
+}
+.scan-missing ul { columns: 2; color: var(--text-dim); font-size: 13px; padding-left: 18px; }
+
+.scan-real-header { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
+.scan-real-header h3 { color: var(--text-bright); }
+#scan-load-decks { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.scan-btn-subtext { font-size: 11px; color: var(--text-dim); font-weight: 400; }
+.scan-decks-table td, .scan-decks-table th { white-space: nowrap; }
+.scan-deck-detail td { padding: 8px 10px; background: var(--bg-card); }
+.scan-deck-mini { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.scan-deck-mini .scan-deck-links { display: flex; gap: 10px; align-items: center; }
+.scan-deck-mini a { color: var(--accent); }
+
+@media (max-width: 480px) {
+  .scan-search-input { font-size: 16px; } /* iOS-Zoom */
+  .scan-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 2x2, nie horizontal scrollen */
+  .scan-decks-table .th-salt, .scan-decks-table .th-bracket { display: none; }
+  .scan-missing ul { columns: 1; }
+  .scan-import-btn, #scan-load-decks { width: 100%; min-height: 44px; align-items: center; }
+  .scan-eval-btn { min-height: 44px; }
+}

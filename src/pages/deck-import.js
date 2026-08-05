@@ -1,7 +1,7 @@
 import { getPlayer } from '../auth.js'
 import { navigate } from '../router.js'
 import { createDeck, insertCards, fetchCheapestPrices } from '../supabase.js'
-import { fetchCardCollection, extractCardData, getCardArtCrop, getPartnerType, getCardNormalImage } from '../scryfall.js'
+import { fetchCardCollection, extractCardData, getCardArtCrop, getPartnerType, getCardNormalImage, isCommanderEligible } from '../scryfall.js'
 import { parseDeckList, getTypeCategory } from '../utils.js'
 
 // State shared between steps
@@ -56,21 +56,20 @@ export async function renderDeckImport(container) {
   })
 
   document.getElementById('next-btn').addEventListener('click', doAnalyze)
+
+  // Import-Brücke vom Commander-Scan: vorbefüllte Liste übernehmen
+  try {
+    const prefillRaw = sessionStorage.getItem('mtg_import_prefill')
+    if (prefillRaw) {
+      sessionStorage.removeItem('mtg_import_prefill')
+      const prefill = JSON.parse(prefillRaw)
+      if (prefill?.list) document.getElementById('deck-list').value = prefill.list
+      if (prefill?.name) document.getElementById('deck-name').value = prefill.name
+    }
+  } catch { /* Prefill ist optional */ }
 }
 
-function isCommanderEligible(scryfallCard) {
-  const typeLine = scryfallCard.type_line || ''
-  const oracleText = scryfallCard.oracle_text || scryfallCard.card_faces?.[0]?.oracle_text || ''
-
-  // Legendary Creature
-  if (typeLine.includes('Legendary') && typeLine.includes('Creature')) return true
-  // Planeswalker that can be commander
-  if (typeLine.includes('Planeswalker') && oracleText.includes('can be your commander')) return true
-  // Some cards explicitly say they can be your commander
-  if (oracleText.includes('can be your commander')) return true
-
-  return false
-}
+// isCommanderEligible lebt jetzt in scryfall.js (geteilt mit /scan)
 
 async function doAnalyze() {
   const nameEl = document.getElementById('deck-name')

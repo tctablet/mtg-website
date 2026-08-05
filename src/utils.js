@@ -104,6 +104,24 @@ export function isPriceStale(priceUpdatedAt) {
   return diff > 7 * 24 * 60 * 60 * 1000 // 7 Tage
 }
 
+// --- Preisdatenbank-Helfer (pure, node-testbar) ---
+
+// PostgREST-ilike-Wildcards im User-Input entschärfen — "%"/"_" sind sonst
+// Suchoperatoren, "\" der Escape-Prefix
+export function escapeLike(s) {
+  return String(s).replace(/[\\%_]/g, c => `\\${c}`)
+}
+
+// Sort-Select-Value ("price-desc") → { sort, ascending } für searchPrices
+export function parseSortValue(value) {
+  const [sort, dir] = String(value || '').split('-')
+  const valid = ['name', 'price', 'updated']
+  return {
+    sort: valid.includes(sort) ? sort : 'name',
+    ascending: dir !== 'desc',
+  }
+}
+
 // --- Color Identity ---
 
 const BASIC_LAND_COLOR = {
