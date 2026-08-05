@@ -7,8 +7,10 @@ export function setDefaultPreview(imageUri) {
   defaultImage = imageUri
   const el = document.getElementById('deck-card-preview')
   if (!el) return
-  ensureImg(el)
+  // Ohne Bild KEIN leeres <img> anlegen — das renderte als kaputtes Icon
+  // direkt neben dem .preview-noimg-Namens-Fallback (Critic R6, live belegt)
   if (imageUri) {
+    ensureImg(el)
     el.querySelector('img').src = imageUri
   }
   hideFlipButton()
@@ -44,6 +46,8 @@ export function hidePreview() {
 function ensureImg(container) {
   let img = container.querySelector('img')
   if (!img) {
+    // Namens-Fallback weicht, sobald wieder ein echtes Bild kommt (Hover)
+    container.querySelector('.preview-noimg')?.remove()
     img = document.createElement('img')
     img.alt = 'Kartenvorschau'
     container.appendChild(img)

@@ -549,6 +549,18 @@ export async function renderScan(container) {
       </div>
     `
     setDefaultPreview(commanderImage)
+    // Tote Bild-URL → derselbe Namens-Fallback wie beim Fehlen des Bilds
+    // (no-blank-image-Regel auch für die Sidebar, Critic R6)
+    resultEl.querySelector('#deck-card-preview img')?.addEventListener('error', function () {
+      const box = this.closest('#deck-card-preview')
+      this.remove()
+      if (box && !box.querySelector('.preview-noimg')) {
+        const span = document.createElement('span')
+        span.className = 'preview-noimg'
+        span.textContent = state.commander.name
+        box.appendChild(span)
+      }
+    })
     refade(resultEl)
 
     resultEl.querySelector('.scan-import-btn')?.addEventListener('click', () => {
