@@ -27,6 +27,7 @@ dist-ssr
 *.sw?
 
 # Tool-Caches, lokale Modelle & Binaries (nicht committen)
+scripts/optimizer/.cache/
 tools/.venv/
 tools/.model_cache/
 tools/.proxy_cache/
@@ -35,3 +36,7 @@ tools/models/
 tools/upscayl-bin
 tools/realesrgan-ncnn-vulkan
 foil-*.png
+
+# Lokales Pool-Asset (Prod kommt aus dem Supabase-Storage-Bucket, Workflow build-pool-asset)
+public/pool-slim.json
+public/pool-slim.json.gz

@@ -5,9 +5,9 @@
 # oder Timeout hier darf den kritischen täglichen Preis-Sync nie mitreißen
 # (Plan-Critic M5). Eigene concurrency-Group, eigenes Timeout.
 #
-# Voraussetzung (einmalig, manuell): Supabase-Bucket `assets` mit Public-Read
-# anlegen (Dashboard → Storage). Ohne Bucket schlägt der Upload-Step fehl,
-# der Wizard zeigt client-seitig den "Pool-Asset fehlt"-Zustand.
+# Der Bucket `assets` (public) wird vor dem Upload idempotent per Storage-API
+# angelegt — kein manueller Dashboard-Schritt nötig. Schlägt trotzdem etwas
+# fehl, zeigt der Wizard client-seitig den "Pool-Asset fehlt"-Zustand.
 
 name: Build Pool Asset
 
@@ -35,6 +35,28 @@ jobs:
       # importierten src/-Module ebenfalls nicht; bewusst kein npm ci.
       - name: Build pool-slim asset
         run: node scripts/build-pool-asset.mjs --refresh --out /tmp/pool-asset
+
+      # Idempotent: 200/201 = frisch angelegt, 400 "already exists" = ok.
+      # Alles andere ist ein echter Fehler (Key? Projekt pausiert?).
+      - name: Ensure assets bucket exists (public)
+        env:
+          SUPABASE_URL: https://jcbdjlqxmlsfqfenltws.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          CODE=$(curl -s -o /tmp/bucket-out -w "%{http_code}" -X POST \
+            "$SUPABASE_URL/storage/v1/bucket" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"id":"assets","name":"assets","public":true}')
+          if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then
+            echo "Bucket 'assets' angelegt"
+          elif [ "$CODE" = "400" ] && grep -qi "already" /tmp/bucket-out; then
+            echo "Bucket 'assets' existiert bereits"
+          else
+            echo "::error::Bucket-Anlage fehlgeschlagen (HTTP $CODE): $(cat /tmp/bucket-out)"
+            exit 1
+          fi
 
       - name: Upload to Supabase Storage (assets bucket)
         env:

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { keepPrinting, toPrintingRow } from '../scripts/sync-prices.mjs'
+import { keepPrinting, toPrintingRow, canonicalPriceName, staleCapFor, stalePriceCapFor } from '../scripts/sync-prices.mjs'
 
 // Die Filter-Logik MUSS mit keepPrinting in src/scryfall.js übereinstimmen —
 // die Tabelle darf nur enthalten, was der Picker auch live zeigen würde.
@@ -84,4 +84,73 @@ test('toPrintingRow: Shape, URL-Fallbacks und Zeitstempel', () => {
   assert.equal(sparse.image_png, 'only-normal')
   // released_at fehlt → null, nicht undefined (PostgREST-Kompatibilität)
   assert.equal(toPrintingRow({ ...base, released_at: undefined }, stamp).released_at, null)
+})
+
+// --- canonicalPriceName: Reversible-Normalisierung (User-Report
+// „Doppelseiten ohne Bilder" — 397 "A // A"-Geister-Rows in scryfall_prices) ---
+
+test('canonicalPriceName: reversible_card nutzt den Front-Face-Namen', () => {
+  const rev = {
+    name: 'Ludevic, Necrogenius // Ludevic, Necrogenius',
+    layout: 'reversible_card',
+    card_faces: [{ name: 'Ludevic, Necrogenius' }, { name: 'Ludevic, Necrogenius' }],
+  }
+  assert.equal(canonicalPriceName(rev), 'Ludevic, Necrogenius')
+})
+
+test('canonicalPriceName: identische //-Hälften kollabieren auch ohne Layout-Flag', () => {
+  assert.equal(
+    canonicalPriceName({ name: "Bonders' Enclave // Bonders' Enclave" }),
+    "Bonders' Enclave"
+  )
+})
+
+test('canonicalPriceName: echte Transform-DFCs bleiben unberührt', () => {
+  assert.equal(
+    canonicalPriceName({ name: 'Brazen Borrower // Petty Theft', layout: 'adventure' }),
+    'Brazen Borrower // Petty Theft'
+  )
+  assert.equal(canonicalPriceName({ name: 'Counterspell' }), 'Counterspell')
+  // reversible ohne card_faces darf nicht crashen → Fallback voller Name
+  assert.equal(
+    canonicalPriceName({ name: 'X // X', layout: 'reversible_card' }),
+    'X // X'
+  )
+  // Defensiv: kaputte Objekte
+  assert.equal(canonicalPriceName({}), '')
+  assert.equal(canonicalPriceName(null), '')
+})
+
+test('toPrintingRow keyt Reversible-Printings unter dem kanonischen Namen', () => {
+  const rev = {
+    ...base,
+    name: 'Abhorrent Oculus // Abhorrent Oculus',
+    layout: 'reversible_card',
+    card_faces: [{ name: 'Abhorrent Oculus' }, { name: 'Abhorrent Oculus' }],
+  }
+  assert.equal(toPrintingRow(rev, 'x').name, 'Abhorrent Oculus')
+})
+
+test('staleCapFor: 20%-Cap mit 500er-Boden (fail-closed-Sicherheitsnetz)', () => {
+  assert.equal(staleCapFor(38000), 7600)
+  assert.equal(staleCapFor(1000), 500) // Boden greift
+  assert.equal(staleCapFor(0), 500)
+})
+
+test('stalePriceCapFor: strenges 2%-Cap — 397 Geister passen, ein 1000er-Loch nicht', () => {
+  assert.equal(stalePriceCapFor(38000), 760)
+  assert.ok(397 <= stalePriceCapFor(38000))
+  assert.ok(1000 > stalePriceCapFor(38000)) // Teilausfall → fail-closed
+  assert.equal(stalePriceCapFor(0), 500) // Boden
+})
+
+test('toPrintingRow: nameOverride trägt die Deck-Namens-Variante (roher "X // X"-Bestand)', () => {
+  const rev = {
+    ...base,
+    name: 'Abhorrent Oculus // Abhorrent Oculus',
+    layout: 'reversible_card',
+    card_faces: [{ name: 'Abhorrent Oculus' }, { name: 'Abhorrent Oculus' }],
+  }
+  assert.equal(toPrintingRow(rev, 'x', 'Abhorrent Oculus // Abhorrent Oculus').name, 'Abhorrent Oculus // Abhorrent Oculus')
+  assert.equal(toPrintingRow(rev, 'x').name, 'Abhorrent Oculus')
 })

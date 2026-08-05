@@ -1,0 +1,64 @@
+{
+ "header": "Top Commanders (Past Week)",
+ "container": {
+  "json_dict": {
+   "cardlists": [
+    {
+     "header": "Past Week",
+     "cardviews": [
+      {
+       "id": "c7f2c2d5-e052-49e8-b5de-712858c2ea78",
+       "name": "Y'shtola, Night's Blessed",
+       "sanitized": "yshtola-nights-blessed",
+       "slug": "yshtola-nights-blessed",
+       "url": "/commanders/yshtola-nights-blessed",
+       "num_decks": 1924,
+       "potential_decks": 0,
+       "rank": 1
+      },
+      {
+       "id": "b5d1955a-9ff0-4f8b-9af8-341371957299",
+       "name": "Teval, the Balanced Scale",
+       "sanitized": "teval-the-balanced-scale",
+       "slug": "teval-the-balanced-scale",
+       "url": "/commanders/teval-the-balanced-scale",
+       "num_decks": 1378,
+       "potential_decks": 0,
+       "rank": 2
+      },
+      {
+       "id": "8d4e5480-a287-4a25-b855-a26dae555b1c",
+       "name": "Lathril, Blade of the Elves",
+       "sanitized": "lathril-blade-of-the-elves",
+       "slug": "lathril-blade-of-the-elves",
+       "url": "/commanders/lathril-blade-of-the-elves",
+       "num_decks": 1376,
+       "potential_decks": 0,
+       "rank": 3
+      },
+      {
+       "id": "ecc1027a-8c07-44a0-bdde-fa2844cff694",
+       "name": "Vivi Ornitier",
+       "sanitized": "vivi-ornitier",
+       "slug": "vivi-ornitier",
+       "url": "/commanders/vivi-ornitier",
+       "num_decks": 1305,
+       "potential_decks": 0,
+       "rank": 4
+      },
+      {
+       "id": "099ed408-9178-4403-8b2d-479ca3cbda9b",
+       "name": "Doctor Doom, King of Latveria",
+       "sanitized": "doctor-doom-king-of-latveria",
+       "slug": "doctor-doom-king-of-latveria",
+       "url": "/commanders/doctor-doom-king-of-latveria",
+       "num_decks": 1280,
+       "potential_decks": 0,
+       "rank": 5
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

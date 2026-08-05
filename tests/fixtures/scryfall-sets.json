@@ -1,0 +1,110 @@
+{
+ "object": "list",
+ "has_more": false,
+ "data": [
+  {
+   "object": "set",
+   "id": "b47039dc-da5a-448c-8feb-e77d458108a6",
+   "code": "trk",
+   "name": "Star Trek",
+   "set_type": "expansion",
+   "released_at": "2026-11-13",
+   "card_count": 61,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/trk.svg?1785729600"
+  },
+  {
+   "object": "set",
+   "id": "6595985e-39cf-4ca3-b43d-dd3e64749fdc",
+   "code": "fra",
+   "name": "Reality Fracture",
+   "set_type": "expansion",
+   "released_at": "2026-10-02",
+   "card_count": 43,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/fra.svg?1785729600"
+  },
+  {
+   "object": "set",
+   "id": "59218c23-cb7a-4fde-9cff-3f2f71af1308",
+   "code": "hob",
+   "name": "The Hobbit",
+   "set_type": "expansion",
+   "released_at": "2026-08-14",
+   "card_count": 321,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/hob.svg?1785729600"
+  },
+  {
+   "object": "set",
+   "id": "a38c10be-90b1-4bb9-bd74-46784a751ac3",
+   "code": "trc",
+   "name": "Star Trek Commander",
+   "set_type": "commander",
+   "released_at": "2026-11-13",
+   "card_count": 11,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/trc.svg?1785729600",
+   "parent_set_code": "trk"
+  },
+  {
+   "object": "set",
+   "id": "cfd10490-7397-4143-bda7-d388b877636f",
+   "code": "frc",
+   "name": "Reality Fracture Commander",
+   "set_type": "commander",
+   "released_at": "2026-10-02",
+   "card_count": 2,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/default.svg?1785729600",
+   "parent_set_code": "fra"
+  },
+  {
+   "object": "set",
+   "id": "a7ecb771-d1b6-4dec-8cf5-8d45179f21e0",
+   "code": "fdn",
+   "name": "Foundations",
+   "set_type": "core",
+   "released_at": "2024-11-15",
+   "card_count": 771,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/fdn.svg?1785729600"
+  },
+  {
+   "object": "set",
+   "id": "ad780626-4b50-4b92-b5c1-49e060bd597d",
+   "code": "psos",
+   "name": "Secrets of Strixhaven Promos",
+   "set_type": "promo",
+   "released_at": "2026-04-24",
+   "card_count": 80,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/sos.svg?1785729600",
+   "parent_set_code": "sos"
+  },
+  {
+   "object": "set",
+   "id": "4edafaae-5000-4dab-8d7a-54c5b7566bf4",
+   "code": "ttrk",
+   "name": "Star Trek Tokens",
+   "set_type": "token",
+   "released_at": "2026-11-13",
+   "card_count": 1,
+   "digital": false,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/trk.svg?1785729600",
+   "parent_set_code": "trk"
+  },
+  {
+   "object": "set",
+   "id": "2fd19b90-7ba4-4f33-b876-3367d15ab426",
+   "code": "ysos",
+   "name": "Alchemy: Secrets of Strixhaven",
+   "set_type": "alchemy",
+   "released_at": "2026-05-19",
+   "card_count": 30,
+   "digital": true,
+   "icon_svg_uri": "https://svgs.scryfall.io/sets/y26.svg?1785729600",
+   "parent_set_code": "sos"
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+# Führt die Unit-Tests bei jedem Push aus. Bewusst OHNE concurrency-Guard —
+# reine Unit-Tests ohne DB-Writes (anders als sync-prices.yml, das gegen die
+# Live-DB schreibt und deshalb serialisiert werden muss).
+name: tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

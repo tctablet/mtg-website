@@ -1,0 +1,112 @@
+{
+ "object": "list",
+ "total_cards": 531,
+ "has_more": true,
+ "next_page": "https://api.scryfall.com/cards/search?format=json&include_extras=false&include_multilingual=false&include_variations=false&order=set&page=2&q=e%3Aneo&unique=prints",
+ "data": [
+  {
+   "object": "card",
+   "id": "d9b1ed43-ee6c-43a2-ba94-5bf71c63e070",
+   "name": "Ancestral Katana",
+   "collector_number": "1",
+   "set": "neo",
+   "set_name": "Kamigawa: Neon Dynasty",
+   "layout": "normal",
+   "rarity": "common",
+   "prices": {
+    "usd": "0.29",
+    "usd_foil": "0.34",
+    "usd_etched": null,
+    "eur": "0.07",
+    "eur_foil": "0.35",
+    "tix": "0.03"
+   },
+   "digital": false,
+   "image_uris": {
+    "small": "https://cards.scryfall.io/small/front/d/9/d9b1ed43-ee6c-43a2-ba94-5bf71c63e070.jpg?1783923929",
+    "normal": "https://cards.scryfall.io/normal/front/d/9/d9b1ed43-ee6c-43a2-ba94-5bf71c63e070.jpg?1783923929"
+   }
+  },
+  {
+   "object": "card",
+   "id": "0321b706-87b0-4bea-89d3-ec2e7252dc7c",
+   "name": "A-Ancestral Katana",
+   "collector_number": "A-1",
+   "set": "neo",
+   "set_name": "Kamigawa: Neon Dynasty",
+   "layout": "normal",
+   "rarity": "common",
+   "prices": {
+    "usd": null,
+    "usd_foil": null,
+    "usd_etched": null,
+    "eur": null,
+    "eur_foil": null,
+    "tix": null
+   },
+   "digital": true,
+   "image_uris": {
+    "small": "https://cards.scryfall.io/small/front/0/3/0321b706-87b0-4bea-89d3-ec2e7252dc7c.jpg?1783918306",
+    "normal": "https://cards.scryfall.io/normal/front/0/3/0321b706-87b0-4bea-89d3-ec2e7252dc7c.jpg?1783918306"
+   }
+  },
+  {
+   "object": "card",
+   "id": "8d2c4063-7322-4041-a870-b95598a03e29",
+   "name": "Ao, the Dawn Sky",
+   "collector_number": "2",
+   "set": "neo",
+   "set_name": "Kamigawa: Neon Dynasty",
+   "layout": "normal",
+   "rarity": "mythic",
+   "prices": {
+    "usd": "0.85",
+    "usd_foil": "1.51",
+    "usd_etched": null,
+    "eur": "1.27",
+    "eur_foil": "1.54",
+    "tix": "0.02"
+   },
+   "digital": false,
+   "image_uris": {
+    "small": "https://cards.scryfall.io/small/front/8/d/8d2c4063-7322-4041-a870-b95598a03e29.jpg?1783923928",
+    "normal": "https://cards.scryfall.io/normal/front/8/d/8d2c4063-7322-4041-a870-b95598a03e29.jpg?1783923928"
+   }
+  },
+  {
+   "object": "card",
+   "id": "8ad44884-ae0d-40ae-87a9-bad043d4e9ad",
+   "name": "Befriending the Moths // Imperial Moth",
+   "collector_number": "4",
+   "set": "neo",
+   "set_name": "Kamigawa: Neon Dynasty",
+   "layout": "transform",
+   "rarity": "common",
+   "prices": {
+    "usd": "0.16",
+    "usd_foil": "0.27",
+    "usd_etched": null,
+    "eur": "0.06",
+    "eur_foil": "0.08",
+    "tix": "0.03"
+   },
+   "digital": false,
+   "card_faces": [
+    {
+     "name": "Befriending the Moths",
+     "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/8/a/8ad44884-ae0d-40ae-87a9-bad043d4e9ad.jpg?1783923933",
+      "normal": "https://cards.scryfall.io/normal/front/8/a/8ad44884-ae0d-40ae-87a9-bad043d4e9ad.jpg?1783923933"
+     }
+    },
+    {
+     "name": "Imperial Moth",
+     "image_uris": {
+      "small": "https://cards.scryfall.io/small/back/8/a/8ad44884-ae0d-40ae-87a9-bad043d4e9ad.jpg?1783923933",
+      "normal": "https://cards.scryfall.io/normal/back/8/a/8ad44884-ae0d-40ae-87a9-bad043d4e9ad.jpg?1783923933"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -104,8 +104,13 @@ function dismissMobilePreview(overlay) {
 
 // Alle Karten-Zeilen in Anzeigereihenfolge, die eine Vorschau haben.
 // Wird bei jedem Blättern frisch gelesen, damit Sortierung/Bearbeiten stimmen.
-function previewRows() {
-  return [...document.querySelectorAll('.card-row')].filter(r => r._cardPreview)
+// Scope: Vor/Zurück blättert nur innerhalb des nächsten [data-preview-scope]-
+// Containers der Ausgangszeile — auf /scan stehen mehrere Listen gleichzeitig
+// im DOM (Average + bewertete Decks), ohne Scope liefe die Navigation über
+// Deck-Grenzen in fremde Karten. Ohne Attribut (deck-view): wie bisher global.
+function previewRows(fromRow) {
+  const scope = fromRow?.closest?.('[data-preview-scope]') || document
+  return [...scope.querySelectorAll('.card-row')].filter(r => r._cardPreview)
 }
 
 export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl) {
@@ -147,7 +152,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     overlay.classList.remove('bracket-gc', 'bracket-tutor', 'bracket-extra', 'bracket-mld')
     if (data.bracketCat) overlay.classList.add(`bracket-${data.bracketCat}`)
 
-    const rows = previewRows()
+    const rows = previewRows(data.row)
     const i = data.row ? rows.indexOf(data.row) : -1
     navBtns.forEach(b => {
       const target = i < 0 ? -1 : i + Number(b.dataset.dir)
@@ -164,7 +169,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
   }
 
   function step(dir) {
-    const rows = previewRows()
+    const rows = previewRows(current.row)
     const i = rows.indexOf(current.row)
     const next = rows[i + dir]
     if (!next?._cardPreview) return
@@ -203,9 +208,15 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     else if (e.key === 'ArrowLeft') step(-1)
     else if (e.key === 'ArrowRight') step(1)
   }
+  // Routenwechsel schließt das Overlay (Critic-Fund: der Router leert nur
+  // #content — das Overlay hängt am Body und stünde sonst fixiert über der
+  // neuen Seite; gleiches Muster wie Lightbox/Swap-Picker)
+  const onRoute = () => dismissMobilePreview(overlay)
   document.addEventListener('keydown', onKey)
+  window.addEventListener('route-change', onRoute)
   const release = () => {
     document.removeEventListener('keydown', onKey)
+    window.removeEventListener('route-change', onRoute)
     if (releaseMobilePreview === release) releaseMobilePreview = null
   }
   releaseMobilePreview = release

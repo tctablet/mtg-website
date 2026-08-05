@@ -9,6 +9,7 @@ import {
   edhrecSlug, partnerSlug, parseEdhrecDeckStrings,
   extractAverageDeck, extractDeckTable, extractDeckPreview,
   serializeDeckForImport,
+  parseTopCommanders, colorPageSlug, commanderImageUrl, isPartnerPairName,
 } from '../src/edhrec.js'
 
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
@@ -116,4 +117,78 @@ test('serializeDeckForImport: Commander markiert, aus cards dedupliziert', () =>
   assert.deepEqual(lines.slice(2), ['1 Sol Ring', '4 Forest'])
   // Commander taucht NICHT doppelt auf
   assert.equal(lines.filter(l => l.includes('Thrasios')).length, 1)
+})
+
+// --- Top-Commander-Landing (Scan v2) ---
+
+test('parseTopCommanders: echte Fixture → Name, Slug, Scryfall-ID, Decks, Rank', async () => {
+  const json = await fixture('edhrec-top-commanders.json')
+  const { header, commanders } = parseTopCommanders(json)
+  assert.equal(header, 'Past Week')
+  assert.equal(commanders.length, 5)
+  const first = commanders[0]
+  assert.equal(first.name, "Y'shtola, Night's Blessed")
+  assert.equal(first.slug, 'yshtola-nights-blessed')
+  assert.match(first.scryfallId, /^[0-9a-f-]{36}$/)
+  assert.equal(first.numDecks, 1924)
+  assert.equal(first.rank, 1)
+})
+
+test('parseTopCommanders: kaputte Struktur wirft (wie die Schwester-Parser)', async () => {
+  assert.throws(() => parseTopCommanders(null))
+  assert.throws(() => parseTopCommanders({ container: { json_dict: { cardlists: [] } } }))
+  assert.throws(() => parseTopCommanders({ container: { json_dict: { cardlists: [{ cardviews: [{ nope: 1 }] }] } } }))
+})
+
+test('parseTopCommanders: Einträge ohne ID bleiben drin (Bild-Fallback), ohne Namen fliegen raus', () => {
+  const json = { container: { json_dict: { cardlists: [{ header: 'X', cardviews: [
+    { name: 'Mit ID', id: 'c7f2c2d5-e052-49e8-b5de-712858c2ea78', num_decks: 5, rank: 1 },
+    { name: 'Ohne ID', num_decks: 3, rank: 2 },
+    { id: 'nur-id-kein-name' },
+  ] }] } } }
+  const { commanders } = parseTopCommanders(json)
+  assert.equal(commanders.length, 2)
+  assert.equal(commanders[1].scryfallId, null)
+})
+
+test('colorPageSlug: kanonische EDHREC-Farbrad-Slugs (live verifiziert), C exklusiv', () => {
+  assert.equal(colorPageSlug(['u', 'w']), 'wu')      // Azorius
+  assert.equal(colorPageSlug(['u', 'g']), 'gu')      // Simic — 'ug' wäre 403!
+  assert.equal(colorPageSlug(['w', 'r']), 'rw')      // Boros — 'wr' wäre 403!
+  assert.equal(colorPageSlug(['g', 'B', 'w']), 'wbg') // Abzan
+  assert.equal(colorPageSlug(['g', 'w', 'u']), 'gwu') // Bant
+  assert.equal(colorPageSlug(['r', 'g', 'w', 'u']), 'rgwu') // Ink-Treader
+  assert.equal(colorPageSlug(['w', 'u', 'b', 'r', 'g']), 'wubrg')
+  assert.equal(colorPageSlug(['c']), 'colorless')
+  assert.equal(colorPageSlug(['c', 'w']), 'colorless')
+  assert.equal(colorPageSlug([]), null)
+  assert.equal(colorPageSlug(null), null)
+})
+
+test('commanderImageUrl: CDN-Muster nur für echte UUIDs', () => {
+  const id = 'c7f2c2d5-e052-49e8-b5de-712858c2ea78'
+  assert.equal(
+    commanderImageUrl(id),
+    `https://cards.scryfall.io/normal/front/c/7/${id}.jpg`
+  )
+  assert.equal(commanderImageUrl('nicht-uuid'), null)
+  assert.equal(commanderImageUrl(null), null)
+  // Pfad-Injection über ein manipuliertes id-Feld bleibt draußen
+  assert.equal(commanderImageUrl('../../evil'), null)
+})
+
+test('isPartnerPairName: Partner-Paar vs. einzelne DFC (Slug entscheidet)', () => {
+  // Paar: Slug = verbundene Einzel-Slugs ≠ Front-Face-Slug
+  assert.equal(isPartnerPairName(
+    'Thrasios, Triton Hero // Tymna the Weaver',
+    'thrasios-triton-hero-tymna-the-weaver'
+  ), true)
+  // DFC: Slug = Front-Face-Slug
+  assert.equal(isPartnerPairName(
+    'Esika, God of the Tree // The Prismatic Bridge',
+    'esika-god-of-the-tree'
+  ), false)
+  assert.equal(isPartnerPairName('Sol Ring', 'sol-ring'), false)
+  assert.equal(isPartnerPairName('A // B', null), false)
+  assert.equal(isPartnerPairName(null, 'x'), false)
 })

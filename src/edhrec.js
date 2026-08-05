@@ -73,7 +73,9 @@ export function extractDeckTable(json, topN = 20) {
     savedate: row.savedate || null,
     price: typeof row.price === 'number' ? row.price : null,
     salt: typeof row.salt === 'number' ? Math.round(row.salt * 10) / 10 : null,
-    bracket: row.bracket ?? null,
+    // Wie price/salt typgeprüft — ein String-bracket aus einer manipulierten/
+    // geänderten EDHREC-Antwort darf nie roh ins innerHTML laufen
+    bracket: typeof row.bracket === 'number' ? row.bracket : null,
   })).filter(r => r.urlhash)
 }
 
@@ -113,6 +115,78 @@ export function parseEdhrecPage(json) {
     }
   }
   return out
+}
+
+// Top-Commander-Seiten (Landing des Scans): commanders/{week|month|year}.json
+// bzw. Farbidentitäts-Seiten (commanders/wu.json → Redirect auf azorius).
+// cardviews tragen die Scryfall-ID im Feld `id` (live verifiziert) — Bilder
+// kommen damit direkt von der CDN, ohne Scryfall-API-Roundtrip.
+export function parseTopCommanders(json) {
+  const lists = json?.container?.json_dict?.cardlists ?? []
+  const cardviews = lists[0]?.cardviews ?? []
+  const commanders = []
+  for (const cv of cardviews) {
+    if (typeof cv?.name !== 'string') continue
+    commanders.push({
+      name: cv.name,
+      slug: cv.slug || cv.sanitized || edhrecSlug(cv.name),
+      scryfallId: typeof cv.id === 'string' ? cv.id : null,
+      numDecks: Number.isFinite(cv.num_decks) ? cv.num_decks : null,
+      rank: Number.isFinite(cv.rank) ? cv.rank : null,
+    })
+  }
+  if (!commanders.length) {
+    throw new Error('EDHREC-Top-Commander-Liste ist leer — Struktur geändert?')
+  }
+  return { header: lists[0]?.header || json?.header || '', commanders }
+}
+
+// pageSlug: 'week' | 'month' | 'year' oder Farb-Slug ('wu', 'colorless', …)
+export function fetchTopCommanders(pageSlug) {
+  return fetchEdhrecExtract({
+    url: `https://json.edhrec.com/pages/commanders/${pageSlug}.json`,
+    redirectBase: 'https://json.edhrec.com/pages/commanders/',
+    cacheKey: `edhrec:top:${pageSlug}`,
+    extract: parseTopCommanders,
+  })
+}
+
+// WUBRG(+C)-Auswahl → EDHREC-Seiten-Slug. EDHREC akzeptiert pro Kombination
+// GENAU EINE Letter-Reihenfolge (Farbrad-Konvention: 'gu'→simic, 'rw'→boros;
+// 'ug'/'wr' sind 403!) — alle 31 Kombinationen live verifiziert 05.08.2026.
+// Key = Auswahl in WUBRG-Reihenfolge, Value = kanonischer EDHREC-Slug.
+// C ist exklusiv (colorless kennt keine Kombination); leer → null (Perioden-Ansicht).
+const COLOR_PAGE_SLUGS = {
+  w: 'w', u: 'u', b: 'b', r: 'r', g: 'g',
+  wu: 'wu', ub: 'ub', br: 'br', rg: 'rg', wg: 'gw',
+  wb: 'wb', ur: 'ur', bg: 'bg', wr: 'rw', ug: 'gu',
+  wug: 'gwu', wub: 'wub', ubr: 'ubr', brg: 'brg', wrg: 'rgw',
+  wbg: 'wbg', wur: 'urw', ubg: 'bgu', wbr: 'rwb', urg: 'gur',
+  wubr: 'wubr', ubrg: 'ubrg', wbrg: 'brgw', wurg: 'rgwu', wubg: 'gwub',
+  wubrg: 'wubrg',
+}
+
+export function colorPageSlug(colors) {
+  const set = new Set((colors || []).map(c => String(c).toLowerCase()))
+  if (set.has('c')) return 'colorless'
+  const key = ['w', 'u', 'b', 'r', 'g'].filter(c => set.has(c)).join('')
+  return key ? (COLOR_PAGE_SLUGS[key] || null) : null
+}
+
+// Partner-PAAR oder einzelne DFC? Beide heißen "A // B" — aber der EDHREC-Slug
+// einer DFC ist ihr Front-Face-Slug, der eines Paars die verbundenen Einzel-
+// Slugs. Pure + testbar (Esika-DFC vs. Thrasios+Tymna).
+export function isPartnerPairName(name, slug) {
+  if (typeof name !== 'string' || !name.includes(' // ')) return false
+  if (!slug) return false
+  return slug !== edhrecSlug(name)
+}
+
+// Scryfall-CDN-Bild aus der ID (pure; nur echte UUIDs, sonst null)
+export function commanderImageUrl(scryfallId) {
+  if (typeof scryfallId !== 'string') return null
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scryfallId)) return null
+  return `https://cards.scryfall.io/normal/front/${scryfallId[0]}/${scryfallId[1]}/${scryfallId}.jpg`
 }
 
 export function fetchCommanderPage(slug) {
@@ -168,15 +242,25 @@ async function fetchEdhrecExtract({ url, cacheKey, extract, redirectBase, timeou
   const cached = readCache(cacheKey)
   if (cached) return cached
 
+  // HTTP 200 mit HTML-Body (Cloudflare-Challenge/Rate-Limit) würde als roher
+  // SyntaxError im UI landen — deutsche Meldung statt "Unexpected token '<'"
+  const parseJson = async (response) => {
+    try {
+      return await response.json()
+    } catch {
+      throw new Error('EDHREC liefert gerade kein JSON (Rate-Limit?) — später nochmal versuchen')
+    }
+  }
+
   let res = await fetchWithTimeout(url, timeoutMs)
   if (!res.ok) throw new Error(`EDHREC antwortet mit HTTP ${res.status}`)
-  let json = await res.json()
+  let json = await parseJson(res)
 
   if (json && typeof json.redirect === 'string' && redirectBase) {
     const slug = json.redirect.split('/').filter(Boolean).pop()
     res = await fetchWithTimeout(`${redirectBase}${slug}.json`, timeoutMs)
     if (!res.ok) throw new Error(`EDHREC-Redirect antwortet mit HTTP ${res.status}`)
-    json = await res.json()
+    json = await parseJson(res)
   }
 
   const extracted = extract(json)

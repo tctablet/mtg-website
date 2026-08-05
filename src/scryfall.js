@@ -75,6 +75,68 @@ export async function fetchCardByName(name) {
   return await res.json()
 }
 
+// Bild-URL über den named-Endpoint (Scryfall redirectet auf die CDN) — für
+// Karten, deren Bild-URL wir nicht kennen (Alle-Karten-Grid, Partner-Zweitkarte).
+// Pure; als <img src> nutzbar, Browser-Cache übernimmt.
+export function namedImageUrl(name) {
+  if (!name) return null
+  return `${API_BASE}/cards/named?exact=${encodeURIComponent(name)}&format=image&version=normal`
+}
+
+// Karte per Scryfall-ID — exakter als jeder Namens-Lookup. Der Commander-Scan
+// nutzt das für Klicks aus dem Top-Grid (EDHREC liefert die ID mit; ein
+// Namens-Drift zwischen EDHREC und Scryfall darf keinen Dead-End erzeugen).
+export async function fetchCardById(scryfallId) {
+  if (!scryfallId) return null
+  const res = await fetch(`${API_BASE}/cards/${encodeURIComponent(scryfallId)}`)
+  if (!res.ok) return null
+  return await res.json()
+}
+
+// --- Set-Browser (/preise): voller Katalog über die Scryfall-API ---
+
+const SETS_CACHE_KEY = 'scry:sets:v2'
+const SETS_CACHE_TTL = 24 * 60 * 60 * 1000 // Sets ändern sich selten
+
+// Alle Sets, geslimmt (sets.js), localStorage-gecacht (überlebt Tab-Neustarts —
+// Erstbesuch pro Tag statt pro Session). /sets ist EINE Antwort
+// (has_more=false, live verifiziert) — trotzdem defensiv paginieren.
+export async function fetchAllSets({ slim } = {}) {
+  try {
+    const raw = localStorage.getItem(SETS_CACHE_KEY)
+    if (raw) {
+      const { t, data } = JSON.parse(raw)
+      if (Date.now() - t < SETS_CACHE_TTL && Array.isArray(data) && data.length) return data
+    }
+  } catch { /* Cache optional */ }
+
+  const sets = []
+  let url = `${API_BASE}/sets`
+  for (let page = 0; url && page < 5; page++) {
+    const res = await fetchWithTimeout(url, 15000)
+    if (!res.ok) throw new Error(`Scryfall /sets antwortet mit HTTP ${res.status}`)
+    const json = await res.json()
+    sets.push(...(json.data || []).map(slim))
+    url = json.has_more ? json.next_page : null
+  }
+  if (!sets.length) throw new Error('Scryfall /sets lieferte keine Sets — Struktur geändert?')
+
+  try {
+    localStorage.setItem(SETS_CACHE_KEY, JSON.stringify({ t: Date.now(), data: sets }))
+  } catch { /* QuotaExceeded o.ä. — Cache ist optional */ }
+  return sets
+}
+
+// Eine Seite einer Set-Suche (erste Seite via sets.js/setSearchUrl, Folgeseiten
+// via next_page-URL). 404 = leeres Suchergebnis (Scryfall-Konvention, z.B. ein
+// Set ganz ohne Paper-Karten) — das ist ein leerer Zustand, kein Fehler.
+export async function fetchSetCardsPage(url) {
+  const res = await fetchWithTimeout(url, 15000)
+  if (res.status === 404) return { object: 'list', data: [], has_more: false, total_cards: 0 }
+  if (!res.ok) throw new Error(`Scryfall-Suche antwortet mit HTTP ${res.status}`)
+  return await res.json()
+}
+
 const dfcCache = new Map()
 
 export async function fetchCardBackImage(scryfallId) {

@@ -86,6 +86,21 @@ export function groupCardsByType(cards) {
   return sorted
 }
 
+// --- Mana-Kosten → mana-font-Icons ---
+// "{2}{W}{U}" → <i class="ms ms-2">… (mana.min.css ist global geladen).
+// Aus card-row.js hierher gehoben: der Read-only-Scan-Listen-Renderer
+// braucht dieselbe Darstellung.
+
+export function formatManaCost(manaCost) {
+  if (!manaCost) return ''
+  return manaCost.replace(/\{([^}]+)\}/g, (_, symbol) => {
+    let cls = symbol.toLowerCase().replace(/\//g, '')
+    const special = { t: 'tap', q: 'untap' }
+    if (special[cls]) cls = special[cls]
+    return `<i class="ms ms-${cls} ms-cost ms-shadow"></i>`
+  })
+}
+
 // --- Preis-Formatierung ---
 
 export function formatPrice(eur) {

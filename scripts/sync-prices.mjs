@@ -114,11 +114,31 @@ export function keepPrinting(c) {
   return (c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal) != null
 }
 
-export function toPrintingRow(c, updatedAt) {
+// Kanonischer Name, unter dem Preis UND Printing einer Bulk-Karte gekeyt
+// werden. Secret-Lair-Reversible-Printings (layout reversible_card) heißen
+// "A // A" — beide Faces tragen denselben Namen. Stumpf unter c.name gekeyt
+// erzeugten sie 397 Geister-Rows in scryfall_prices, für die weder
+// card_printings noch Scryfall-exact je ein Bild fanden (User-Report
+// „Doppelseiten ohne Bilder"). Der generische Beide-Hälften-identisch-Guard
+// fängt künftige gleichnamige Varianten auch ohne das Layout-Flag; echte
+// Transform-DFCs ("A // B") bleiben unberührt.
+export function canonicalPriceName(c) {
+  const name = c?.name || ''
+  if (c?.layout === 'reversible_card') return c.card_faces?.[0]?.name || name
+  const parts = name.split(' // ')
+  if (parts.length === 2 && parts[0] === parts[1]) return parts[0]
+  return name
+}
+
+// nameOverride: Deck-Karten werden über ihren GESPEICHERTEN Namen nachgeschlagen
+// (fetchPrintingsFromDB .in('name', …)) — liegt eine Karte historisch unter dem
+// rohen "X // X"-Namen im Deck, muss die Printing-Row genau diesen Namen tragen,
+// sonst fällt sie dauerhaft aus dem Cache (Critic R1 [MED]).
+export function toPrintingRow(c, updatedAt, nameOverride = null) {
   const img = c.image_uris || c.card_faces?.[0]?.image_uris || {}
   return {
     scryfall_id: c.id,
-    name: c.name,
+    name: nameOverride || canonicalPriceName(c),
     set_code: c.set,
     set_name: c.set_name,
     released_at: c.released_at || null,
@@ -151,11 +171,59 @@ async function fetchDeckNames() {
 }
 
 /**
+ * Löscht Rows, die dieser Lauf nicht angefasst hat (updated_at < Stempel des
+ * Laufs). Funktioniert nur, weil jede upsertete Row ihren Stempel explizit im
+ * Body trägt — merge-duplicates ließe den alten Spaltenwert sonst stehen und
+ * das Cleanup fräße frische Rows. Fail-closed: ohne parsbaren exakten Count
+ * oder bei unplausibel vielen Stale-Rows (>20 %-Cap) wird NICHT gelöscht.
+ * Wird für card_printings UND scryfall_prices genutzt (Critic R2: für
+ * scryfall_prices gab es nie ein Cleanup — Geister-Namen froren ewig ein).
+ */
+async function deleteStaleRows(table, keyCol, stamp, upsertedCount, capFn = staleCapFor) {
+  const staleFilter = `${table}?updated_at=lt.${encodeURIComponent(stamp)}&select=${keyCol}`
+  const countRes = await supabaseRpc(`${staleFilter}&limit=1`, {
+    headers: { Prefer: 'count=exact' },
+  })
+  const staleCount = parseInt((countRes.headers.get('content-range') || '').split('/')[1], 10)
+  if (!Number.isFinite(staleCount)) {
+    throw new Error(
+      `Cleanup ${table} übersprungen: kein exakter Count im Content-Range-Header ` +
+      `("${countRes.headers.get('content-range')}") — fail-closed.`
+    )
+  }
+  const staleLimit = capFn(upsertedCount)
+  if (staleCount > staleLimit) {
+    throw new Error(
+      `Cleanup ${table} übersprungen: ${staleCount} Rows wären veraltet (Limit ${staleLimit} ` +
+      `bei ${upsertedCount} upserteten) — updated_at-Semantik prüfen (db-probe.yml).`
+    )
+  }
+  if (staleCount === 0) return 0
+  const res = await supabaseRpc(staleFilter, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation' },
+  })
+  return (await res.json()).length
+}
+
+// Pure + exportiert für den Test: das 20%-Cap mit 500er-Boden (card_printings —
+// dort wechselt der Bestand mit den Decks der Runde legitimerweise stark).
+export function staleCapFor(upsertedCount) {
+  return Math.max(500, Math.round(upsertedCount * 0.2))
+}
+
+// Deutlich strengeres Cap für scryfall_prices (Critic R1 [HIGH]): die Tabelle
+// ist die EINZIGE Preisquelle der App, und ein Tages-Teilausfall bei Scryfall
+// (Stream-Abriss, Preislücken) darf nie tausende legitime Namen fressen.
+// 2 % von ~38k ≈ 760 — die 397 Reversible-Geister passen durch, ein
+// 1000-Namen-Loch NICHT (dann fail-closed + ::error).
+export function stalePriceCapFor(upsertedCount) {
+  return Math.max(500, Math.round(upsertedCount * 0.02))
+}
+
+/**
  * Upserts the collected printings and removes rows this run did not touch
- * (cards that left every deck, printings Scryfall withdrew). The DELETE keys on
- * updated_at < runStamp, which only works because every upserted row carries
- * runStamp explicitly in its body — merge-duplicates would otherwise leave the
- * column's old value in place and the cleanup would eat fresh rows.
+ * (cards that left every deck, printings Scryfall withdrew).
  */
 async function syncPrintings(rows, deckNames, runStamp) {
   const matchedNames = new Set(rows.map(r => r.name))
@@ -180,36 +248,8 @@ async function syncPrintings(rows, deckNames, runStamp) {
 
   // Cleanup erst NACH komplettem Upsert — bricht ein Batch ab, bleibt der alte
   // Bestand unangetastet stehen (Fallback-Daten sind besser als keine).
-  // Sicherheitsnetz davor: Wären unplausibel viele Rows "veraltet" (z.B. weil
-  // merge-duplicates updated_at wider Erwarten NICHT aus dem Body übernahm),
-  // würde das DELETE die halbe Tabelle fressen — dann lieber gar nicht löschen.
-  const staleFilter = `card_printings?updated_at=lt.${encodeURIComponent(runStamp)}&select=scryfall_id`
-  const countRes = await supabaseRpc(`${staleFilter}&limit=1`, {
-    headers: { Prefer: 'count=exact' },
-  })
-  // Fail-closed: ohne parsbaren exakten Count wird NICHT geloescht — ein
-  // stiller Fallback auf 0 wuerde das Sicherheitsnetz genau dann aushebeln,
-  // wenn es gebraucht wird.
-  const staleCount = parseInt((countRes.headers.get('content-range') || '').split('/')[1], 10)
-  if (!Number.isFinite(staleCount)) {
-    throw new Error(
-      `Cleanup übersprungen: kein exakter Count im Content-Range-Header ` +
-      `("${countRes.headers.get('content-range')}") — fail-closed.`
-    )
-  }
-  const staleLimit = Math.max(500, Math.round(rows.length * 0.2))
-  if (staleCount > staleLimit) {
-    throw new Error(
-      `Cleanup übersprungen: ${staleCount} Rows wären veraltet (Limit ${staleLimit} bei ` +
-      `${rows.length} upserteten) — updated_at-Semantik prüfen (db-probe.yml).`
-    )
-  }
-  const res = await supabaseRpc(staleFilter, {
-    method: 'DELETE',
-    headers: { Prefer: 'return=representation' },
-  })
-  const deleted = await res.json()
-  console.log(`Printings: ${rows.length} rows für ${matchedNames.size} Namen, ${deleted.length} veraltete entfernt`)
+  const deleted = await deleteStaleRows('card_printings', 'scryfall_id', runStamp, rows.length)
+  console.log(`Printings: ${rows.length} rows für ${matchedNames.size} Namen, ${deleted} veraltete entfernt`)
 }
 
 /**
@@ -312,17 +352,25 @@ async function main() {
   // 3. Find cheapest price per card name while streaming.
   const priceMap = new Map() // name -> { eur, is_foil }
   let cardCount = 0
+  let reversibleCount = 0
 
   for await (const card of streamScryfallCards(downloadUrl)) {
     cardCount++
 
-    if (deckNames && deckNames.has(card.name) && keepPrinting(card)) {
-      printingRows.push(toPrintingRow(card, runStamp))
+    // Reversible-Printings laufen unter ihrem kanonischen Namen mit — sowohl
+    // in den Preis-Min-Merge als auch als Printing des kanonischen Deck-Namens.
+    const name = canonicalPriceName(card)
+    if (name !== card.name) reversibleCount++
+
+    if (deckNames && keepPrinting(card)) {
+      // Sowohl kanonischer als auch roher Bulk-Name können als Deck-Name
+      // gespeichert sein — die Row trägt die Variante, die das Deck nutzt
+      const deckVariant = deckNames.has(name) ? name : (deckNames.has(card.name) ? card.name : null)
+      if (deckVariant) printingRows.push(toPrintingRow(card, runStamp, deckVariant))
     }
 
     if (card.digital) continue
 
-    const name = card.name
     const p = card.prices || {}
 
     // Try non-foil EUR first, then USD converted, then foil
@@ -351,6 +399,9 @@ async function main() {
 
   console.log(`Streamed ${cardCount} card objects`)
   console.log(`Found cheapest prices for ${priceMap.size} unique cards`)
+  // Sichtbares Signal statt stiller Drift: taucht hier plötzlich 0 oder eine
+  // Explosion auf, hat Scryfall die Reversible-Namenskonvention geändert.
+  console.log(`Normalized ${reversibleCount} reversible printings onto their canonical names`)
 
   // Nichts schreiben, wenn die Ausbeute unplausibel klein ist. Ein leeres oder
   // halb übertragenes Bulk-File würde sonst als grüner Lauf durchgehen und die
@@ -381,6 +432,22 @@ async function main() {
       body: batch,
     })
     console.log(`Upserted ${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length}`)
+  }
+
+  // 4b. Geister-Namen abräumen, die dieser Lauf nicht mehr geschrieben hat
+  // (z.B. die 397 alten "A // A"-Reversible-Rows). Fehler hier dürfen den
+  // erfolgreichen Preis-Upsert nicht röten — ::error macht sie sichtbar.
+  try {
+    const deletedPrices = await deleteStaleRows('scryfall_prices', 'name', now, rows.length, stalePriceCapFor)
+    // ::warning statt stilles Log (Critic R1): gelöschte Preis-Namen müssen in
+    // den Actions-Annotations auffallen, nicht nur im aufgeklappten Log.
+    if (deletedPrices > 0) {
+      console.log(`::warning::Preis-Cleanup: ${deletedPrices} veraltete Namen aus scryfall_prices entfernt`)
+    } else {
+      console.log('Preis-Cleanup: keine veralteten Namen')
+    }
+  } catch (err) {
+    console.log(`::error::Preis-Cleanup fehlgeschlagen: ${err.message.split('\n')[0]}`)
   }
 
   // 5. Propagate the fresh prices onto every deck's cards.

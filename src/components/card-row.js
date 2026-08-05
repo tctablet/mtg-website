@@ -1,5 +1,5 @@
 import { showPreview, hidePreview, showMobilePreview } from './card-preview.js'
-import { formatPrice, escapeHtml } from '../utils.js'
+import { formatPrice, escapeHtml, formatManaCost } from '../utils.js'
 import { deleteCard, updateCardQuantity } from '../supabase.js'
 import { classifyCard } from '../bracket.js'
 
@@ -177,12 +177,3 @@ function showDeleteConfirm(tr, card, onChanged) {
   })
 }
 
-function formatManaCost(manaCost) {
-  if (!manaCost) return ''
-  return manaCost.replace(/\{([^}]+)\}/g, (_, symbol) => {
-    let cls = symbol.toLowerCase().replace(/\//g, '')
-    const special = { t: 'tap', q: 'untap' }
-    if (special[cls]) cls = special[cls]
-    return `<i class="ms ms-${cls} ms-cost ms-shadow"></i>`
-  })
-}
