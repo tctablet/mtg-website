@@ -3808,13 +3808,15 @@ body.modal-open { overflow: hidden; }
     filter: none;
   }
 }
+/* 44px = Haus-Touch-Standard (wie .scan-color-btn) — 34px provozierten
+   gemessene Mis-Taps, die statt zu tauschen den Scan starteten (Critic R3) */
 .cmdr-pair-swap {
   position: absolute;
-  right: 6px;
-  top: 6px;
+  right: 4px;
+  top: 4px;
   z-index: 3;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

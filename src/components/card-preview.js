@@ -57,6 +57,7 @@ function showFlipButton(previewEl) {
     btn = document.createElement('button')
     btn.className = 'flip-btn'
     btn.title = 'Karte umdrehen'
+    btn.setAttribute('aria-label', 'Karte umdrehen')
     btn.innerHTML = '&#x21C4;'
     btn.addEventListener('click', handleFlip)
     previewEl.appendChild(btn)
@@ -125,7 +126,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
   overlay.innerHTML = `
     <div class="mobile-card-content">
       <img alt="" />
-      <button class="flip-btn flip-btn-mobile" title="Karte umdrehen" hidden>&#x21C4;</button>
+      <button class="flip-btn flip-btn-mobile" title="Karte umdrehen" aria-label="Karte umdrehen" hidden>&#x21C4;</button>
       <div class="mobile-card-nav">
         <button class="mobile-nav-btn" data-dir="-1" aria-label="Vorherige Karte">&#8249;</button>
         <span class="mobile-nav-label"></span>

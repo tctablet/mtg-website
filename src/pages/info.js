@@ -19,7 +19,7 @@ export function renderInfo(container) {
         <ol>
           <li><strong>EUR (non-foil)</strong> — Günstigstes Printing in Euro auf dem europäischen Markt</li>
           <li><strong>USD (non-foil) &times; 0.92</strong> — Falls kein EUR-Preis vorhanden, wird der US-Dollar-Preis mit einem festen Wechselkurs umgerechnet</li>
-          <li><strong>EUR Foil</strong> — Manche Karten existieren nur als Foil-Version (z.B. Commander-Precon-Exklusives). Diese werden mit einem <span class="foil-badge">✦</span> markiert</li>
+          <li><strong>EUR Foil</strong> — Manche Karten existieren nur als Foil-Version (z.B. Commander-Precon-Exklusives). Diese werden mit einem <span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span> markiert</li>
           <li><strong>USD Foil &times; 0.92</strong> — Letzter Fallback für Karten die nur als Foil in USD gelistet sind</li>
         </ol>
         <p class="info-note">
