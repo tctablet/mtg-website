@@ -146,7 +146,7 @@ function buildReadonlyRow(card, { hoverSidebar }) {
     if (hoverSidebar) {
       // Exakt das card-row-Muster der Deck-Ansicht: Hover → Sidebar,
       // Tap (Touch) → Vollbild-Overlay
-      tr.addEventListener('mouseenter', () => showPreview(card.image_uri, dfcInfo, bracketCat))
+      tr.addEventListener('mouseenter', () => showPreview(card.image_uri, dfcInfo, bracketCat, card.name))
       tr.addEventListener('mouseleave', () => hidePreview())
       tr.addEventListener('click', (e) => {
         if (!('ontouchstart' in window)) return

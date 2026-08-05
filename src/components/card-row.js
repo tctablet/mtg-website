@@ -119,7 +119,7 @@ export function createCardRow(card, onChanged, { editLocked = false } = {}) {
     // Vorschau-Daten an der Zeile hinterlegen, damit die Vollbild-Ansicht
     // zur naechsten/vorherigen Karte blaettern kann
     tr._cardPreview = { imageUri: previewUri, cardName: card.name, dfcInfo, bracketCat }
-    tr.addEventListener('mouseenter', () => showPreview(previewUri, dfcInfo, bracketCat))
+    tr.addEventListener('mouseenter', () => showPreview(previewUri, dfcInfo, bracketCat, card.name))
     tr.addEventListener('mouseleave', () => hidePreview())
     tr.addEventListener('click', (e) => {
       if (!('ontouchstart' in window)) return
