@@ -2,23 +2,44 @@ import { fetchCardBackImage } from '../scryfall.js'
 
 let defaultImage = null
 let currentDfc = null // { frontUri, scryfallId, showingBack }
+// Name der zuletzt angezeigten Karte — der Bild-Fehler-Fallback der Sidebar
+// zeigt IHREN Namen, nicht den des Commanders (Critic R7: falsche Identität
+// ist schlimmer als fehlendes Bild)
+let currentName = null
 
-export function setDefaultPreview(imageUri) {
+// Fehler-Vertrag lebt IN der Komponente (Critic R7): jedes hier erzeugte
+// Sidebar-<img> fällt bei toter URL selbst auf den Namens-Kasten zurück —
+// egal welcher Call-Site (scan, deck-view, Hover-Zyklen) es nutzt.
+function showNoImage(container, name) {
+  container.querySelector('img')?.remove()
+  let span = container.querySelector('.preview-noimg')
+  if (!span) {
+    span = document.createElement('span')
+    span.className = 'preview-noimg'
+    container.appendChild(span)
+  }
+  span.textContent = name || 'Kein Bild verfügbar'
+}
+
+export function setDefaultPreview(imageUri, name = null) {
   defaultImage = imageUri
+  currentName = name
   const el = document.getElementById('deck-card-preview')
   if (!el) return
-  // Ohne Bild KEIN leeres <img> anlegen — das renderte als kaputtes Icon
-  // direkt neben dem .preview-noimg-Namens-Fallback (Critic R6, live belegt)
   if (imageUri) {
-    ensureImg(el)
-    el.querySelector('img').src = imageUri
+    ensureImg(el).src = imageUri
+  } else {
+    // Ohne Bild KEIN leeres <img> (renderte als kaputtes Icon, Critic R6) —
+    // stattdessen direkt der Namens-Kasten
+    showNoImage(el, name)
   }
   hideFlipButton()
 }
 
-export function showPreview(imageUri, dfcInfo, bracketCat) {
+export function showPreview(imageUri, dfcInfo, bracketCat, name = null) {
   const el = document.getElementById('deck-card-preview')
   if (!el || !imageUri) return
+  currentName = name
   const img = ensureImg(el)
   img.src = imageUri
   setBracketClass(el, bracketCat)
@@ -50,6 +71,9 @@ function ensureImg(container) {
     container.querySelector('.preview-noimg')?.remove()
     img = document.createElement('img')
     img.alt = 'Kartenvorschau'
+    // Listener hängt an JEDEM erzeugten img — überlebt damit per Konstruktion
+    // beliebig viele Fallback→Hover→Fallback-Zyklen (Critic R7)
+    img.addEventListener('error', () => showNoImage(container, currentName))
     container.appendChild(img)
   }
   return img
@@ -130,6 +154,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
   overlay.innerHTML = `
     <div class="mobile-card-content">
       <img alt="" />
+      <span class="preview-noimg overlay-noimg" hidden></span>
       <button class="flip-btn flip-btn-mobile" title="Karte umdrehen" aria-label="Karte umdrehen" hidden>&#x21C4;</button>
       <div class="mobile-card-nav">
         <button class="mobile-nav-btn" data-dir="-1" aria-label="Vorherige Karte">&#8249;</button>
@@ -143,9 +168,22 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
   const flipBtn = overlay.querySelector('.flip-btn')
   const label = overlay.querySelector('.mobile-nav-label')
   const navBtns = [...overlay.querySelectorAll('.mobile-nav-btn')]
+  const noimgEl = overlay.querySelector('.overlay-noimg')
 
   let current = { imageUri, cardName, dfcInfo, bracketCat, row: rowEl }
   let showingBack = false
+
+  // Gleiche no-blank-image-Regel wie in der Sidebar: tote URL → Namens-Kasten,
+  // nächstes erfolgreiches Bild stellt die Anzeige wieder her (Critic R7)
+  img.addEventListener('error', () => {
+    img.hidden = true
+    noimgEl.textContent = current.cardName || 'Kein Bild verfügbar'
+    noimgEl.hidden = false
+  })
+  img.addEventListener('load', () => {
+    img.hidden = false
+    noimgEl.hidden = true
+  })
 
   function render(data, animate) {
     current = data

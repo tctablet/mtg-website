@@ -120,9 +120,7 @@ export async function renderDeckView(container, params) {
         <div class="deck-layout">
           <aside class="deck-sidebar">
             <div class="deck-preview-sticky">
-              <div id="deck-card-preview">
-                ${commanderCardImage ? `<img src="${commanderCardImage}" alt="${deck.commander}" />` : ''}
-              </div>
+              <div id="deck-card-preview"></div>
               <div id="deck-stats" class="deck-stats"></div>
             </div>
           </aside>
@@ -140,7 +138,7 @@ export async function renderDeckView(container, params) {
     </div>
   `
 
-  setDefaultPreview(commanderCardImage)
+  setDefaultPreview(commanderCardImage, deck.commander)
   setEditMode(false)
   renderDeckStats(cards)
 

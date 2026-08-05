@@ -3939,3 +3939,20 @@ body.modal-open { overflow: hidden; }
   .fade-in, .card-tile-frame img, .cmdr-frame img { animation: none; }
   .cmdr-frame-pair img { transition: none; }
 }
+
+/* Overlay-Namens-Kasten (tote Bild-URL im Vollbild-Preview) */
+.mobile-card-content .overlay-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 63 / 88;
+  width: min(80vw, 340px);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 15px;
+  text-align: center;
+}
+.mobile-card-content .overlay-noimg[hidden] { display: none; }

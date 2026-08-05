@@ -537,30 +537,18 @@ export async function renderScan(container) {
       <div class="deck-layout">
         <aside class="deck-sidebar">
           <div class="deck-preview-sticky">
-            <div id="deck-card-preview">
-              ${commanderImage
-                ? `<img src="${escapeHtml(commanderImage)}" alt="${escapeHtml(state.commander.name)}" />`
-                : `<span class="preview-noimg">${escapeHtml(state.commander.name)}</span>`}
-            </div>
+            <!-- bewusst leer: setDefaultPreview befüllt — NUR die Komponente
+                 erzeugt Sidebar-imgs, damit jedes den Fehler-Fallback trägt -->
+            <div id="deck-card-preview"></div>
             <div id="deck-stats" class="deck-stats"></div>
           </div>
         </aside>
         <div id="scan-avg-list" class="scan-card-list">${loadingHtml('Kartendetails laden...')}</div>
       </div>
     `
-    setDefaultPreview(commanderImage)
-    // Tote Bild-URL → derselbe Namens-Fallback wie beim Fehlen des Bilds
-    // (no-blank-image-Regel auch für die Sidebar, Critic R6)
-    resultEl.querySelector('#deck-card-preview img')?.addEventListener('error', function () {
-      const box = this.closest('#deck-card-preview')
-      this.remove()
-      if (box && !box.querySelector('.preview-noimg')) {
-        const span = document.createElement('span')
-        span.className = 'preview-noimg'
-        span.textContent = state.commander.name
-        box.appendChild(span)
-      }
-    })
+    // Fehler-Fallback (tote URL → Namens-Kasten) übernimmt die Komponente
+    // selbst für JEDES Sidebar-Bild inkl. Hover-Zyklen (Critic R7)
+    setDefaultPreview(commanderImage, state.commander.name)
     refade(resultEl)
 
     resultEl.querySelector('.scan-import-btn')?.addEventListener('click', () => {
