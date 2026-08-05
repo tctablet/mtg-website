@@ -1,0 +1,692 @@
+{
+  "generatedAt": "2026-08-04T21:27:08.820Z",
+  "pool": {
+    "fetchedAt": "2026-08-04T19:47:54.170Z",
+    "cardCount": 38542
+  },
+  "criteria": {
+    "INTERACTION_FLOOR": {
+      "low": 0.08,
+      "mid": 0.12,
+      "high": 0.15
+    },
+    "INTERACTION_BENCHMARK": {
+      "low": 0.1,
+      "mid": 0.15,
+      "high": 0.2
+    },
+    "INSTANT_SPEED_SHARE": 0.4,
+    "KEEP_RATE_MIN": 0.8,
+    "simIterations": 500,
+    "simSeed": 42
+  },
+  "decks": [
+    {
+      "id": "121c767d-c913-4fc7-9663-3c5cbfa47bde",
+      "name": "Y'shtola, Night's Blessed",
+      "player": "Jan B.",
+      "commander": "Y'shtola, Night's Blessed",
+      "archetypeHint": null,
+      "gcCount": 3,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 15,
+        "nonland": 63,
+        "density": 0.238,
+        "instantSpeed": 13
+      },
+      "keepRate": 0.96,
+      "clocks": {
+        "combat": {
+          "median": 10,
+          "ceiling": 8,
+          "hitRate": 0.152
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 10
+    },
+    {
+      "id": "158a0d56-8675-4837-8627-a495b0a90f07",
+      "name": "MOMO",
+      "player": "Mats",
+      "commander": "Momo, Friendly Flier",
+      "archetypeHint": null,
+      "gcCount": 5,
+      "bracketBand": "high",
+      "interaction": {
+        "count": 11,
+        "nonland": 66,
+        "density": 0.167,
+        "instantSpeed": 5
+      },
+      "keepRate": 0.918,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.632
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "34074c88-4c00-455e-bce2-d3bc18d5b75b",
+      "name": "FOR FRODO",
+      "player": "Mats",
+      "commander": "Éowyn, Shieldmaiden",
+      "archetypeHint": null,
+      "gcCount": 0,
+      "bracketBand": "low",
+      "interaction": {
+        "count": 7,
+        "nonland": 60,
+        "density": 0.117,
+        "instantSpeed": 4
+      },
+      "keepRate": 0.97,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.838
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "44e8abb8-3c05-41fa-b747-f83e59fe886d",
+      "name": "ELdrazi",
+      "player": "Philip",
+      "commander": "Zhulodok, Void Gorger",
+      "archetypeHint": null,
+      "gcCount": 0,
+      "bracketBand": "low",
+      "interaction": {
+        "count": 13,
+        "nonland": 60,
+        "density": 0.217,
+        "instantSpeed": 5
+      },
+      "keepRate": 0.978,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.428
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "4522b1bf-3019-47e8-b9e3-061c5ff9d9b4",
+      "name": "Endlich Mono Rot",
+      "player": "Jan W.",
+      "commander": "Krenko, Tin Street Kingpin",
+      "archetypeHint": null,
+      "gcCount": 1,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 3,
+        "nonland": 68,
+        "density": 0.044,
+        "instantSpeed": 1
+      },
+      "keepRate": 0.912,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.236
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "5434ff97-9b8d-4c44-89cd-1d6921625335",
+      "name": "Valgavoth, Harrower of Souls",
+      "player": "Jan B.",
+      "commander": "Valgavoth, Harrower of Souls",
+      "archetypeHint": null,
+      "gcCount": 1,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 14,
+        "nonland": 62,
+        "density": 0.226,
+        "instantSpeed": 7
+      },
+      "keepRate": 0.972,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.738
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "5e4a4680-c44f-4a78-9ca1-2aae2df234ed",
+      "name": "In a world filled with misery and uncertainty, it is a great comfort to know that in the end, there is a light in the darkness",
+      "player": "Sascha",
+      "commander": "Isshin, Two Heavens as One",
+      "archetypeHint": null,
+      "gcCount": 2,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 8,
+        "nonland": 65,
+        "density": 0.123,
+        "instantSpeed": 6
+      },
+      "keepRate": 0.942,
+      "clocks": {
+        "combat": {
+          "median": 8,
+          "ceiling": 7,
+          "hitRate": 0.778
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 8
+    },
+    {
+      "id": "6387280e-e3c3-483e-bf94-05e15fcfcdf2",
+      "name": "RAAAAAAWR",
+      "player": "Sascha",
+      "commander": "Pantlaza, Sun-Favored",
+      "archetypeHint": null,
+      "gcCount": 1,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 16,
+        "nonland": 63,
+        "density": 0.254,
+        "instantSpeed": 4
+      },
+      "keepRate": 0.958,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.86
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "648333f5-8cd2-4e9a-8545-c539e3253395",
+      "name": "Pilze sammeln (Proxy)",
+      "player": "Mats",
+      "commander": "Shroofus Sproutsire",
+      "archetypeHint": null,
+      "gcCount": 3,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 6,
+        "nonland": 72,
+        "density": 0.083,
+        "instantSpeed": 5
+      },
+      "keepRate": 0.94,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.168
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "6c25113e-dc3c-45ee-8501-31d152a2ea9d",
+      "name": "Kaalia of the Vast",
+      "player": "Jan B.",
+      "commander": "Kaalia of the Vast",
+      "archetypeHint": null,
+      "gcCount": 0,
+      "bracketBand": "low",
+      "interaction": {
+        "count": 10,
+        "nonland": 66,
+        "density": 0.152,
+        "instantSpeed": 5
+      },
+      "keepRate": 0.948,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.716
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "75b68a96-3501-4f57-899f-72ba1e273eee",
+      "name": "Bang Bang, I shot you down",
+      "player": "Mats",
+      "commander": "Stella Lee, Wild Card",
+      "archetypeHint": null,
+      "gcCount": 0,
+      "bracketBand": "low",
+      "interaction": {
+        "count": 7,
+        "nonland": 61,
+        "density": 0.115,
+        "instantSpeed": 3
+      },
+      "keepRate": 0.96,
+      "clocks": {
+        "combat": {
+          "median": 10,
+          "ceiling": 9,
+          "hitRate": 0.068
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 10
+    },
+    {
+      "id": "7e08af4a-1ea3-4898-bf6b-d9a9b90059c5",
+      "name": "🥷",
+      "player": "Jan W.",
+      "commander": "Yuriko, the Tiger's Shadow",
+      "archetypeHint": null,
+      "gcCount": 2,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 13,
+        "nonland": 68,
+        "density": 0.191,
+        "instantSpeed": 11
+      },
+      "keepRate": 0.924,
+      "clocks": {
+        "combat": {
+          "median": 10,
+          "ceiling": 8,
+          "hitRate": 0.226
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 10
+    },
+    {
+      "id": "8c8704bf-51eb-451c-b474-65af0ea0b654",
+      "name": "Saruman",
+      "player": "Philip",
+      "commander": "Saruman of Many Colors",
+      "archetypeHint": null,
+      "gcCount": 10,
+      "bracketBand": "high",
+      "interaction": {
+        "count": 17,
+        "nonland": 63,
+        "density": 0.27,
+        "instantSpeed": 13
+      },
+      "keepRate": 0.956,
+      "clocks": {
+        "combat": {
+          "median": 10,
+          "ceiling": 8,
+          "hitRate": 0.088
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 10
+    },
+    {
+      "id": "9cf77d97-9e0b-47d4-ab00-c97ddb9ca934",
+      "name": "Jodah Bombs",
+      "player": "Philip",
+      "commander": "Jodah, Archmage Eternal",
+      "archetypeHint": null,
+      "gcCount": 6,
+      "bracketBand": "high",
+      "interaction": {
+        "count": 11,
+        "nonland": 66,
+        "density": 0.167,
+        "instantSpeed": 7
+      },
+      "keepRate": 0.934,
+      "clocks": {
+        "combat": {
+          "median": 10,
+          "ceiling": 8,
+          "hitRate": 0.126
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 10
+    },
+    {
+      "id": "9f614ae7-db3a-4919-8899-5457f66475a0",
+      "name": "Grandma's cookies",
+      "player": "Mats",
+      "commander": "Gran-Gran",
+      "archetypeHint": null,
+      "gcCount": 5,
+      "bracketBand": "high",
+      "interaction": {
+        "count": 19,
+        "nonland": 61,
+        "density": 0.311,
+        "instantSpeed": 17
+      },
+      "keepRate": 0.968,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.202
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "bfdd3d71-c242-47bb-9dfc-c4e95132647d",
+      "name": "Doctor Doom, King of Latveria",
+      "player": "Jan B.",
+      "commander": "Doctor Doom, King of Latveria",
+      "archetypeHint": null,
+      "gcCount": 1,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 11,
+        "nonland": 60,
+        "density": 0.183,
+        "instantSpeed": 8
+      },
+      "keepRate": 0.968,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.732
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "c0e30a96-7c4f-48bb-8acd-5631f068672b",
+      "name": "Xenagos, God of Revels",
+      "player": "Jan B.",
+      "commander": "Xenagos, God of Revels",
+      "archetypeHint": null,
+      "gcCount": 0,
+      "bracketBand": "low",
+      "interaction": {
+        "count": 5,
+        "nonland": 63,
+        "density": 0.079,
+        "instantSpeed": 1
+      },
+      "keepRate": 0.95,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.544
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "c9925aec-a820-4b83-bb46-cd3313975c78",
+      "name": "Flash",
+      "player": "Philip",
+      "commander": "Chromium, the Mutable",
+      "archetypeHint": null,
+      "gcCount": 9,
+      "bracketBand": "high",
+      "interaction": {
+        "count": 16,
+        "nonland": 63,
+        "density": 0.254,
+        "instantSpeed": 13
+      },
+      "keepRate": 0.946,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.466
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "cf293c0a-1f1b-49f8-b1fb-a21415c413e5",
+      "name": "Der Komet",
+      "player": "Jan W.",
+      "commander": "Ozai, the Phoenix King",
+      "archetypeHint": null,
+      "gcCount": 1,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 13,
+        "nonland": 67,
+        "density": 0.194,
+        "instantSpeed": 7
+      },
+      "keepRate": 0.928,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.472
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "de218cf1-f03f-4c08-9898-4d369e7576f0",
+      "name": "Obuun",
+      "player": "Jan W.",
+      "commander": "Obuun, Mul Daya Ancestor",
+      "archetypeHint": null,
+      "gcCount": 2,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 10,
+        "nonland": 60,
+        "density": 0.167,
+        "instantSpeed": 3
+      },
+      "keepRate": 0.978,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.76
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "e0ae358d-506e-4f1d-b496-c9c2164781bc",
+      "name": "Coins",
+      "player": "Jan W.",
+      "commander": "Yusri, Fortune's Flame",
+      "archetypeHint": null,
+      "gcCount": 1,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 6,
+        "nonland": 65,
+        "density": 0.092,
+        "instantSpeed": 1
+      },
+      "keepRate": 0.938,
+      "clocks": {
+        "combat": {
+          "median": 10,
+          "ceiling": 9,
+          "hitRate": 0.062
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 10
+    },
+    {
+      "id": "ea6f1069-6946-4907-81da-744b5e5c01c6",
+      "name": "Five",
+      "player": "Robert",
+      "commander": "Felix Five-Boots",
+      "archetypeHint": null,
+      "gcCount": 0,
+      "bracketBand": "low",
+      "interaction": {
+        "count": 7,
+        "nonland": 62,
+        "density": 0.113,
+        "instantSpeed": 5
+      },
+      "keepRate": 0.956,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.746
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
+      "id": "f4f2738d-119e-472f-a1ae-a01391136263",
+      "name": "Mogis, God of Slaughter",
+      "player": "Jan B.",
+      "commander": "Mogis, God of Slaughter",
+      "archetypeHint": null,
+      "gcCount": 2,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 13,
+        "nonland": 61,
+        "density": 0.213,
+        "instantSpeed": 2
+      },
+      "keepRate": 0.97,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 7,
+          "hitRate": 0.476
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    }
+  ]
+}
