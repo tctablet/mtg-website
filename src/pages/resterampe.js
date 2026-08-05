@@ -1,6 +1,6 @@
 import { navigate } from '../router.js'
 import { getResterampeDecks, getDeckCards } from '../supabase.js'
-import { formatPrice, formatTotalPrice, getDeckColors, renderLoadError } from '../utils.js'
+import { formatPrice, formatTotalPrice, getDeckColors, renderLoadError, escapeHtml } from '../utils.js'
 
 export async function renderResterampe(container) {
   container.innerHTML = '<p class="loading">Lade Resterampe...</p>'
@@ -136,10 +136,4 @@ function createResterampeCard(deck, cards, index = 0) {
   })
 
   return card
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  })[c])
 }

@@ -28,9 +28,20 @@ export function parseDeckList(text) {
   return cards
 }
 
+// --- HTML-Escaping ---
+
+// Externe Strings (Scryfall-/EDHREC-/DB-Namen) landen in innerHTML-Templates —
+// eine geteilte Wahrheit statt lokaler Kopien (vorher je eine in resterampe.js
+// und deck-view.js).
+export function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+}
+
 // --- Typ-Kategorisierung ---
 
-const TYPE_ORDER = [
+export const TYPE_ORDER = [
   { key: 'creature', match: 'Creature', label: 'Kreaturen' },
   { key: 'planeswalker', match: 'Planeswalker', label: 'Planeswalker' },
   { key: 'instant', match: 'Instant', label: 'Spontanzauber' },

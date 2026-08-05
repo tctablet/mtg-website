@@ -1,23 +1,41 @@
-import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCards, fetchCheapestPrices, fetchPrintingsFromDB } from '../supabase.js'
-import { fetchCardCollection, extractCardData, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchPrintingsBulk, autocompleteCard } from '../scryfall.js'
-import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory, renderLoadError } from '../utils.js'
+import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCardsReturning, fetchCheapestPrices, fetchPrintingsFromDB } from '../supabase.js'
+import { fetchCardCollection, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchPrintingsBulk, autocompleteCard } from '../scryfall.js'
+import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory, renderLoadError, escapeHtml } from '../utils.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
+import { renderCardGroups, matchCommander, updateGroupHeader, addCardToGroups } from '../components/card-list.js'
+import { buildCardInsertRow, applyLocalDelete, undoSwap } from '../deck-mutations.js'
+import { openSwapPicker } from '../components/swap-picker.js'
+import { showToast } from '../components/toast.js'
+import { attachCardAutocomplete } from '../components/autocomplete.js'
 import { setDefaultPreview } from '../components/card-preview.js'
 import { estimateBracket } from '../bracket.js'
 import { getPlayer } from '../auth.js'
 import { navigate, refreshRoute, routeHref } from '../router.js'
 
+// Render-Generation: async Abschlüsse (Swap, Undo, Add), die NACH einem
+// refreshRoute()/Re-Render zurückkommen, dürfen nicht mit veralteten Closures
+// in den frischen DOM patchen — bei Generationswechsel wird stattdessen die
+// Route neu geladen (holt den echten DB-Stand). Critic [HIGH].
+let renderGeneration = 0
+
 export async function renderDeckView(container, params) {
   const { id } = params
+  const myGeneration = ++renderGeneration
+  const isStale = () => myGeneration !== renderGeneration
   container.innerHTML = '<p class="loading">Lade Deck...</p>'
 
   let deck, cards
   try {
     ;[deck, cards] = await Promise.all([getDeck(id), getDeckCards(id)])
   } catch (err) {
+    if (isStale()) return
     renderLoadError(container, err, () => renderDeckView(container, params))
     return
   }
+  // Doppel-Navigation-Race (Critic R2 [BLOCKER]): löst eine ÄLTERE, langsamere
+  // Deck-Anfrage nach einer neueren auf, darf sie die fertige Seite nicht
+  // überschreiben — sonst zeigt die URL Deck B und der Inhalt Deck A.
+  if (isStale()) return
 
   if (!deck) {
     container.innerHTML = '<p>Deck nicht gefunden.</p>'
@@ -55,7 +73,7 @@ export async function renderDeckView(container, params) {
             <p class="deck-meta">
               Commander: <strong>${deck.commander}</strong>${deck.commander2 ? ` + <strong>${deck.commander2}</strong>` : ''}
               &middot; Spieler: <strong>${deck.players?.name || 'Unbekannt'}</strong>
-              &middot; ${cards.reduce((s, c) => s + (c.quantity || 1), 0)} Karten
+              &middot; <span id="deck-card-count">${cards.reduce((s, c) => s + (c.quantity || 1), 0)}</span> Karten
             </p>
           </div>
           <div class="deck-value">
@@ -124,9 +142,91 @@ export async function renderDeckView(container, params) {
   setEditMode(false)
   renderDeckStats(cards)
 
+  // Header-Wert, Kartenzähler und Stats live nachziehen — vorher statisch
+  // (Bug c) bzw. nie aufgerufen (Bug b: onChanged wurde nicht durchgereicht)
+  const updateHeaderAndStats = () => {
+    const amountEl = container.querySelector('.value-amount')
+    if (amountEl) amountEl.textContent = formatTotalPrice(cards)
+    const countEl = document.getElementById('deck-card-count')
+    if (countEl) countEl.textContent = cards.reduce((s, c) => s + (c.quantity || 1), 0)
+    renderDeckStats(cards)
+  }
+  const onCardChanged = (card, section, info = {}) => {
+    if (info.removed) applyLocalDelete(cards, card.id)
+    if (section) updateGroupHeader(section)
+    updateHeaderAndStats()
+  }
+
   let currentSort = 'type'
-  const rerender = () => renderCardGroups(cards, deck.commander, currentSort, deck.commander2)
+  const rerender = () => renderCardGroups({
+    cards,
+    commander: deck.commander,
+    commander2: deck.commander2,
+    sortMode: currentSort,
+    onChanged: onCardChanged,
+  })
   rerender()
+
+  // In-Place-Update nach einem Swap: gleiche Typ-Gruppe → Zeile ersetzen
+  // (null Scroll-Verlust), sonst alte Zeile raus + neue einsortieren.
+  const applySwapToUi = (newRow, oldTr) => {
+    const section = oldTr?.closest('.card-group')
+    const sameGroup = currentSort === 'type'
+      && section?.dataset.category === (newRow.type_category || 'other')
+    if (sameGroup) {
+      oldTr.replaceWith(createCardRow(newRow, onCardChanged))
+      updateGroupHeader(section)
+    } else {
+      oldTr?.remove()
+      if (section) updateGroupHeader(section)
+      addCardToGroups(newRow, { sortMode: currentSort, onChanged: onCardChanged })
+    }
+    updateHeaderAndStats()
+  }
+
+  const handleSwapped = ({ newRow, removedRow }, oldTr) => {
+    if (isStale()) { refreshRoute(); return }
+    applySwapToUi(newRow, oldTr)
+    showToast({
+      message: `${removedRow.name} → ${newRow.name} getauscht`,
+      actionLabel: 'Rückgängig',
+      onAction: async () => {
+        try {
+          const res = await undoSwap({ deckId: id, cards, originalRow: removedRow, newRow })
+          // Ansicht wurde inzwischen neu aufgebaut? Frisch laden statt mit
+          // veralteten Closures in den neuen DOM zu patchen.
+          if (isStale()) { refreshRoute(); return }
+          // Zeile der getauschten Karte entfernen (falls Undo sie gelöscht hat)
+          if (res.status === 'ok') {
+            const newTr = [...document.querySelectorAll('#card-groups tbody tr')]
+              .find(t => t._card?.id === newRow.id)
+            const sec = newTr?.closest('.card-group')
+            newTr?.remove()
+            if (sec) updateGroupHeader(sec)
+          }
+          addCardToGroups(res.restored, { sortMode: currentSort, onChanged: onCardChanged })
+          updateHeaderAndStats()
+          showToast({
+            message: res.status === 'ok'
+              ? `Rückgängig: ${removedRow.name} ist wieder drin`
+              : `„${removedRow.name}" ist wieder drin — „${newRow.name}" bitte manuell entfernen`,
+          })
+        } catch (err) {
+          showToast({ message: `Rückgängig fehlgeschlagen: ${err.message}` })
+        }
+      },
+    })
+  }
+
+  document.getElementById('card-groups').addEventListener('card-swap-request', (e) => {
+    const { card, tr } = e.detail
+    openSwapPicker({
+      card,
+      deckId: id,
+      cards,
+      onSwapped: (result) => handleSwapped(result, tr),
+    })
+  })
 
   document.getElementById('sort-select')?.addEventListener('change', (e) => {
     currentSort = e.target.value
@@ -151,7 +251,8 @@ export async function renderDeckView(container, params) {
 
   if (isOwner) {
     document.getElementById('refresh-prices')?.addEventListener('click', async () => {
-      await refreshPrices(id, cards)
+      // Nach Wegnavigieren keine fremde Seite zwangs-rerendern (Critic R2 [HIGH])
+      await refreshPrices(id, cards, () => { if (!isStale()) refreshRoute() })
     })
   }
 
@@ -160,23 +261,38 @@ export async function renderDeckView(container, params) {
   })
 
   document.getElementById('edit-deck-meta')?.addEventListener('click', () => {
-    showMetaEditor(deck)
+    showMetaEditor(deck, () => { if (!isStale()) refreshRoute() })
   })
 
-  document.getElementById('remove-from-sale')?.addEventListener('click', async () => {
-    if (!confirm(`"${deck.name}" aus der Resterampe entfernen?`)) return
+  // Zwei-Stufen-Button statt natives confirm(): erster Klick scharfschalten,
+  // zweiter Klick führt aus; 5s ohne zweiten Klick entschärft wieder
+  const removeFromSaleBtn = document.getElementById('remove-from-sale')
+  removeFromSaleBtn?.addEventListener('click', async () => {
+    if (removeFromSaleBtn.dataset.armed !== '1') {
+      removeFromSaleBtn.dataset.armed = '1'
+      removeFromSaleBtn.textContent = 'Wirklich entfernen?'
+      removeFromSaleBtn.classList.add('btn-danger-armed')
+      setTimeout(() => {
+        removeFromSaleBtn.dataset.armed = ''
+        removeFromSaleBtn.textContent = 'Aus Resterampe'
+        removeFromSaleBtn.classList.remove('btn-danger-armed')
+      }, 5000)
+      return
+    }
     await updateDeck(deck.id, { for_sale: false, sold: false })
+    if (isStale()) return
     refreshRoute()
   })
 
   document.getElementById('toggle-sold')?.addEventListener('click', async () => {
     const newSold = !deck.sold
     await updateDeck(deck.id, { sold: newSold })
+    if (isStale()) return
     refreshRoute()
   })
 
   document.getElementById('edit-sale-meta')?.addEventListener('click', () => {
-    showSaleMetaEditor(deck)
+    showSaleMetaEditor(deck, () => { if (!isStale()) refreshRoute() })
   })
 
   // Tab switching
@@ -199,12 +315,14 @@ export async function renderDeckView(container, params) {
     })
   })
 
-  // Add card autocomplete
+  // Add card autocomplete — neue Karte wird gezielt einsortiert statt
+  // Voll-Rerender (Scroll-/Fokus-Erhalt)
   if (isOwner) {
-    setupAddCard(id, cards, deck, () => {
+    setupAddCard(id, cards, deck, (newRow) => {
+      if (isStale()) { refreshRoute(); return }
       currentSort = document.getElementById('sort-select')?.value || 'type'
-      rerender()
-      renderDeckStats(cards)
+      addCardToGroups(newRow, { sortMode: currentSort, onChanged: onCardChanged })
+      updateHeaderAndStats()
     })
   }
 
@@ -218,57 +336,17 @@ function setupAddCard(deckId, cards, deck, onAdded) {
   const status = document.getElementById('add-card-status')
   if (!input || !list) return
 
-  let timer = null
-
-  input.addEventListener('input', () => {
-    clearTimeout(timer)
-    const query = input.value.trim()
-    if (query.length < 2) { list.hidden = true; return }
-
-    timer = setTimeout(async () => {
-      const suggestions = await autocompleteCard(query)
-      if (suggestions.length === 0) { list.hidden = true; return }
-
-      list.innerHTML = suggestions.slice(0, 8)
-        .map(name => `<div class="autocomplete-item">${name}</div>`)
-        .join('')
-      list.hidden = false
-
-      list.querySelectorAll('.autocomplete-item').forEach(item => {
-        item.addEventListener('click', () => addCardToDeck(item.textContent))
-      })
-    }, 250)
-  })
-
-  input.addEventListener('keydown', (e) => {
-    const items = list.querySelectorAll('.autocomplete-item')
-    const active = list.querySelector('.autocomplete-item.active')
-    let idx = [...items].indexOf(active)
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      if (active) active.classList.remove('active')
-      idx = (idx + 1) % items.length
-      items[idx]?.classList.add('active')
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      if (active) active.classList.remove('active')
-      idx = idx <= 0 ? items.length - 1 : idx - 1
-      items[idx]?.classList.add('active')
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (active) {
-        addCardToDeck(active.textContent)
-      } else if (items.length > 0) {
-        addCardToDeck(items[0].textContent)
-      }
-    } else if (e.key === 'Escape') {
-      list.hidden = true
-    }
+  // Geteilter Autocomplete-Kern (Race-Guard + Thumbnails/Preise) — dieselbe
+  // Komponente wie im Swap-Picker
+  const autocomplete = attachCardAutocomplete({
+    input,
+    listEl: list,
+    limit: 8,
+    onPick: (item) => addCardToDeck(item.name),
   })
 
   async function addCardToDeck(cardName) {
-    list.hidden = true
+    autocomplete.clear()
     input.value = ''
 
     // Check if card already exists in deck
@@ -285,46 +363,25 @@ function setupAddCard(deckId, cards, deck, onAdded) {
     status.className = 'add-card-status'
 
     try {
-      const scryfallCard = await fetchCardByName(cardName)
-      if (!scryfallCard) {
+      // Row-Aufbau + cheapest_eur-Override leben jetzt in deck-mutations.js
+      // (eine Wahrheit für Add-Bar, Swap-Picker und Wizard-Apply)
+      const cardRow = await buildCardInsertRow(deckId, cardName)
+      if (!cardRow) {
         status.textContent = `"${cardName}" nicht gefunden`
         status.className = 'add-card-status add-card-status-warn'
         setTimeout(() => { status.textContent = '' }, 2500)
         return
       }
 
-      const data = extractCardData(scryfallCard)
-      // Prefer the cheapest price across all printings (scryfall_prices); the
-      // per-printing price is often null for digital/token printings.
-      const cheapest = (await fetchCheapestPrices([data.name])).get(data.name)
-      const cardRow = {
-        deck_id: deckId,
-        name: data.name,
-        scryfall_id: data.scryfall_id,
-        type_line: data.type_line,
-        type_category: getTypeCategory(data.type_line),
-        mana_cost: data.mana_cost,
-        cmc: data.cmc,
-        image_uri: data.image_uri,
-        price_eur: cheapest?.price != null ? cheapest.price : data.price_eur,
-        price_is_foil: cheapest?.price != null ? cheapest.isFoil : data.price_is_foil,
-        price_updated_at: data.price_updated_at,
-        commander_legality: data.commander_legality,
-        quantity: 1,
-      }
+      // .select() liefert die Row inkl. DB-ID zurück — kein Voll-Refetch mehr
+      const [newRow] = await insertCardsReturning([cardRow])
+      cards.push(newRow)
 
-      await insertCards([cardRow])
-
-      // Re-fetch cards to get the new card with its DB id
-      const freshCards = await getDeckCards(deckId)
-      cards.length = 0
-      cards.push(...freshCards)
-
-      status.textContent = `${data.name} hinzugefügt`
+      status.textContent = `${newRow.name} hinzugefügt`
       status.className = 'add-card-status add-card-status-ok'
       setTimeout(() => { status.textContent = '' }, 2000)
 
-      onAdded()
+      onAdded(newRow)
       input.focus()
     } catch (err) {
       status.textContent = `Fehler: ${err.message}`
@@ -367,81 +424,8 @@ async function loadTokens(cards) {
   } catch { /* tokens are non-critical */ }
 }
 
-function matchCommander(cardName, commanderName) {
-  if (!cardName || !commanderName) return false
-  const a = cardName.toLowerCase()
-  const b = commanderName.toLowerCase()
-  // Exact match, or DFC front-face match (card "A" matches commander "A // B" and vice versa)
-  return a === b || a.startsWith(b.split(' // ')[0]) || b.startsWith(a.split(' // ')[0])
-}
-
-function renderCardGroups(cards, commanderName, sortMode, commander2Name) {
-  const groupsEl = document.getElementById('card-groups')
-  groupsEl.innerHTML = ''
-
-  // Extract commander cards and show them first
-  const commanderCard = cards.find(c => matchCommander(c.name, commanderName))
-  const commander2Card = commander2Name ? cards.find(c => matchCommander(c.name, commander2Name)) : null
-  const commanderCards = [commanderCard, commander2Card].filter(Boolean)
-  const remainingCards = cards.filter(c => !commanderCards.includes(c))
-
-  if (commanderCards.length > 0) {
-    groupsEl.appendChild(buildGroupSection('Commander', commanderCards))
-  }
-
-  if (sortMode === 'type') {
-    const groups = groupCardsByType(remainingCards)
-    for (const group of groups) {
-      groupsEl.appendChild(buildGroupSection(group.label, group.cards))
-    }
-  } else {
-    const sorted = [...remainingCards].sort(getSortFn(sortMode))
-    groupsEl.appendChild(buildGroupSection('Alle Karten', sorted))
-  }
-}
-
-function getSortFn(mode) {
-  switch (mode) {
-    case 'name': return (a, b) => a.name.localeCompare(b.name)
-    case 'cmc': return (a, b) => (a.cmc || 0) - (b.cmc || 0) || a.name.localeCompare(b.name)
-    case 'price-desc': return (a, b) => ((parseFloat(b.price_eur) || 0) * b.quantity) - ((parseFloat(a.price_eur) || 0) * a.quantity)
-    case 'price-asc': return (a, b) => ((parseFloat(a.price_eur) || 0) * a.quantity) - ((parseFloat(b.price_eur) || 0) * b.quantity)
-    default: return (a, b) => a.name.localeCompare(b.name)
-  }
-}
-
-function buildGroupSection(label, cards) {
-  const section = document.createElement('div')
-  section.className = 'card-group'
-
-  const groupTotal = cards.reduce((s, c) => s + (parseFloat(c.price_eur) || 0) * c.quantity, 0)
-  const count = cards.reduce((s, c) => s + c.quantity, 0)
-
-  section.innerHTML = `
-    <h3 class="group-header">
-      ${label} (${count})
-      <span class="group-total">${formatPrice(groupTotal)}</span>
-    </h3>
-    <table class="card-table">
-      <thead>
-        <tr>
-          <th class="th-qty">#</th>
-          <th class="th-name">Karte</th>
-          <th class="th-mana">Mana</th>
-          <th class="th-price">Preis</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  `
-
-  const tbody = section.querySelector('tbody')
-  for (const card of cards) {
-    tbody.appendChild(createCardRow(card))
-  }
-
-  return section
-}
+// matchCommander/renderCardGroups/getSortFn/buildGroupSection leben jetzt in
+// src/components/card-list.js — Edit v2 braucht dort In-Place-Updates.
 
 function renderDeckStats(cards) {
   const el = document.getElementById('deck-stats')
@@ -546,7 +530,7 @@ function renderDeckStats(cards) {
   `
 }
 
-function showMetaEditor(deck) {
+function showMetaEditor(deck, onSaved = refreshRoute) {
   const btn = document.getElementById('edit-deck-meta')
   if (document.getElementById('meta-editor')) return
 
@@ -608,7 +592,7 @@ function showMetaEditor(deck) {
       }
 
       await updateDeck(deck.id, updates)
-      refreshRoute()
+      onSaved()
     } catch (err) {
       saveBtn.textContent = `Fehler: ${err.message}`
       saveBtn.disabled = false
@@ -616,7 +600,7 @@ function showMetaEditor(deck) {
   })
 }
 
-async function refreshPrices(deckId, cards) {
+async function refreshPrices(deckId, cards, onDone = refreshRoute) {
   const btn = document.getElementById('refresh-prices')
   btn.disabled = true
 
@@ -671,8 +655,8 @@ async function refreshPrices(deckId, cards) {
 
     setProgress(100, 'Fertig!')
     setTimeout(() => {
-      // Force re-render even if hash unchanged
-      refreshRoute()
+      // Re-Render über den Aufrufer — der prüft, ob die Seite noch aktiv ist
+      onDone()
     }, 500)
   } catch (err) {
     setProgress(0, `Fehler: ${err.message}`)
@@ -686,12 +670,7 @@ async function refreshPrices(deckId, cards) {
   }
 }
 
-// Set-Namen und Suchtexte landen in Markup — Sonderzeichen entschärfen
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ))
-}
+// escapeHtml kommt aus src/utils.js (eine geteilte Wahrheit statt lokaler Kopien)
 
 // Basics haben je ~850 Druckvarianten — vom Vorladen ausgenommen (s. renderProxyArtworks)
 const BASIC_LANDS = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'])
@@ -874,6 +853,20 @@ function renderProxyArtworks(cards, isOwner) {
 }
 
 let closeActiveArtworkPicker = null
+
+// Inline-Fehlerzeile im Picker statt natives alert() — bricht das Sheet-Design
+// nicht und verschwindet von selbst
+function showPickerError(pickerGrid, message) {
+  let el = pickerGrid.querySelector('.artwork-picker-error')
+  if (!el) {
+    el = document.createElement('p')
+    el.className = 'artwork-picker-error'
+    pickerGrid.prepend(el)
+  }
+  el.textContent = `Fehler beim Speichern: ${message}`
+  clearTimeout(el._timer)
+  el._timer = setTimeout(() => el.remove(), 4000)
+}
 
 async function openArtworkPicker(card, cardEl, allCards) {
   // Alte Instanz sauber schließen (inkl. Listener), nie roh entfernen
@@ -1059,7 +1052,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
             closeModal()
           } catch (err) {
             opt.classList.remove('artwork-picking')
-            alert('Fehler beim Speichern: ' + err.message)
+            showPickerError(pickerGrid, err.message)
           }
         })
       })
@@ -1150,7 +1143,7 @@ function escapeAttr(s) {
   })[c])
 }
 
-function showSaleMetaEditor(deck) {
+function showSaleMetaEditor(deck, onSaved = refreshRoute) {
   if (document.getElementById('sale-meta-editor')) return
 
   const overlay = document.createElement('div')
@@ -1237,7 +1230,7 @@ function showSaleMetaEditor(deck) {
     try {
       await updateDeck(deck.id, { sealed_price_eur, archetype, playstyle })
       close()
-      refreshRoute()
+      onSaved()
     } catch (err) {
       btn.disabled = false
       btn.textContent = `Fehler: ${err.message}`

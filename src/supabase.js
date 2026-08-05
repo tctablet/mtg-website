@@ -117,6 +117,14 @@ export async function insertCards(cards) {
   if (error) throw error
 }
 
+// Wie insertCards, gibt aber die eingefügten Rows inkl. DB-IDs zurück —
+// erspart Add/Swap den Voll-Refetch des Decks.
+export async function insertCardsReturning(cards) {
+  const { data, error } = await supabase.from('cards').insert(cards).select()
+  if (error) throw error
+  return data || []
+}
+
 // Resolves the cheapest EUR price per card name from the pre-synced
 // scryfall_prices table (cheapest across all printings), with a DFC front-face
 // fallback. Returns Map<name, { price, isFoil }>. Used by import/add so a card

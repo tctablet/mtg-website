@@ -87,7 +87,8 @@ export function startRouter() {
     if (link.origin !== location.origin) return
     if (!link.pathname.startsWith(BASE + '/')) return
     e.preventDefault()
-    navigate(link.pathname.slice(BASE.length))
+    // Query-String mitnehmen — interne Links wie /preise?q=... behalten ihre Parameter
+    navigate(link.pathname.slice(BASE.length) + link.search)
   })
 
   handleRoute()
