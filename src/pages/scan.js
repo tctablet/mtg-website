@@ -241,9 +241,12 @@ export async function renderScan(container) {
         <button class="cmdr-tile" data-idx="${i}" aria-label="${escapeHtml(nameA)} und ${escapeHtml(nameB)} scannen">
           <span class="cmdr-frame cmdr-frame-pair">
             ${c.rank ? `<span class="cmdr-rank">#${c.rank}</span>` : ''}
-            <img class="cmdr-pair-a" src="${escapeHtml(imgA)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />
-            <img class="cmdr-pair-b" src="${escapeHtml(imgB)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />
-            <span class="cmdr-pair-swap" role="button" aria-label="Partner tauschen" title="Partner tauschen">&#8646;</span>
+            <img class="cmdr-pair-a" src="${escapeHtml(imgA)}" alt="" loading="lazy" decoding="async"
+              onerror="const f=this.closest('.cmdr-frame');this.remove();if(!f.querySelector('img'))f.classList.add('cmdr-frame-noimg')" />
+            <img class="cmdr-pair-b" src="${escapeHtml(imgB)}" alt="" loading="lazy" decoding="async"
+              onerror="const f=this.closest('.cmdr-frame');this.remove();if(!f.querySelector('img'))f.classList.add('cmdr-frame-noimg')" />
+            <span class="cmdr-noimg-name">${escapeHtml(nameA)} + ${escapeHtml(nameB)}</span>
+            <span class="cmdr-pair-swap" aria-hidden="true" title="Partner tauschen">&#8646;</span>
           </span>
           <span class="cmdr-name">${escapeHtml(nameA)}</span>
           <span class="cmdr-name cmdr-name-partner">+ ${escapeHtml(nameB)}</span>

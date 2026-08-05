@@ -3544,7 +3544,8 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 480px) {
   .set-tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .set-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
-  .view-toggle-btn { min-height: 40px; }
+  /* 44px-Haus-Touch-Standard auch für den View-Umschalter (Critic R4) */
+  .view-toggle-btn { min-height: 44px; }
 }
 
 /* ===== Karten-Lightbox: nur großes Bild + Preis ===== */
@@ -3812,8 +3813,8 @@ body.modal-open { overflow: hidden; }
    gemessene Mis-Taps, die statt zu tauschen den Scan starteten (Critic R3) */
 .cmdr-pair-swap {
   position: absolute;
-  right: 4px;
-  top: 4px;
+  right: 6px;
+  top: 6px;
   z-index: 3;
   width: 44px;
   height: 44px;
@@ -3836,7 +3837,8 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 480px) {
   .scan-landing-head { flex-direction: column; align-items: stretch; }
   .scan-filters { justify-content: space-between; }
-  .scan-period-btn { min-height: 40px; }
+  /* 44px-Haus-Touch-Standard (Critic R4) */
+  .scan-period-btn { min-height: 44px; }
   .cmdr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
