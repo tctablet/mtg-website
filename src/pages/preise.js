@@ -710,7 +710,8 @@ export function openCardLightbox({ name, image, price, isFoil }) {
       <button class="card-lightbox-close" aria-label="Schließen">&times;</button>
       <div class="card-lightbox-frame">
         ${image
-          ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" />`
+          ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}"
+              onerror="this.closest('.card-lightbox-frame').innerHTML='<p class=\'card-lightbox-noimg\'>Kein Bild verfügbar</p>'" />`
           : '<p class="loading">Lade Bild...</p>'}
       </div>
       <div class="card-lightbox-caption">

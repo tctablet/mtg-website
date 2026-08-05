@@ -3724,6 +3724,23 @@ body.modal-open { overflow: hidden; }
   text-align: center;
 }
 .cmdr-frame-noimg .cmdr-noimg-name { display: flex; }
+/* Ohne Bilder gibt es nichts zu tauschen — Swap-Glyph verschwindet mit (R5) */
+.cmdr-frame-noimg .cmdr-pair-swap { display: none; }
+
+/* Sidebar-Vorschau ohne Bild: Name im Kartenformat statt 0px-Kollaps (R5) */
+#deck-card-preview .preview-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 63 / 88;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+}
 /* Unten links statt oben: Scryfall legt nie Chrome auf den gedruckten
    Kartennamen (Critic-Fund — "#1" verdeckte "Y'sh…") */
 .cmdr-rank {

@@ -538,7 +538,9 @@ export async function renderScan(container) {
         <aside class="deck-sidebar">
           <div class="deck-preview-sticky">
             <div id="deck-card-preview">
-              ${commanderImage ? `<img src="${escapeHtml(commanderImage)}" alt="${escapeHtml(state.commander.name)}" />` : ''}
+              ${commanderImage
+                ? `<img src="${escapeHtml(commanderImage)}" alt="${escapeHtml(state.commander.name)}" />`
+                : `<span class="preview-noimg">${escapeHtml(state.commander.name)}</span>`}
             </div>
             <div id="deck-stats" class="deck-stats"></div>
           </div>
