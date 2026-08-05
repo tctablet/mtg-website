@@ -35,9 +35,28 @@ async function resolveCardImages(names) {
   if (!missing.length) return
   const { found } = await fetchCardCollection(missing)
   const idx = buildScryfallIndex(found)
+  const collectionMisses = []
   for (const n of missing) {
     const card = idx.get(n.toLowerCase()) || idx.get(n.split(' // ')[0].toLowerCase())
-    cardImageCache.set(n.toLowerCase(), card ? getCardNormalImage(card) : null)
+    if (card) {
+      cardImageCache.set(n.toLowerCase(), getCardNormalImage(card))
+    } else {
+      collectionMisses.push(n)
+    }
+  }
+  // Scryfall-Eigenheit: der collection-Endpoint kennt manche legale Namen
+  // nicht, die named?exact sehr wohl findet ("_____", Unhinged — Critic-Fund).
+  // Einzel-Fallback nur für diese seltenen Misses, hart gedeckelt.
+  for (const n of collectionMisses.slice(0, 5)) {
+    try {
+      const card = await fetchCardByName(n)
+      cardImageCache.set(n.toLowerCase(), card ? getCardNormalImage(card) : null)
+    } catch {
+      cardImageCache.set(n.toLowerCase(), null)
+    }
+  }
+  for (const n of collectionMisses.slice(5)) {
+    cardImageCache.set(n.toLowerCase(), null)
   }
 }
 

@@ -93,11 +93,15 @@ export function groupCardsByType(cards) {
 
 export function formatManaCost(manaCost) {
   if (!manaCost) return ''
+  // Zero-Width-Space zwischen den Pips: ohne Umbruchgelegenheit zwingt ein
+  // 7-Pip-Extremfall die min-content-Breite der Kartentabelle über den
+  // Mobil-Viewport (gemessen 418px bei 390px) — mit ZWSP bleiben ≤5 Pips
+  // einzeilig und lange Kosten brechen kontrolliert um statt zu overflown.
   return manaCost.replace(/\{([^}]+)\}/g, (_, symbol) => {
     let cls = symbol.toLowerCase().replace(/\//g, '')
     const special = { t: 'tap', q: 'untap' }
     if (special[cls]) cls = special[cls]
-    return `<i class="ms ms-${cls} ms-cost ms-shadow"></i>`
+    return `<i class="ms ms-${cls} ms-cost ms-shadow"></i>​`
   })
 }
 
