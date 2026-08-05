@@ -1,0 +1,69 @@
+# Baut das schlanke Kandidaten-Pool-Asset für den Browser-Wizard und lädt es
+# in den öffentlichen Supabase-Storage-Bucket `assets`.
+#
+# BEWUSST ein EIGENER Workflow (nicht Teil von sync-prices.yml): ein Fehler
+# oder Timeout hier darf den kritischen täglichen Preis-Sync nie mitreißen
+# (Plan-Critic M5). Eigene concurrency-Group, eigenes Timeout.
+#
+# Voraussetzung (einmalig, manuell): Supabase-Bucket `assets` mit Public-Read
+# anlegen (Dashboard → Storage). Ohne Bucket schlägt der Upload-Step fehl,
+# der Wizard zeigt client-seitig den "Pool-Asset fehlt"-Zustand.
+
+name: Build Pool Asset
+
+on:
+  schedule:
+    - cron: '30 6 * * *' # täglich 06:30 UTC — nach dem Preis-Sync (06:00)
+  workflow_dispatch:
+
+concurrency:
+  group: pool-asset
+  cancel-in-progress: false
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Der Build braucht keine npm-Dependencies (nur Node-Builtins) — aber die
+      # importierten src/-Module ebenfalls nicht; bewusst kein npm ci.
+      - name: Build pool-slim asset
+        run: node scripts/build-pool-asset.mjs --refresh --out /tmp/pool-asset
+
+      - name: Upload to Supabase Storage (assets bucket)
+        env:
+          SUPABASE_URL: https://jcbdjlqxmlsfqfenltws.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          for f in pool-slim.json pool-slim.json.gz; do
+            CT=$([ "${f##*.}" = "gz" ] && echo "application/gzip" || echo "application/json")
+            CODE=$(curl -s -o /tmp/upload-out -w "%{http_code}" -X POST \
+              "$SUPABASE_URL/storage/v1/object/assets/$f" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+              -H "Content-Type: $CT" \
+              -H "x-upsert: true" \
+              --data-binary "@/tmp/pool-asset/$f")
+            if [ "$CODE" != "200" ]; then
+              echo "::error::Upload $f fehlgeschlagen (HTTP $CODE): $(cat /tmp/upload-out)"
+              exit 1
+            fi
+            echo "hochgeladen: $f (HTTP $CODE)"
+          done
+
+      - name: Verify public read
+        run: |
+          set -euo pipefail
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://jcbdjlqxmlsfqfenltws.supabase.co/storage/v1/object/public/assets/pool-slim.json.gz")
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Public-Read-Check fehlgeschlagen (HTTP $CODE) — Bucket 'assets' fehlt oder ist nicht public."
+            exit 1
+          fi
+          echo "Public-Read ok"

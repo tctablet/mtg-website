@@ -78,6 +78,27 @@ test('parseEdhrecDeckStrings: Mengen und Sonderzeichen-Namen', () => {
   ])
 })
 
+test('parseEdhrecPage: cardlists → flache Empfehlungsliste mit Inclusion% und Synergy', async () => {
+  const json = await fixture('edhrec-commander-page.json')
+  const { parseEdhrecPage } = await import('../src/edhrec.js')
+  const recs = parseEdhrecPage(json)
+  assert.ok(recs.length >= 6) // 3 Listen × 3 (gekürzte echte Fixture)
+  for (const r of recs) {
+    assert.equal(typeof r.name, 'string')
+    assert.ok(r.inclusionPct === null || (r.inclusionPct >= 0 && r.inclusionPct <= 100))
+    assert.equal(typeof r.listHeader, 'string')
+  }
+  // num_decks/potential_decks → gerundete Prozent
+  const withPct = recs.find(r => r.inclusionPct !== null)
+  assert.ok(withPct, 'mindestens ein Eintrag mit Inclusion%')
+})
+
+test('parseEdhrecPage: kaputte/leere Struktur → leere Liste, kein Crash', async () => {
+  const { parseEdhrecPage } = await import('../src/edhrec.js')
+  assert.deepEqual(parseEdhrecPage({}), [])
+  assert.deepEqual(parseEdhrecPage({ container: { json_dict: {} } }), [])
+})
+
 // --- Import-Serialisierung ---
 
 test('serializeDeckForImport: Commander markiert, aus cards dedupliziert', () => {

@@ -1,0 +1,95 @@
+{
+ "container": {
+  "json_dict": {
+   "cardlists": [
+    {
+     "header": "New Cards",
+     "cardviews": [
+      {
+       "name": "The Serpent Society",
+       "inclusion": null,
+       "num_decks": 154,
+       "potential_decks": 6012,
+       "synergy": 0.00985750849422578,
+       "sanitized": "the-serpent-society"
+      },
+      {
+       "name": "Baxter Building",
+       "inclusion": null,
+       "num_decks": 75,
+       "potential_decks": 6012,
+       "synergy": 0.003484330642658998,
+       "sanitized": "baxter-building"
+      },
+      {
+       "name": "The Theorist, Jace Beleren",
+       "inclusion": null,
+       "num_decks": 29,
+       "potential_decks": 2370,
+       "synergy": 0.0035037519896915035,
+       "sanitized": "the-theorist-jace-beleren"
+      }
+     ]
+    },
+    {
+     "header": "High Synergy Cards",
+     "cardviews": [
+      {
+       "name": "Tekuthal, Inquiry Dominus",
+       "inclusion": null,
+       "num_decks": 28677,
+       "potential_decks": 43374,
+       "synergy": 0.27179315922703223,
+       "sanitized": "tekuthal-inquiry-dominus"
+      },
+      {
+       "name": "Evolution Sage",
+       "inclusion": null,
+       "num_decks": 25580,
+       "potential_decks": 43374,
+       "synergy": 0.24080422806524066,
+       "sanitized": "evolution-sage"
+      },
+      {
+       "name": "Karn's Bastion",
+       "inclusion": null,
+       "num_decks": 25771,
+       "potential_decks": 43374,
+       "synergy": 0.23693938059855746,
+       "sanitized": "karns-bastion"
+      }
+     ]
+    },
+    {
+     "header": "Top Cards",
+     "cardviews": [
+      {
+       "name": "Swords to Plowshares",
+       "inclusion": null,
+       "num_decks": 23973,
+       "potential_decks": 43374,
+       "synergy": -0.027528832984694218,
+       "sanitized": "swords-to-plowshares"
+      },
+      {
+       "name": "Farseek",
+       "inclusion": null,
+       "num_decks": 20071,
+       "potential_decks": 43374,
+       "synergy": 0.06305997797888835,
+       "sanitized": "farseek"
+      },
+      {
+       "name": "Prologue to Phyresis",
+       "inclusion": null,
+       "num_decks": 17512,
+       "potential_decks": 43374,
+       "synergy": 0.15900706487211388,
+       "sanitized": "prologue-to-phyresis"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

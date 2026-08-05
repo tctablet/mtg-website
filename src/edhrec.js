@@ -91,6 +91,39 @@ export function extractDeckPreview(json) {
   }
 }
 
+// commanders-Page (Empfehlungslisten mit Inclusion/Synergy) → flache Liste.
+// Struktur (live + refs.mjs-Präzedenz): container.json_dict.cardlists[] mit
+// header + cardviews[{ name, num_decks, potential_decks, synergy }].
+// inclusionPct = num_decks / potential_decks (EDHRECs "x% of y decks").
+export function parseEdhrecPage(json) {
+  const lists = json?.container?.json_dict?.cardlists ?? []
+  const out = []
+  for (const list of lists) {
+    for (const cv of list.cardviews ?? []) {
+      if (typeof cv?.name !== 'string') continue
+      const inclusionPct = cv.num_decks && cv.potential_decks
+        ? Math.round((cv.num_decks / cv.potential_decks) * 100)
+        : null
+      out.push({
+        name: cv.name,
+        inclusionPct,
+        synergy: typeof cv.synergy === 'number' ? Math.round(cv.synergy * 100) : null,
+        listHeader: list.header ?? '',
+      })
+    }
+  }
+  return out
+}
+
+export function fetchCommanderPage(slug) {
+  return fetchEdhrecExtract({
+    url: `https://json.edhrec.com/pages/commanders/${slug}.json`,
+    redirectBase: 'https://json.edhrec.com/pages/commanders/',
+    cacheKey: `edhrec:cmdr:${slug}`,
+    extract: parseEdhrecPage,
+  })
+}
+
 // Decklist als Import-Text für den bestehenden Deck-Import serialisieren.
 // Commander-Zeilen bekommen das "# !Commander"-Suffix (parseDeckList erkennt
 // es, der Import selektiert automatisch). Preview-Listen ENTHALTEN die

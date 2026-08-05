@@ -114,6 +114,7 @@ export async function renderDeckView(container, params) {
       <div class="deck-tabs">
         <button class="deck-tab deck-tab-active" data-tab="cards">Karten</button>
         <button class="deck-tab" data-tab="proxy">Proxy Artworks</button>
+        ${isOwner ? '<button class="deck-tab" data-tab="wizard">Optimieren</button>' : ''}
       </div>
       <div id="tab-cards">
         <div class="deck-layout">
@@ -135,6 +136,7 @@ export async function renderDeckView(container, params) {
       <div id="tab-proxy" style="display:none">
         <div id="proxy-artwork-grid" class="proxy-artwork-grid"></div>
       </div>
+      <div id="tab-wizard" style="display:none"></div>
     </div>
   `
 
@@ -143,8 +145,12 @@ export async function renderDeckView(container, params) {
   renderDeckStats(cards)
 
   // Header-Wert, Kartenzähler und Stats live nachziehen — vorher statisch
-  // (Bug c) bzw. nie aufgerufen (Bug b: onChanged wurde nicht durchgereicht)
+  // (Bug c) bzw. nie aufgerufen (Bug b: onChanged wurde nicht durchgereicht).
+  // deckMutationCount: jede Deck-Mutation läuft hier durch — der Wizard-Tab
+  // nutzt den Zähler, um seine Analyse bei Fremdänderungen zu invalidieren.
+  let deckMutationCount = 0
   const updateHeaderAndStats = () => {
+    deckMutationCount++
     const amountEl = container.querySelector('.value-amount')
     if (amountEl) amountEl.textContent = formatTotalPrice(cards)
     const countEl = document.getElementById('deck-card-count')
@@ -295,7 +301,10 @@ export async function renderDeckView(container, params) {
     showSaleMetaEditor(deck, () => { if (!isStale()) refreshRoute() })
   })
 
-  // Tab switching
+  // Tab switching (Karten / Proxy Artworks / Optimieren)
+  // -1 = nie gerendert; sonst der deckMutationCount des letzten Wizard-Renders —
+  // Edits im Karten-Tab invalidieren die Wizard-Analyse (Critic-Fund)
+  let wizardRenderedFor = -1
   container.querySelectorAll('.deck-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       // Klick auf den bereits aktiven Tab: nichts neu rendern/animieren
@@ -303,12 +312,38 @@ export async function renderDeckView(container, params) {
       container.querySelectorAll('.deck-tab').forEach(t => t.classList.remove('deck-tab-active'))
       tab.classList.add('deck-tab-active')
       const target = tab.dataset.tab
-      document.getElementById('tab-cards').style.display = target === 'cards' ? '' : 'none'
-      document.getElementById('tab-proxy').style.display = target === 'proxy' ? '' : 'none'
+      for (const key of ['cards', 'proxy', 'wizard']) {
+        const el = document.getElementById(`tab-${key}`)
+        if (el) el.style.display = target === key ? '' : 'none'
+      }
       if (target === 'proxy') {
         renderProxyArtworks(cards, isOwner)
       }
-      const panel = document.getElementById(target === 'proxy' ? 'tab-proxy' : 'tab-cards')
+      if (target === 'wizard' && wizardRenderedFor !== deckMutationCount) {
+        wizardRenderedFor = deckMutationCount
+        const wizardEl = document.getElementById('tab-wizard')
+        wizardEl.innerHTML = '<p class="loading">Lade Optimierer…</p>'
+        // Lazy: Vite code-splittet den Wizard — die Deck-Seite zahlt nichts,
+        // solange das Tab nie geöffnet wird
+        import('../wizard/index.js')
+          .then(m => m.renderWizard({
+            container: wizardEl,
+            deck,
+            cards,
+            onDeckChanged: () => {
+              if (isStale()) return
+              rerender()
+              updateHeaderAndStats()
+              // Wizard hat das Deck selbst geändert — sein Re-Render deckt das ab
+              wizardRenderedFor = deckMutationCount
+            },
+          }))
+          .catch(err => {
+            wizardRenderedFor = -1
+            wizardEl.innerHTML = `<p class="empty">Optimierer konnte nicht geladen werden: ${escapeHtml(err.message)}</p>`
+          })
+      }
+      const panel = document.getElementById(`tab-${target}`)
       panel.classList.remove('tab-panel-enter')
       void panel.offsetWidth // Reflow erzwingen, sonst startet die Animation nicht neu
       panel.classList.add('tab-panel-enter')
