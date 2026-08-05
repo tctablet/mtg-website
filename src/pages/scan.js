@@ -239,8 +239,8 @@ export async function renderScan(container) {
       const imgB = namedImageUrl(nameB)
       return `
         <button class="cmdr-tile" data-idx="${i}" aria-label="${escapeHtml(nameA)} und ${escapeHtml(nameB)} scannen">
-          ${c.rank ? `<span class="cmdr-rank">#${c.rank}</span>` : ''}
           <span class="cmdr-frame cmdr-frame-pair">
+            ${c.rank ? `<span class="cmdr-rank">#${c.rank}</span>` : ''}
             <img class="cmdr-pair-a" src="${escapeHtml(imgA)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />
             <img class="cmdr-pair-b" src="${escapeHtml(imgB)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />
             <span class="cmdr-pair-swap" role="button" aria-label="Partner tauschen" title="Partner tauschen">&#8646;</span>
@@ -253,8 +253,8 @@ export async function renderScan(container) {
     }
     return `
       <button class="cmdr-tile" data-idx="${i}" aria-label="${escapeHtml(c.name)} scannen">
-        ${c.rank ? `<span class="cmdr-rank">#${c.rank}</span>` : ''}
         <span class="cmdr-frame">
+          ${c.rank ? `<span class="cmdr-rank">#${c.rank}</span>` : ''}
           ${imgA
             ? `<img src="${escapeHtml(imgA)}" alt="" loading="lazy" decoding="async" onerror="this.closest('.cmdr-frame').classList.add('cmdr-frame-noimg'); this.remove()" />`
             : ''}

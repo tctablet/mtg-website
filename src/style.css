@@ -3729,7 +3729,7 @@ body.modal-open { overflow: hidden; }
   position: absolute;
   bottom: 6px;
   left: 6px;
-  z-index: 2;
+  z-index: 3; /* über beiden Paar-Karten (z-index 1/2) */
   background: rgba(15, 15, 20, 0.85);
   border: 1px solid var(--border);
   color: var(--text-bright);
