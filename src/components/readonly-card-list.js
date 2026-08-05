@@ -129,7 +129,7 @@ function buildReadonlyRow(card, { hoverSidebar }) {
   const tr = document.createElement('tr')
   const bracketCat = classifyCard(card.name)
   tr.className = 'card-row card-row-readonly' + (bracketCat ? ` card-row-bracket-${bracketCat}` : '')
-  const priceHtml = `${card.price_is_foil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${card.price_eur != null ? formatPrice(card.price_eur) : '–'}`
+  const priceHtml = `${card.price_is_foil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${card.price_eur != null ? formatPrice(card.price_eur) : '–'}`
   tr.innerHTML = `
     <td class="card-qty">${card.quantity}</td>
     <td class="card-name${bracketCat ? ` card-name-bracket-${bracketCat}` : ''}">${escapeHtml(card.name)}</td>

@@ -61,7 +61,7 @@ export async function fetchCardSuggestions(query, { limit = 6 } = {}) {
 
 function renderSuggestionItem(item) {
   const priceText = item.price != null
-    ? `${item.isFoil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(item.price)}`
+    ? `${item.isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(item.price)}`
     : '<span class="suggestion-no-price">–</span>'
   return `
     <div class="suggestion-thumb">${item.thumb ? `<img src="${escapeHtml(item.thumb)}" alt="" loading="lazy" />` : ''}</div>

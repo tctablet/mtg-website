@@ -361,7 +361,7 @@ function initSetsView(root) {
         </span>
         <span class="card-tile-name">${escapeHtml(c.name)}</span>
         <span class="card-tile-price" data-price-idx="${idx}">${c.ourPrice != null
-          ? `${c.isFoil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(c.ourPrice)}`
+          ? `${c.isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(c.ourPrice)}`
           : (c.priceResolved ? '<span class="card-tile-noprice">–</span>' : '…')}</span>
       `
       frag.appendChild(tile)
@@ -397,7 +397,7 @@ function initSetsView(root) {
       const el = detailEl.querySelector(`[data-price-idx="${offset + i}"]`)
       if (el) {
         el.innerHTML = c.ourPrice != null
-          ? `${c.isFoil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(c.ourPrice)}`
+          ? `${c.isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(c.ourPrice)}`
           : '<span class="card-tile-noprice">–</span>'
       }
     })
@@ -550,7 +550,7 @@ async function initListeView(root) {
             ${tileFrameHtml(r.name)}
           </span>
           <span class="card-tile-name">${escapeHtml(r.name)}</span>
-          <span class="card-tile-price">${r.is_foil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(r.cheapest_eur)}</span>
+          <span class="card-tile-price">${r.is_foil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(r.cheapest_eur)}</span>
         </button>
       `}).join('')
       refade(gridEl)
@@ -715,7 +715,7 @@ export function openCardLightbox({ name, image, price, isFoil }) {
       </div>
       <div class="card-lightbox-caption">
         <span class="card-lightbox-name">${escapeHtml(name)}</span>
-        <span class="card-lightbox-price">${isFoil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(price)}</span>
+        <span class="card-lightbox-price">${isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(price)}</span>
       </div>
     </div>
   `

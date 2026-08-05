@@ -32,7 +32,7 @@ export function createCardRow(card, onChanged, { editLocked = false } = {}) {
   const nameClass = 'card-name'
     + (isIllegal ? ' card-name-illegal' : '')
     + (bracketCat ? ` card-name-bracket-${bracketCat}` : '')
-  const priceHtml = `${card.price_is_foil ? '<span class="foil-badge" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(card.price_eur)}`
+  const priceHtml = `${card.price_is_foil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(card.price_eur)}`
 
   if (editMode && !editLocked) {
     tr.innerHTML = `
