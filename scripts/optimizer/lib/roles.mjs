@@ -15,7 +15,7 @@
 // Wizards backt Rollen zur Build-Zeit ein — ändert sich die Heuristik, MUSS
 // diese Zahl hochgezählt werden, damit der Client den Drift erkennt und ein
 // Warnbanner zeigt (Plan M5, rolesVersion-Vertrag). Test erzwingt Konsistenz.
-export const ROLES_VERSION = 1
+export const ROLES_VERSION = 2
 
 const RE = {
   // Ramp: Mana-Artefakte/-Kreaturen ("{T}: Add …") oder Land-Ramp
@@ -52,6 +52,14 @@ const RE = {
 
   counter: /counter target/,
 
+  // Bounce als Removal (Cyclonic-Rift-Klasse, User-Fund 06.08.): "return
+  // target/all … <Permanent-Typ> … to its owner's hand". Typ-Wort ist Pflicht —
+  // "return IT to its owner's hand" (Selbst-Rückholer) darf nie matchen.
+  // "(creature) CARD" ausgeschlossen: Karten in Friedhof/Exil sind Rekursion,
+  // kein Board-Removal (Critic-Fund: Called-Back-Klasse).
+  // Selbst-Bounce ("… you control") zählt nicht, außer "you DON'T control".
+  bounce: /returns? (?:each |all |up to \w+ )?(?:target |any number of )?[^.\n]{0,40}?(?:creature|permanent|artifact|enchantment|planeswalker|nonland)(?!s? cards?\b)[^.\n]{0,40}to (?:its|their) owner(?:'s|s') hands?/,
+
   // Wipes: symmetrische Massen-Effekte. Bewusst eng — "each creature you
   // control gets +1/+1" (Anthem) darf NICHT matchen.
   wipe: /(?:destroy|exile) all |deals? \d+ damage to each creature|each creature gets? [-−]|all creatures get [-−]|sacrifices? all /,
@@ -59,7 +67,7 @@ const RE = {
   // Tutor: Bibliothekssuche, die KEIN Land-Ramp ist.
   tutorSearch: /search your library for (?!.{0,40}(?:basic )?land)/,
 
-  protection: /(?:gains? |have |gain )(?:hexproof|indestructible|protection from|shroud)|phases? out|can't be targeted/,
+  protection: /(?:gains? |has |have )(?:hexproof|indestructible|protection from|shroud)|phases? out|can't be targeted/,
 
   mill: /\bmills?\b|puts? the top .{0,30}cards? of (?:their|your|his or her|that player's|each player's|target player's) library into (?:their|your|his or her|its owner's) graveyard/,
 
@@ -86,7 +94,10 @@ export function classifyCard(record) {
   }
   // Gegner-Draw-Sätze entfernen, bevor der Draw-Match läuft (Baleful-Mastery-
   // Klasse: Removal mit "that player draws a card"-Kompensation ist kein Draw).
-  let ownText = text.replace(RE.opponentDraw, '')
+  // Sätze, in denen als Folge DU ziehst ("Whenever an opponent draws a card,
+  // you may draw two cards" — Consecrated-Sphinx-Klasse), bleiben stehen:
+  // das ist eine eigene Draw-Engine, kein Gegner-Draw.
+  let ownText = text.replace(RE.opponentDraw, (m) => (/\byou (?:may )?draw/.test(m) ? m : ''))
   if (RE.removalContext.test(text)) ownText = ownText.replace(RE.victimDraw, '')
   if (RE.draw.test(ownText)) roles.add('draw')
   if (
@@ -94,6 +105,19 @@ export function classifyCard(record) {
     RE.fightBite.test(text) || RE.sacrificeEdict.test(text) || RE.minusTarget.test(text)
   ) {
     roles.add('removal')
+  }
+  // Bounce satzweise prüfen: der Satz darf kein Selbst-Bounce sein —
+  // weder "you control" (ohne "don't") noch "return this creature"-
+  // Selbstschutz (Critic-Fund). Rift ("you don't control") bleibt drin.
+  if (RE.bounce.test(text)) {
+    const sentences = text.match(/[^.\n]*returns? [^.\n]*owner[^.\n]*hands?[^.\n]*/g) || []
+    if (sentences.some(s =>
+      RE.bounce.test(s) &&
+      !/returns? (?:this|that) /.test(s) &&
+      (!/you control/.test(s) || /don't control/.test(s))
+    )) {
+      roles.add('removal')
+    }
   }
   if (RE.counter.test(text)) roles.add('counter')
   if (RE.wipe.test(text)) roles.add('wipe')

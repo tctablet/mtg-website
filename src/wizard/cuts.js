@@ -4,7 +4,13 @@
 //   1. illegal/banned (Audit-Finding)            → harter Kandidat
 //   2. Rollen-Überschuss (Quoten-Status "über")  → teuerste zuerst
 //   3. teuer bei geringer Popularität            → Preis/Rank-Quotient
-//   4. ohne erkannte Rolle                       → Synergie manuell prüfen
+//   4. ohne erkannte Rolle UND wenig gespielt    → Synergie manuell prüfen
+//
+// Rang 4 ist bewusst eng (User-Befund 06.08.: die Liste bestand fast nur aus
+// "ohne erkannte Rolle"-Staples wie Consecrated Sphinx/Mithril Coat): eine
+// unklassifizierte Karte ist erst dann ein Cut-Hinweis, wenn sie AUCH kaum
+// gespielt wird (EDHREC-Rank > UNPOPULAR_RANK oder unbekannt). Beliebte
+// Karten ohne Standard-Rolle sind bewusste Synergie-Picks, keine Cuts.
 
 export function buildCutCandidates({ analysis, enriched, limit = 12 }) {
   const commanders = new Set(analysis.deck.commanders.map(c => c.toLowerCase()))
@@ -58,9 +64,20 @@ export function buildCutCandidates({ analysis, enriched, limit = 12 }) {
     }
   }
 
-  // 4. ohne erkannte Rolle (nur als schwacher Hinweis, gedeckelt)
-  for (const name of (analysis.unclassified || []).slice(0, 6)) {
-    push(name, priceOf(name), 'ohne erkannte Rolle — Synergie manuell prüfen', 4)
+  // 4. ohne erkannte Rolle UND wenig gespielt (schwacher Hinweis, hart gedeckelt).
+  // Bewusst STRENGER als die Rang-3-Schwelle (20000): Rang 3 hat mit dem
+  // Preis (>5 €) ein zweites Signal, Rang 4 nur die Unpopularität — dafür
+  // muss die Evidenz härter sein (Self-Review-Fund: Differenz begründen).
+  const UNPOPULAR_RANK = 15000
+  const unpopularUnclassified = (analysis.unclassified || [])
+    .map(name => ({ name, rank: byName.get(name.toLowerCase())?.record?.edhrec_rank ?? null }))
+    .filter(({ rank }) => rank == null || rank > UNPOPULAR_RANK)
+    // Unbeliebteste zuerst; ohne Rank-Daten ganz nach hinten (schwächste Evidenz)
+    .sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1))
+  for (const { name, rank } of unpopularUnclassified.slice(0, 3)) {
+    push(name, priceOf(name), rank != null
+      ? `keine Standard-Rolle & wenig gespielt (EDHREC #${rank.toLocaleString('de-DE')}) — Synergie prüfen`
+      : 'keine Standard-Rolle & keine EDHREC-Daten — Synergie prüfen', 4)
   }
 
   out.sort((a, b) => a.rank - b.rank || (b.price ?? 0) - (a.price ?? 0))

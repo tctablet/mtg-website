@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { classifyCard, allowsMultiples, isInstantSpeed, mergeOverrides } from '../scripts/optimizer/lib/roles.mjs'
 import { countRoles, compareToTemplate, hypergeomAtLeast, pByTurn } from '../scripts/optimizer/lib/quotas.mjs'
-import { karstenLandCount, averageManaValue, countPips, colorSourceReport, splitFastMana } from '../scripts/optimizer/lib/manabase.mjs'
+import { karstenLandCount, averageManaValue, countPips, colorSourceReport, countColorSources, splitFastMana } from '../scripts/optimizer/lib/manabase.mjs'
 import { deckValue, budgetGate, BUDGET_LIMIT_EUR } from '../scripts/optimizer/lib/budget.mjs'
 import { auditDeck, validateCandidate } from '../scripts/optimizer/lib/validate.mjs'
 import { buildIndex, toPoolRecord } from '../scripts/optimizer/lib/cardpool.mjs'
@@ -72,6 +72,82 @@ test('roles: Gegner-Draw nur mit Removal-Kontext gestrippt (Baleful vs. Howling 
   const windfall = classifyCard(rec('Windfall', 'Sorcery',
     'Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.'))
   assert.ok(windfall.includes('draw'))
+})
+
+test('roles: Gegner-Draw mit Selbst-Draw-Folge bleibt Draw (Consecrated-Sphinx-Klasse)', () => {
+  // "Whenever an opponent draws a card, you may draw two cards." — der Strip
+  // darf den Satz nicht fressen, DU bist der Nutznießer (User-Befund 06.08.:
+  // Sphinx landete als "ohne erkannte Rolle" in den Cut-Kandidaten).
+  const sphinx = classifyCard(rec('Consecrated Sphinx', 'Creature — Sphinx',
+    'Flying\nWhenever an opponent draws a card, you may draw two cards.'))
+  assert.ok(sphinx.includes('draw'), 'Consecrated Sphinx ist eine Draw-Engine')
+  // Regression: reiner Gegner-Draw ohne Selbst-Draw bleibt gestrippt.
+  const tithe = classifyCard(rec('Smothering-Klasse', 'Enchantment',
+    'Whenever an opponent draws a card, that player loses 1 life.'))
+  assert.ok(!tithe.includes('draw'))
+})
+
+test('roles: Bounce ist Removal (Cyclonic-Rift-Klasse), Selbst-Bounce nicht', () => {
+  const rift = classifyCard(rec('Cyclonic Rift', 'Instant',
+    'Return target nonland permanent you don\'t control to its owner\'s hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change its text by replacing all instances of "target" with "each.")'))
+  assert.ok(rift.includes('removal'), 'Cyclonic Rift ist Interaktion (User-Fund 06.08.)')
+  assert.ok(classifyCard(rec('Unsummon', 'Instant',
+    'Return target creature to its owner\'s hand.')).includes('removal'))
+  assert.ok(classifyCard(rec('Evacuation', 'Instant',
+    'Return all creatures to their owners\' hands.')).includes('removal'))
+  // Selbst-Bounce/Selbst-Rückholer sind KEIN Removal-Slot.
+  assert.ok(!classifyCard(rec('Eigenbounce', 'Instant',
+    'Return target creature you control to its owner\'s hand. Draw a card.')).includes('removal'))
+  assert.ok(!classifyCard(rec('Gott-Klasse', 'Creature — God',
+    'When this creature dies, return it to its owner\'s hand.')).includes('removal'))
+  assert.ok(!classifyCard(rec('Selbstschutz-Klasse', 'Creature — Illusion',
+    'When this creature becomes the target of a spell, return this creature to its owner\'s hand.')).includes('removal'),
+    'Critic-Fund: "return this creature" ist Selbstschutz, kein Removal')
+  // Grabgeschichte ist Rekursion, kein Board-Removal (Called-Back-Klasse).
+  assert.ok(!classifyCard(rec('Called-Back-Klasse', 'Sorcery',
+    'Return target creature card from your graveyard to its owner\'s hand.')).includes('removal'),
+    'Critic-Fund: "creature card" (Friedhof) darf nicht als Bounce zählen')
+})
+
+test('roles: "has indestructible" zählt als Protection (Mithril-Coat-Klasse)', () => {
+  const coat = classifyCard(rec('Mithril Coat', 'Legendary Artifact — Equipment',
+    'Flash\nIndestructible\nWhen Mithril Coat enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}'))
+  assert.ok(coat.includes('protection'), '"has indestructible" fehlte in der Alternation')
+  // Bestand: "gains"/"have" matchen weiterhin.
+  assert.ok(classifyCard(rec('Boros Charm Mode', 'Instant',
+    'Permanents you control gain indestructible until end of turn.')).includes('protection'))
+})
+
+test('manabase: Fetchländer zählen als Quellen ihrer holbaren Farben (Karsten)', () => {
+  const land = (name, oracle_text, produced = []) => ({
+    record: { name, type_line: 'Land', oracle_text, produced_mana: produced, mana_cost: '', cmc: 0 },
+    quantity: 1,
+  })
+  const sources = countColorSources([
+    land('Polluted Delta', "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle."),
+    land('Evolving Wilds', '{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.'),
+    land('Island', '', ['U']),
+  ])
+  assert.equal(sources.U, 3, 'Delta + Wilds + Island')
+  assert.equal(sources.B, 2, 'Delta + Wilds')
+  assert.equal(sources.G, 1, 'nur Wilds (generisches basic land)')
+  // Nonland-Tutoren mit Land-Suche zählen NICHT (kein Permanent auf dem Feld)
+  const tutor = countColorSources([{
+    record: { name: 'Rampant Growth', type_line: 'Sorcery', oracle_text: 'Search your library for a basic land card...', produced_mana: [], mana_cost: '{1}{G}', cmc: 2 },
+    quantity: 1,
+  }])
+  assert.equal(tutor.G, 0)
+})
+
+test('manabase: colorSourceReport nennt die Treiber-Karte des Ziels', () => {
+  const report = colorSourceReport([
+    { record: { name: 'Fractured Sanity', type_line: 'Sorcery', mana_cost: '{U}{U}{U}', cmc: 3, oracle_text: '', produced_mana: [] }, quantity: 1 },
+    { record: { name: 'Counterspell', type_line: 'Instant', mana_cost: '{U}{U}', cmc: 2, oracle_text: '', produced_mana: [] }, quantity: 1 },
+    { record: { name: 'Island', type_line: 'Basic Land', mana_cost: '', cmc: 0, oracle_text: '', produced_mana: ['U'] }, quantity: 20 },
+  ])
+  const u = report.find(c => c.color === 'U')
+  assert.equal(u.target, 34, '3 frühe Pips → Karsten 34')
+  assert.equal(u.driver, 'Fractured Sanity', 'die UUU-Karte setzt den Richtwert')
 })
 
 test('roles: Edict- und Divided-Damage-Removal inkl. Grave Pact werden erkannt', () => {

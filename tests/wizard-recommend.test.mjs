@@ -169,7 +169,7 @@ const ANALYSIS = {
     'Billiger Wipe B': ['wipe'],
     'Saruman of Many Colors': [],
   },
-  unclassified: ['Mystery Karte', 'Saruman of Many Colors'],
+  unclassified: ['Mystery Karte', 'Nischen Karte', 'Saruman of Many Colors'],
 }
 const ENRICHED = [
   { row: { name: 'Teurer Wipe', price_eur: '12.00' }, quantity: 1, record: { edhrec_rank: 500 } },
@@ -178,6 +178,7 @@ const ENRICHED = [
   { row: { name: 'Banned Karte', price_eur: '2.00' }, quantity: 1, record: { edhrec_rank: 900 } },
   { row: { name: 'Teuer Unbeliebt', price_eur: '9.00' }, quantity: 1, record: { edhrec_rank: 50000 } },
   { row: { name: 'Mystery Karte', price_eur: '0.10' }, quantity: 1, record: { edhrec_rank: 100 } },
+  { row: { name: 'Nischen Karte', price_eur: '0.20' }, quantity: 1, record: { edhrec_rank: 40000 } },
   { row: { name: 'Saruman of Many Colors', price_eur: '4.00' }, quantity: 1, record: { edhrec_rank: 5000 } },
 ]
 
@@ -208,6 +209,9 @@ test('buildCutCandidates: Audit zuerst, dann Überschuss (teuerste), Commander N
   assert.ok(!names.includes('Saruman of Many Colors'))
   const teuer = cuts.find(c => c.name === 'Teuer Unbeliebt')
   assert.ok(teuer && /geringer Popularität/.test(teuer.reason))
-  const mystery = cuts.find(c => c.name === 'Mystery Karte')
-  assert.ok(mystery && /ohne erkannte Rolle/.test(mystery.reason))
+  // Rang-4-Guard (User-Befund 06.08.): beliebte Unklassifizierte (#100) sind
+  // KEINE Cut-Kandidaten mehr — nur wenig gespielte (#40.000) bleiben.
+  assert.ok(!names.includes('Mystery Karte'), 'Staple ohne Rolle ist kein Cut')
+  const nische = cuts.find(c => c.name === 'Nischen Karte')
+  assert.ok(nische && /keine Standard-Rolle & wenig gespielt/.test(nische.reason))
 })

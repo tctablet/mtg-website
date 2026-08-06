@@ -66,6 +66,8 @@ export function extractAverageDeck(json) {
 
 // decks-JSON → Top-N der Tabelle, SOFORT getrimmt (Antwort kann ~10 MB sein —
 // nie roh weiterreichen oder cachen)
+const DECK_TYPE_KEYS = ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'battle', 'land']
+
 export function extractDeckTable(json, topN = 20) {
   const table = Array.isArray(json?.table) ? json.table : []
   return table.slice(0, topN).map(row => ({
@@ -76,6 +78,13 @@ export function extractDeckTable(json, topN = 20) {
     // Wie price/salt typgeprüft — ein String-bracket aus einer manipulierten/
     // geänderten EDHREC-Antwort darf nie roh ins innerHTML laufen
     bracket: typeof row.bracket === 'number' ? row.bracket : null,
+    // Deck-Namen gibt es bei EDHREC nicht (anonymisiert) — Tags sind die
+    // beste Identität ("Reanimator · Cascade"); Typ-Verteilung für die
+    // Icon-Metadatenzeile der Kacheln. Beides streng typgeprüft.
+    tags: Array.isArray(row.tags)
+      ? row.tags.filter(t => typeof t === 'string' && t.length <= 40).slice(0, 4)
+      : [],
+    types: Object.fromEntries(DECK_TYPE_KEYS.map(k => [k, typeof row[k] === 'number' ? row[k] : null])),
   })).filter(r => r.urlhash)
 }
 
@@ -281,7 +290,8 @@ export function fetchRealDecks(slug, topN = 20) {
   return fetchEdhrecExtract({
     url: `https://json.edhrec.com/pages/decks/${slug}.json`,
     redirectBase: 'https://json.edhrec.com/pages/decks/',
-    cacheKey: `edhrec:decks:${slug}:${topN}`,
+    // :v2 = tags/types im Extrakt — alte Session-Caches ohne die Felder umgehen
+    cacheKey: `edhrec:decks:v2:${slug}:${topN}`,
     extract: json => extractDeckTable(json, topN),
     // Die Deck-Tabelle kann ~10 MB wiegen — auf langsamen Verbindungen
     // braucht der Download länger als die Standard-15s

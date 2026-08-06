@@ -42,10 +42,14 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 /* ===== Layout ===== */
+/* Volle Fensterbreite auf Desktop (User-Ansage 06.08.) — nur Seitenränder */
 #app {
-  max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
   padding: 0 16px;
+}
+@media (min-width: 900px) {
+  #app { padding: 0 36px; }
 }
 
 #nav {
@@ -760,8 +764,9 @@ a { color: var(--accent); text-decoration: none; }
 
 .proxy-card-grid {
   display: grid;
-  /* minmax(0,…) statt 1fr: sonst sprengen lange Kartennamen die Spur */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* minmax(0,…) statt 1fr: sonst sprengen lange Kartennamen die Spur.
+     4 Spalten = globale Obergrenze für Karten-Previews (User-Ansage). */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-top: 12px;
 }
@@ -957,7 +962,8 @@ body.modal-open { overflow: hidden; }
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* max. 4 Karten pro Zeile (User-Ansage, gilt für alle Karten-Previews) */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -1538,7 +1544,8 @@ body.modal-open { overflow: hidden; }
 
 .cmdr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  /* max. 4 Karten pro Zeile (User-Ansage, gilt für alle Karten-Previews) */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 24px;
 }
@@ -2035,17 +2042,17 @@ body.modal-open { overflow: hidden; }
   /* Commander picker */
   .cmdr-picker-header { flex-direction: column; align-items: flex-start; gap: 8px; }
   .cmdr-filter { max-width: 100%; width: 100%; }
-  .cmdr-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+  .cmdr-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .cmdr-card-name { font-size: 11px; padding: 4px 6px; }
   .cmdr-selection { flex-direction: column; align-items: stretch; }
   .cmdr-selection-preview { flex-wrap: wrap; }
 
   /* Artwork picker */
   .artwork-picker { max-height: 85vh; max-height: 85dvh; }
-  .artwork-picker-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important; }
+  .artwork-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 
   /* Proxy artwork grid */
-  .proxy-card-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .proxy-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 }
 
 /* Mobile */
@@ -3300,11 +3307,23 @@ body.modal-open { overflow: hidden; }
   background-size: cover;
   background-position: center 22%;
 }
+/* Body = 2 Spalten: Inhalt links, Preis-Block rechts — nutzt die volle
+   Kachelbreite; größere Typo (User-Ansage: zu viel Space, zu kleine Schrift) */
 .scan-deck-body {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 20px;
+  min-width: 0;
+  flex: 1;
+}
+.scan-deck-main {
+  display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px 14px;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
 }
 .scan-deck-badge {
   align-self: flex-start;
@@ -3321,17 +3340,56 @@ body.modal-open { overflow: hidden; }
   font-size: 12px;
   color: var(--text-dim);
 }
-.scan-deck-title { font-size: 15px; font-weight: 600; color: var(--text-bright); }
-.scan-deck-meta { font-size: 12px; color: var(--text-dim); }
+.scan-deck-title { font-size: 18px; font-weight: 600; color: var(--text-bright); }
+.scan-deck-meta { font-size: 13.5px; color: var(--text-dim); }
+
+/* Scan-Hero: bündig zum Content (kein Full-Bleed), klarer Rahmen */
+.scan-hero {
+  margin: 16px 0 0;
+  padding: 26px 20px 20px;
+  border: 1px solid var(--border);
+}
+.scan-hero h2 { font-size: 24px; }
+.scan-hero .deck-meta { font-size: 13px; }
+
+/* Kachel-Metadaten: Typ-Verteilung als Icon-Zeile + Chips (User-Ansage) */
+.scan-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 2px;
+}
+.scan-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13.5px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.scan-type .ms { font-size: 14px; color: var(--text-dim); }
+.scan-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.scan-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.scan-chip-bracket { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-dim); }
 .scan-deck-price-row {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
   gap: 2px;
-  margin-top: 6px;
+  flex-shrink: 0;
 }
-.scan-deck-price { font-size: 20px; font-weight: 700; color: var(--accent); }
-.scan-deck-price-sub { font-size: 12px; color: var(--text-dim); }
-.scan-deck-note { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+.scan-deck-price { font-size: 26px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.scan-deck-price-sub { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
+.scan-deck-note { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
 .scan-deck-error { color: var(--error); }
 .scan-deck-link { color: var(--accent); font-size: 13px; margin-top: 6px; }
 @keyframes deck-price-pulse { 50% { opacity: 0.35; } }
@@ -3496,6 +3554,322 @@ body.modal-open { overflow: hidden; }
   .wizard-add-pick, .wizard-cut-pick, .wizard-pair-remove { min-height: 44px; }
 }
 
+/* ===== Wizard v2: Analyse-Dashboard + Karten-Vorschläge mit Bildern =====
+   Chart-Farben validiert (dataviz validate_palette, dark surface #1a1a24):
+   #9470d6 + #28a596 ALL PASS; Amber #e6a23c = Warn-Severity, nie Serie. */
+
+.wizard { --chart-1: #9470d6; --chart-2: #28a596; --warn-amber: #e6a23c; }
+
+.wizard-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* KPI-Zeile (Stat-Tiles) */
+.wiz-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.wiz-tile { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wiz-tile-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
+.wiz-tile-value { font-size: 20px; font-weight: 600; color: var(--text-bright); }
+.wiz-tile-of { font-size: 12px; font-weight: 400; color: var(--text-dim); font-style: normal; white-space: nowrap; }
+.wiz-tile-sub { font-size: 11.5px; color: var(--text-dim); }
+.wiz-bad { color: var(--error); }
+
+/* Meter: Fill trägt Severity, Track = hellere Stufe derselben Rampe */
+.wiz-meter { height: 6px; border-radius: 3px; overflow: hidden; background: var(--meter-track, var(--accent-dim)); }
+.wiz-meter-fill { height: 100%; border-radius: 3px; background: var(--meter-fill, var(--accent)); }
+.wiz-meter-ok { --meter-fill: var(--accent); --meter-track: var(--accent-dim); }
+.wiz-meter-warn { --meter-fill: var(--warn-amber); --meter-track: rgba(230, 162, 60, 0.18); }
+.wiz-meter-over { --meter-fill: var(--error); --meter-track: rgba(231, 76, 60, 0.18); }
+
+/* Panels */
+.wiz-panel { margin: 16px 0; }
+.wiz-panel-h { font-size: 13px; color: var(--text-bright); margin-bottom: 8px; }
+.wiz-panel-sub { font-size: 11.5px; color: var(--text-dim); font-weight: 400; margin-left: 4px; }
+.wiz-line { font-size: 13px; color: var(--text); margin: 6px 0; }
+
+/* Zeilen-Charts: Bullet (Ist vs. Soll-Band) + Meter-Listen */
+.wq-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; min-width: 0; }
+.wq-label { flex: 0 0 92px; font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wq-label-wide { flex-basis: 150px; }
+.wq-pip { flex-basis: 24px; min-width: 24px; }
+.wq-track { position: relative; flex: 1; height: 10px; border-radius: 5px; background: var(--bg-input); overflow: hidden; min-width: 40px; }
+.wq-band { position: absolute; top: 0; bottom: 0; background: var(--accent-dim); border-radius: 5px; }
+.wq-fill { position: absolute; top: 2px; bottom: 2px; left: 0; border-radius: 3px; background: var(--accent); }
+.wq-bad .wq-fill { background: var(--warn-amber); }
+.wq-tick { position: absolute; top: -1px; bottom: -1px; width: 2px; background: var(--text-bright); opacity: 0.6; }
+.wq-nums { flex: 0 0 auto; min-width: 56px; text-align: right; font-size: 12.5px; color: var(--text-bright); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wq-nums em { color: var(--text-dim); font-style: normal; }
+.wq-status { flex: 0 0 auto; min-width: 60px; font-size: 12px; color: var(--success); white-space: nowrap; }
+.wq-bad .wq-status { color: var(--warn-amber); }
+
+/* Farbquellen-Kacheln (statt Balkenliste): geteilte Meter-Skala = sources/target */
+.wiz-color-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+}
+.wiz-color-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+.wiz-color-tile.wq-bad { border-color: rgba(230, 162, 60, 0.45); }
+.wiz-color-pip .ms { font-size: 22px; }
+.wiz-color-nums { font-size: 20px; font-weight: 600; color: var(--text-bright); }
+.wiz-color-nums em { font-size: 13px; font-weight: 400; color: var(--text-dim); font-style: normal; }
+.wiz-color-status { font-size: 12.5px; color: var(--success); }
+.wq-bad .wiz-color-status { color: var(--warn-amber); }
+.wiz-color-driver { font-size: 11.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Kachel-Label mit Icon (Quoten/Konsistenz) + Kostentreiber-Thumbs */
+.wiz-qlabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  min-width: 0;
+}
+.wiz-qlabel .ms { font-size: 15px; }
+.wiz-qsvg { width: 15px; height: 15px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+.wiz-qsvg rect { fill: var(--bg-input); }
+.wiz-cost-tile { align-items: center; text-align: center; }
+.wiz-cost-thumb { width: 100%; max-width: 120px; aspect-ratio: 488 / 680; object-fit: cover; border-radius: 8px; }
+
+/* SVG-Charts: responsive by construction (viewBox + width:100%).
+   max-width deckelt die Skalierung — auf Desktop-Breite würden die
+   viewBox-Texte sonst auf Poster-Größe wachsen. */
+.wiz-svg { width: 100%; max-width: 460px; height: auto; display: block; }
+.wc-col { fill: var(--accent); }
+.wc-base { stroke: var(--border); stroke-width: 1; }
+.wc-count { fill: var(--text); font-size: 10px; }
+.wc-tick { fill: var(--text-dim); font-size: 10px; }
+.wc-avg { stroke: var(--text-bright); stroke-width: 1; opacity: 0.55; }
+.wc-avg-label { fill: var(--text-dim); font-size: 9.5px; }
+
+/* Goldfish-Kurven (2 Serien, validierte Palette) */
+.wg-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wg-line.wg-lands { stroke: var(--chart-2); }
+.wg-line.wg-mana { stroke: var(--chart-1); }
+.wg-dot { stroke: var(--bg-card); stroke-width: 2; }
+.wg-dot.wg-lands { fill: var(--chart-2); }
+.wg-dot.wg-mana { fill: var(--chart-1); }
+.wg-end { fill: var(--text); font-size: 10px; }
+.wg-legend { display: flex; gap: 14px; margin-top: 6px; }
+.wg-key { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-dim); }
+.wg-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.wg-swatch.wg-lands { background: var(--chart-2); }
+.wg-swatch.wg-mana { background: var(--chart-1); }
+.wiz-kpis-sim { grid-template-columns: 150px 1fr; margin-bottom: 8px; }
+
+/* Warn-Card statt roter Textzeilen */
+.wiz-warncard { border: 1px solid rgba(230, 162, 60, 0.4); background: rgba(230, 162, 60, 0.08); border-radius: var(--radius); padding: 8px 12px; margin: 12px 0; }
+.wiz-warncard .wiz-line { margin: 3px 0; }
+
+/* Kandidaten-Rows: Thumbnail + CI-Pips + MV-Chip + Inclusion-Meter */
+.wizard-cand.card-row:hover { background: var(--bg-card-hover); }
+.wizard-cand-thumb {
+  /* 44px = Touch-Target-Minimum des Projekts (Self-Review-Fund) */
+  flex: 0 0 44px; width: 44px; height: 61px; object-fit: cover;
+  border-radius: 4px; cursor: zoom-in; background: var(--bg-input);
+  transition: transform var(--dur-fast) var(--ease);
+}
+@media (hover: hover) { .wizard-cand-thumb:hover { transform: scale(1.06); } }
+.wizard-thumb-empty { display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
+.wizard-cand-pips { margin-left: 6px; }
+.wizard-cand-pips .ms { font-size: 12px; }
+.wizard-chip { display: inline-block; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 9px; font-size: 10.5px; color: var(--text-dim); white-space: nowrap; }
+.wizard-inc { display: inline-block; width: 44px; height: 5px; border-radius: 3px; background: var(--accent-dim); margin-right: 6px; vertical-align: middle; position: relative; overflow: hidden; }
+.wizard-inc-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px; background: var(--accent); }
+
+/* Gap-Header mit Fortschritts-Meter */
+.wizard-gap h4 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wizard-gap-meter { position: relative; width: 70px; height: 6px; border-radius: 3px; background: var(--accent-dim); overflow: hidden; }
+.wizard-gap-fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); border-radius: 3px; }
+.wizard-gap-nums { font-size: 12px; color: var(--text-dim); font-weight: 400; }
+.wizard-gap .wizard-warn { font-size: 12px; font-weight: 400; }
+
+/* Gewählt-Zustand: gilt auf ALLEN Breiten und für Adds wie Cuts (Critic-Fund:
+   war nur ≥769px gestylt — mobil blieb "✓" ein grauer Standard-Button) */
+.wizard-picked.btn-small {
+  background: transparent;
+  border-color: var(--success);
+  color: var(--success);
+  opacity: 1;
+}
+
+/* Budget-Softgate: über Limit = Warnung, kein Block */
+.wizard-budget-warn { color: var(--warn-amber); }
+.swap-budget-fill.swap-budget-over { background: var(--warn-amber); }
+
+/* Tauschen-Suchfeld (Cuts): beliebige Deck-Karte als Cut */
+.wizard-cut-search { margin-top: 18px; max-width: 460px; }
+.wizard-cut-search h4 { font-size: 14px; color: var(--text-bright); margin-bottom: 8px; }
+.wizard-cut-search input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.wizard-cut-search input:focus { outline: none; border-color: var(--accent); }
+.wizard-cut-search .autocomplete-item em { color: var(--text-dim); font-style: normal; margin-left: 6px; }
+.autocomplete-empty { color: var(--text-dim); cursor: default; }
+
+/* Review-Paare + Sticky-Delta */
+.wizard-pair-thumb { width: 24px; height: 33px; object-fit: cover; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.wizard-delta-plus { color: var(--warn-amber); }
+.wizard-delta-minus { color: var(--success); }
+
+/* Empfehlungen als 5er-Karten-Reihe mit großen Artworks (User-Ansage);
+   Mobile behält die kompakte Liste (Basis-Styles der .wizard-cand-Row) */
+@media (min-width: 769px) {
+  .wizard-gap-cands {
+    display: grid;
+    /* 3 Spalten bis 1099px — 5 Spalten à ~90px wären unlesbar (Critic-Fund) */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .wizard-gap-cands .wizard-cand {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0 0 10px;
+    border-bottom: none;
+    min-width: 0;
+  }
+  .wizard-gap-cands .wizard-cand-thumb {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 488 / 680;
+    border-radius: 10px;
+  }
+  .wizard-gap-cands .wizard-cand-main { flex: 0 0 auto; }
+  /* Haupt-Aktion pro Karte: Accent-gefüllt statt Ghost-Grau (User-Ansage
+     "schlechte Farbwahl") — gescoped, .btn-small bleibt global unverändert */
+  .wizard-gap-cands .wizard-add-pick {
+    width: 100%;
+    min-height: 40px;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+  .wizard-gap-cands .wizard-add-pick:not(:disabled):hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  /* Karten-Hover: heben statt Listen-BG (Karte ist kein Listeneintrag) */
+  .wizard-gap-cands .wizard-cand.card-row:hover { background: transparent; }
+  .wizard-gap-cands .wizard-cand-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .wizard-gap-cands .wizard-cand-metaline { display: flex; align-items: center; gap: 6px; }
+  .wizard-gap-cands .wizard-cand-metaline .wizard-chip { margin-left: 0; }
+  /* Konsens-Zeile: umbrechen statt abschneiden (User-Ansage "wird abgecuttet") */
+  .wizard-gap-cands .wizard-cand-label {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    line-height: 1.35;
+  }
+  .wizard-gap-cands .wizard-cand-label .wizard-inc { flex-shrink: 0; }
+  .wizard-cand-syn { color: var(--text-dim); }
+  .wizard-cand-syn::before { content: '·'; margin-right: 6px; }
+  .wizard-gap-cands .wizard-cand-price {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-bright);
+  }
+}
+
+@media (min-width: 1100px) {
+  .wizard-gap-cands { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* Desktop: Wizard-Typo +20 % (User-Ansage: "viel zu klein") — Mobil bleibt */
+@media (min-width: 769px) {
+  .wizard-datenstand { font-size: 14px; }
+  .wiz-tile-label { font-size: 13px; }
+  .wiz-tile-value { font-size: 24px; }
+  .wiz-tile-of { font-size: 14px; }
+  .wiz-tile-sub { font-size: 14px; }
+  .wiz-panel-h { font-size: 16px; }
+  .wiz-panel-sub { font-size: 14px; }
+  .wiz-line { font-size: 15.5px; }
+  .wizard-line { font-size: 15.5px; }
+  .wq-label { font-size: 15px; flex-basis: 116px; }
+  .wq-label-wide { flex-basis: 190px; }
+  .wq-nums { font-size: 15px; }
+  .wq-status { font-size: 14.5px; }
+  .wg-key { font-size: 14px; }
+  .wizard-cand-name { font-size: 17px; }
+  .wizard-cand-label { font-size: 14px; }
+  .wizard-cand-price { font-size: 15.5px; }
+  .wizard-cand-pips .ms { font-size: 14.5px; }
+  .wizard-chip { font-size: 12.5px; }
+  .wizard-gap h4 { font-size: 17px; }
+  .wizard-gap-nums { font-size: 14.5px; }
+  .wizard-h-sub { font-size: 14px; }
+}
+
+/* Breite Screens: Wizard-Inhalte 2-spaltig — eine Spalte erzeugt bei voller
+   Fensterbreite unlesbar breite Zeilen (User-Ansage 06.08. abends) */
+@media (min-width: 1280px) {
+  #wizard-analyse {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 40px;
+    align-items: start;
+  }
+  #wizard-analyse > h3,
+  #wizard-analyse > .wizard-datenstand,
+  #wizard-analyse > .wiz-kpis,
+  #wizard-analyse > .wiz-warncard { grid-column: 1 / -1; }
+
+  #wizard-cuts > [data-preview-scope] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 0 40px;
+    align-items: start;
+  }
+  /* Lesbarkeits-Caps: Bars/Paare/Warnungen nie über Lesebreite ziehen
+     (User-Ansage: "viel zu breite Felder") */
+  .wiz-panel { max-width: 780px; }
+  .wiz-warncard { max-width: 980px; }
+  .wizard-pair { max-width: 880px; }
+  .wizard-datenstand { max-width: 980px; }
+}
+
+@media (max-width: 768px) {
+  .wiz-kpis { grid-template-columns: 1fr 1fr; }
+  .wiz-kpis-sim { grid-template-columns: 1fr; }
+  .wq-label { flex-basis: 96px; }
+  .wq-label-wide { flex-basis: 110px; }
+  .wq-row { gap: 8px; }
+  .wq-status { min-width: 52px; }
+  .wizard-section { padding: 12px; }
+  /* Sticky-Bar reserviert ihren Platz: Höhe wird nach jedem Render GEMESSEN
+     (--wizard-sticky-h), damit auch eine umgebrochene Bar nichts verdeckt */
+  .wizard-has-sticky { padding-bottom: calc(var(--wizard-sticky-h, 64px) + 24px + env(safe-area-inset-bottom)); }
+}
+
 /* ===== Preise v2: View-Umschalter + Set-Browser (Scryfall-Look) ===== */
 
 .preise-head {
@@ -3638,7 +4012,8 @@ body.modal-open { overflow: hidden; }
 
 .set-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  /* max. 4 Karten pro Zeile (User-Ansage, gilt für alle Karten-Previews) */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px 10px;
 }
 .card-tile {
@@ -3857,7 +4232,8 @@ body.modal-open { overflow: hidden; }
 
 .cmdr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  /* max. 4 Karten pro Zeile (User-Ansage, gilt für alle Karten-Previews) */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px 12px;
   margin-bottom: 24px;
 }

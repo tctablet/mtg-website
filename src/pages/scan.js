@@ -586,16 +586,18 @@ export async function renderScan(container) {
     backBtn.textContent = '← Beliebte Commander'
     resultEl.hidden = false
     const artCrop = getCardArtCrop(state.commander.card)
+    // Scrim v2 (User: "sehr unclean"): links dunkel für lesbaren Titel,
+    // rechts bleibt das Artwork sichtbar; vertikal weicher Auslauf unten.
     const headerBg = artCrop
-      ? `background-image: linear-gradient(to bottom, rgba(15,15,20,0.3), rgba(15,15,20,0.95) 80%), url('${escapeHtml(artCrop)}')`
+      ? `background-image: linear-gradient(105deg, rgba(15,15,20,0.94) 0%, rgba(15,15,20,0.62) 48%, rgba(15,15,20,0.28) 100%), linear-gradient(to bottom, rgba(15,15,20,0.15), rgba(15,15,20,0.85) 92%), url('${escapeHtml(artCrop)}')`
       : ''
     const names = [state.commander.name, state.partner?.name].filter(Boolean)
     resultEl.innerHTML = `
-      <div class="deck-header-banner" style="${headerBg}">
+      <div class="deck-header-banner scan-hero" style="${headerBg}">
         <div class="deck-header">
           <div>
             <h2>${names.map(escapeHtml).join(' + ')}</h2>
-            <p class="deck-meta">Deck-Übersicht &middot; Durchschnittsdeck + Top ${REAL_DECKS_LIMIT} echte Decks, alle mit unserem Preis</p>
+            <p class="deck-meta">Durchschnittsdeck + Top ${REAL_DECKS_LIMIT} echte Decks &middot; alle mit unserem Preis</p>
           </div>
         </div>
       </div>
@@ -659,9 +661,11 @@ export async function renderScan(container) {
       ? `<span class="scan-deck-art" style="background-image:url('${escapeHtml(artCrop)}')"></span>`
       : ''
     let bodyHtml
+    let priceHtml = ''
     let disabled = false
     let ariaLabel = 'Durchschnittsdeck öffnen'
     if (o.avgError) {
+      // Fehlertext bleibt komplett in der linken Spalte, kein Preis-Block
       ariaLabel = 'Durchschnittsdeck nochmal laden'
       bodyHtml = `
         <span class="scan-deck-note scan-deck-error">Konnte nicht geladen werden — tippen zum Nochmal-Versuchen</span>
@@ -669,42 +673,63 @@ export async function renderScan(container) {
       `
     } else if (!o.avg) {
       disabled = true
-      bodyHtml = `
-        <span class="scan-deck-meta">~100 Karten</span>
-        <span class="scan-deck-price-row"><span class="scan-deck-price scan-deck-price-loading">Preis lädt…</span></span>
-      `
+      bodyHtml = '<span class="scan-deck-meta">~100 Karten</span>'
+      priceHtml = '<span class="scan-deck-price-row"><span class="scan-deck-price scan-deck-price-loading">Preis lädt…</span></span>'
     } else {
       const count = o.avg.fullList.reduce((s, c) => s + c.quantity, 0)
       const missing = o.avg.pricing.missing.length
-      bodyHtml = `
-        <span class="scan-deck-meta">${count} Karten${missing ? ` · ${missing} ohne Preis` : ''}</span>
-        <span class="scan-deck-price-row"><span class="scan-deck-price">${formatPrice(o.avg.pricing.total)}</span></span>
-      `
+      bodyHtml = `<span class="scan-deck-meta">${count} Karten${missing ? ` · ${missing} ohne Preis` : ''}</span>`
+      priceHtml = `<span class="scan-deck-price-row"><span class="scan-deck-price">${formatPrice(o.avg.pricing.total)}</span></span>`
     }
+    // scan-deck-main (links) + Preis-Row (rechts): nutzt die volle
+    // Kachelbreite statt alles oben links zu stapeln (User-Ansage)
     return `
       <button class="scan-deck-tile scan-deck-tile-avg" data-kind="avg" ${disabled ? 'disabled' : ''}
         aria-label="${ariaLabel}">
         ${artHtml}
         <span class="scan-deck-body">
-          <span class="scan-deck-badge">Durchschnittsdeck</span>
-          <span class="scan-deck-title">EDHREC Average</span>
-          ${bodyHtml}
+          <span class="scan-deck-main">
+            <span class="scan-deck-badge">Durchschnittsdeck</span>
+            <span class="scan-deck-title">EDHREC Average</span>
+            ${bodyHtml}
+          </span>
+          ${priceHtml}
         </span>
       </button>
     `
   }
 
+  // Typ-Verteilung als Icon-Zeile (Mana-Font Karten-Typ-Glyphen, User-Ansage
+  // "Metadaten mit Icons"). Planeswalker/Battle nur wenn >0 — sonst Rauschen.
+  const TYPE_ICONS = [
+    ['creature', 'Kreaturen', true], ['instant', 'Instants', true],
+    ['sorcery', 'Sorceries', true], ['artifact', 'Artefakte', true],
+    ['enchantment', 'Verzauberungen', true], ['planeswalker', 'Planeswalker', false],
+    ['battle', 'Battles', false], ['land', 'Länder', true],
+  ]
+  const typeRowHtml = (types) => {
+    if (!types) return ''
+    const parts = TYPE_ICONS
+      .filter(([k, , always]) => types[k] != null && (always || types[k] > 0))
+      .map(([k, label]) => `<span class="scan-type" title="${label}: ${types[k]}"><i class="ms ms-${k}" aria-hidden="true"></i>${types[k]}</span>`)
+    return parts.length ? `<span class="scan-type-row" aria-label="Typ-Verteilung">${parts.join('')}</span>` : ''
+  }
+
   function deckTileHtml(d, i) {
     const t = state.overview.totals.get(d.urlhash)
     const dateText = formatSavedate(d.savedate)
-    const metaBits = []
-    if (d.salt != null) metaBits.push(`Salt ${d.salt}`)
-    if (d.bracket != null) metaBits.push(`Bracket ${d.bracket}`)
+    // EDHREC-Decks haben keine Namen — Tags sind die sprechendste Identität.
+    const tagTitle = d.tags?.length ? d.tags.map(escapeHtml).join(' · ') : null
+    const chips = []
+    if (d.bracket != null) chips.push(`<span class="scan-chip scan-chip-bracket" title="EDHREC-Bracket">Bracket ${d.bracket}</span>`)
+    if (d.salt != null) chips.push(`<span class="scan-chip" title="Salt-Summe laut EDHREC">Salt ${d.salt}</span>`)
     const edhrecPrice = d.price != null ? `$${d.price.toLocaleString('de-DE')} lt. EDHREC` : ''
     const rankHtml = `<span class="scan-deck-rank">#${i + 1}</span>`
     const headHtml = `
-      <span class="scan-deck-title">${dateText ? `Deck vom ${escapeHtml(dateText)}` : 'EDHREC-Deck'}</span>
-      ${metaBits.length ? `<span class="scan-deck-meta">${metaBits.join(' · ')}</span>` : ''}
+      <span class="scan-deck-title">${tagTitle ?? (dateText ? `Deck vom ${escapeHtml(dateText)}` : 'EDHREC-Deck')}</span>
+      ${tagTitle && dateText ? `<span class="scan-deck-meta">Deck vom ${escapeHtml(dateText)}</span>` : ''}
+      ${typeRowHtml(d.types)}
+      ${chips.length ? `<span class="scan-chip-row">${chips.join('')}</span>` : ''}
     `
 
     // Sackgassen-Fälle als STATISCHE Kachel (div statt button): der Original-
@@ -721,10 +746,12 @@ export async function renderScan(container) {
         <div class="scan-deck-tile scan-deck-tile-static">
           ${rankHtml}
           <span class="scan-deck-body">
-            ${headHtml}
-            <span class="scan-deck-note">${note}</span>
-            ${edhrecPrice ? `<span class="scan-deck-price-sub">${edhrecPrice}</span>` : ''}
-            ${originalUrl ? `<a class="scan-deck-link" href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener">Original-Deck ansehen</a>` : ''}
+            <span class="scan-deck-main">
+              ${headHtml}
+              <span class="scan-deck-note">${note}</span>
+              ${edhrecPrice ? `<span class="scan-deck-price-sub">${edhrecPrice}</span>` : ''}
+              ${originalUrl ? `<a class="scan-deck-link" href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener">Original-Deck ansehen</a>` : ''}
+            </span>
           </span>
         </div>
       `
@@ -741,7 +768,7 @@ export async function renderScan(container) {
         aria-label="${dateText ? `Echtes Deck vom ${escapeHtml(dateText)} öffnen` : 'Echtes Deck öffnen'}">
         ${rankHtml}
         <span class="scan-deck-body">
-          ${headHtml}
+          <span class="scan-deck-main">${headHtml}</span>
           <span class="scan-deck-price-row">${priceHtml}</span>
         </span>
       </button>

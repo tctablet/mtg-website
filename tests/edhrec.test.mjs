@@ -52,9 +52,31 @@ test('extractDeckTable: trimmt auf topN und behält nur die gebrauchten Felder',
   const rows = extractDeckTable(json, 2)
   assert.equal(rows.length, 2)
   for (const r of rows) {
-    assert.deepEqual(Object.keys(r).sort(), ['bracket', 'price', 'salt', 'savedate', 'urlhash'])
+    assert.deepEqual(Object.keys(r).sort(), ['bracket', 'price', 'salt', 'savedate', 'tags', 'types', 'urlhash'])
     assert.equal(typeof r.urlhash, 'string')
+    assert.ok(Array.isArray(r.tags))
+    assert.deepEqual(Object.keys(r.types).sort(),
+      ['artifact', 'battle', 'creature', 'enchantment', 'instant', 'land', 'planeswalker', 'sorcery'])
   }
+})
+
+test('extractDeckTable: tags/types streng typgeprüft (nie roh ins innerHTML)', () => {
+  const rows = extractDeckTable({
+    table: [{
+      urlhash: 'abc',
+      tags: ['Reanimator', 42, { evil: true }, 'Cascade'],
+      creature: 21, land: '33', instant: 8,
+    }],
+  }, 5)
+  assert.deepEqual(rows[0].tags, ['Reanimator', 'Cascade'], 'Nicht-Strings fliegen raus')
+  assert.equal(rows[0].types.creature, 21)
+  assert.equal(rows[0].types.land, null, 'String-Zahl wird nicht durchgereicht')
+  assert.equal(rows[0].types.instant, 8)
+  // Tag-Kappung: max 4, überlange Strings raus
+  const many = extractDeckTable({
+    table: [{ urlhash: 'x', tags: ['a', 'b', 'c', 'd', 'e', 'x'.repeat(60)] }],
+  }, 5)
+  assert.deepEqual(many[0].tags, ['a', 'b', 'c', 'd'])
 })
 
 test('extractDeckTable: fehlende table → leere Liste (kein Crash)', () => {

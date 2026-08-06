@@ -88,7 +88,26 @@ export function maxEarlyPipsPerColor(cards, maxMV = 4) {
 
 export const SOURCE_TARGETS = { 1: 22, 2: 29, 3: 34 }
 
-// Zählt Quellen pro Farbe: Länder + Nonland-Permanents mit produced_mana.
+// Fetch-/Suchländer zählen als Quellen der Farben, die sie holen können —
+// Karsten zählt Fetches mit; ihr produced_mana ist leer (User-Fund 06.08.:
+// Fetch-Manabases wirkten pauschal "zu wenig").
+const BASIC_COLOR = { plains: 'W', island: 'U', swamp: 'B', mountain: 'R', forest: 'G' }
+export function fetchedColors(record) {
+  const text = (record?.oracle_text || '').toLowerCase()
+  // Echte Fetches nennen Basic-TYPEN ("island or swamp card"), nicht das Wort
+  // "land" — beide Formen abdecken, aber nur im Such-Satzsegment suchen.
+  const seg = text.match(/search your library for [^.\n]{0,120}/)?.[0]
+  if (!seg) return []
+  const named = [...new Set(
+    Object.keys(BASIC_COLOR).filter(t => seg.includes(t)).map(t => BASIC_COLOR[t])
+  )]
+  if (named.length) return named
+  // Generische "basic land"-Fetches (Evolving-Wilds-Klasse) holen jede Farbe
+  return /\bland\b/.test(seg) ? ['W', 'U', 'B', 'R', 'G'] : []
+}
+
+// Zählt Quellen pro Farbe: Länder + Nonland-Permanents mit produced_mana,
+// plus Fetch-Länder für ihre holbaren Farben.
 export function countColorSources(cardsWithPool) {
   const sources = { W: 0, U: 0, B: 0, R: 0, G: 0 }
   for (const { record, quantity = 1 } of cardsWithPool) {
@@ -99,15 +118,16 @@ export function countColorSources(cardsWithPool) {
       isLand ||
       /artifact|creature|enchantment/i.test(record.type_line || '')
     if (!isPermanentSource) continue
-    for (const col of produced) {
-      if (sources[col] !== undefined) sources[col] += quantity
-    }
+    const colors = new Set(produced.filter(c => sources[c] !== undefined))
+    if (isLand) for (const c of fetchedColors(record)) colors.add(c)
+    for (const col of colors) sources[col] += quantity
   }
   return sources
 }
 
 export function colorSourceReport(cardsWithPool) {
   const cards = cardsWithPool.map(({ record, quantity }) => ({
+    name: record?.name ?? '',
     type_line: record?.type_line ?? '',
     mana_cost: record?.mana_cost ?? '',
     cmc: record?.cmc ?? 0,
@@ -116,6 +136,14 @@ export function colorSourceReport(cardsWithPool) {
   const pips = countPips(cards)
   const early = maxEarlyPipsPerColor(cards)
   const sources = countColorSources(cardsWithPool)
+  // Treiber-Karte pro Farbe: WER fordert die maxEarlyPips? (User-Fund 06.08.:
+  // "Ziel 34" ohne Begründung ist unverständlich — eine einzelne UUU-Karte
+  // setzt den Karsten-Richtwert der ganzen Farbe.)
+  const driverFor = (col) => {
+    if (!early[col]) return null
+    const hit = cards.find(c => early[col] === maxEarlyPipsPerColor([c])[col])
+    return hit?.name || null
+  }
   return ['W', 'U', 'B', 'R', 'G']
     .filter(col => pips[col] > 0)
     .map(col => {
@@ -127,6 +155,7 @@ export function colorSourceReport(cardsWithPool) {
         sources: sources[col],
         target: early[col] > 0 ? need : null,
         ok: early[col] === 0 || sources[col] >= need,
+        driver: driverFor(col),
       }
     })
 }
