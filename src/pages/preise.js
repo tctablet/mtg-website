@@ -756,7 +756,8 @@ export function openCardLightbox({ name, image, price, isFoil }) {
     document.body.classList.remove('modal-open')
     if (closeActiveLightbox === close) closeActiveLightbox = null
     overlay.classList.remove('visible')
-    setTimeout(() => overlay.remove(), 200)
+    // 220 = var(--dur-base) aus motion.css — Timer muss >= CSS-Dauer bleiben
+    setTimeout(() => overlay.remove(), 220)
   }
   closeActiveLightbox = close
 

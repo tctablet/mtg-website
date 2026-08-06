@@ -54,6 +54,36 @@ function matchRoute(path) {
   return null
 }
 
+// Jeder Seitenwechsel faded automatisch (View Transitions API, Cross-Fade —
+// Dauer/Easing kommen aus motion.css ::view-transition-*). Damit ist der
+// Navigations-Fade STRUKTURELL unvergessbar: neue Pages erben ihn, ohne je
+// eigene Fade-Logik zu bauen. Fallback (alte Browser, reduced motion): direkt.
+let inTransitionUpdate = false
+function renderWithTransition(update) {
+  // Reentrancy-Guard (Critic [HIGH]): Login-Redirects rufen navigate()
+  // SYNCHRON aus dem Render heraus (my-decks/admin/overview/import/info) —
+  // das landet hier verschachtelt, waehrend der aeussere Transition-Callback
+  // noch laeuft. Dann NICHT erneut startViewTransition (wuerde die aeussere
+  // Transition skippen → harter Schnitt/Blank-Flash), sondern direkt rendern:
+  // die aeussere Transition faengt den Endzustand (z.B. Login) als EIN Fade ein.
+  if (inTransitionUpdate
+    || !document.startViewTransition
+    || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update()
+    return
+  }
+  // finished nie awaiten/werfen lassen — eine uebersprungene Transition
+  // (schneller Doppel-Klick) ist kein Fehler
+  document.startViewTransition(() => {
+    inTransitionUpdate = true
+    try {
+      update()
+    } finally {
+      inTransitionUpdate = false
+    }
+  }).finished.catch(() => {})
+}
+
 async function handleRoute() {
   // Fuer Listener wie das Artwork-Picker-Modal, die auf Navigation reagieren
   window.dispatchEvent(new Event('route-change'))
@@ -62,12 +92,20 @@ async function handleRoute() {
   const content = document.getElementById('content')
   const result = matchRoute(path)
 
-  if (result) {
-    content.innerHTML = ''
-    await result.render(content, result.params)
-  } else {
-    content.innerHTML = '<p>Seite nicht gefunden.</p>'
-  }
+  // Der Transition-Callback bleibt SYNCHRON: er faengt den ersten Paint der
+  // neuen Seite ein (Pages rendern ihren Lade-/Grundzustand synchron, Daten
+  // kommen danach). Das Render-Promise wird AUSSERHALB awaited — sonst wuerde
+  // startViewTransition die Seite einfrieren, bis alle Fetches durch sind.
+  let renderPromise = null
+  renderWithTransition(() => {
+    if (result) {
+      content.innerHTML = ''
+      renderPromise = result.render(content, result.params)
+    } else {
+      content.innerHTML = '<p>Seite nicht gefunden.</p>'
+    }
+  })
+  if (renderPromise) await renderPromise
 }
 
 export function startRouter() {

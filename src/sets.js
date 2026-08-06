@@ -51,10 +51,10 @@ export function filterSets(sets, { query = '', showAll = false } = {}) {
 }
 
 // Gefilterte+sortierte Sets → Jahres-Gruppen für die Kachel-Übersicht mit
-// Trennern (User-Ansage). Erwartet released-desc-Sortierung aus filterSets;
-// Sets ohne Datum landen gesammelt hinter dem letzten Jahr. INNERHALB eines
-// Jahres chronologisch aufsteigend (Jan→Dez — User-Ansage), die Jahre selbst
-// bleiben absteigend (neuestes zuerst).
+// Trennern (User-Ansage). Erwartet released-desc-Sortierung aus filterSets
+// und behält sie AUCH innerhalb des Jahres bei — das neuste Set steht damit
+// ganz oben auf der Seite (User-Ansage 06.08.2026, ersetzt das frühere
+// Jan→Dez). Sets ohne Datum landen gesammelt hinter dem letzten Jahr.
 export function groupSetsByYear(sets) {
   const groups = []
   let current = null
@@ -65,14 +65,6 @@ export function groupSetsByYear(sets) {
       groups.push(current)
     }
     current.sets.push(s)
-  }
-  for (const g of groups) {
-    g.sets.sort((a, b) => {
-      if (a.released && b.released && a.released !== b.released) {
-        return a.released < b.released ? -1 : 1
-      }
-      return (a.name || '').localeCompare(b.name || '')
-    })
   }
   return groups
 }

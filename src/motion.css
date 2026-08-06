@@ -1,0 +1,91 @@
+/* motion.css — das EINE Animationssystem der Website.
+ *
+ * Regeln (hart erzwungen via Stylelint + PostToolUse-Hook, siehe
+ * .claude/skills/motion-system/SKILL.md):
+ * - transition/animation NIE mit Literal-Dauern/-Easings — immer die Tokens
+ *   unten (var(--dur-*) + var(--ease*)). Einheitlichkeit schlaegt Mikro-Tuning.
+ * - Seitenwechsel faden automatisch ueber den View-Transition-Wrapper im
+ *   Router (renderWithTransition) — NIE eigene Navigations-Fades bauen.
+ * - Neues Interaktiv-Element: Klasse .anim-interactive. Neues Ein-/Ausblenden
+ *   aus display:none: Klasse .anim-enter. Ladezustand: .anim-skeleton.
+ * - Nur compositor-freundliche Properties animieren (transform, opacity,
+ *   Farben) — nie width/height/top/left, Ausnahme: bewusste Balken (width).
+ */
+
+:root {
+  /* Dauern — 4 Stufen + Puls, mehr gibt es nicht */
+  --dur-instant: 0.1s;   /* Taps, Pressed-States */
+  --dur-fast: 0.15s;     /* Hover, kleine UI-Reaktionen */
+  --dur-base: 0.22s;     /* Fades, Overlays, Tab-/Seitenwechsel */
+  --dur-slow: 0.3s;      /* Sheets, Karten-Einflug, Betonung */
+  --dur-pulse: 1.2s;     /* Skeleton-/Lade-Pulse (infinite) */
+
+  /* Easings */
+  --ease: ease;                                   /* Allzweck */
+  --ease-in-out: ease-in-out;                     /* Pulse, Pendeln */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);     /* Einflug, entschleunigt */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* Overshoot-Pop */
+}
+
+/* Seitenwechsel-Cross-Fade (document.startViewTransition im Router) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-base);
+}
+
+/* Interaktive Elemente (Buttons, Links, Kacheln, Tab-Header) */
+.anim-interactive {
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    opacity var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+/* Erscheinen aus display:none (Modals, Dropdowns, Statusmeldungen) —
+ * @starting-style + allow-discrete: reines CSS, kein rAF-Two-Step noetig */
+.anim-enter {
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    translate var(--dur-base) var(--ease-out),
+    display var(--dur-base) allow-discrete,
+    overlay var(--dur-base) allow-discrete;
+}
+@starting-style {
+  .anim-enter {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+/* Ladezustaende */
+@keyframes anim-pulse {
+  50% { opacity: 0.4; }
+}
+.anim-skeleton {
+  animation: anim-pulse var(--dur-pulse) var(--ease-in-out) infinite;
+}
+
+/* Einmal-Animation gezielt abschalten (z.B. Rerender ohne Re-Einflug) —
+ * statt el.style.animation='none' (ESLint blockt Inline-Motion in JS) */
+.no-anim {
+  animation: none !important;
+}
+
+/* Reduced Motion: global auf quasi-0 — 0.01ms statt 0, damit transitionend-
+ * Listener weiter feuern. iteration-count 1 stoppt Endlos-Pulse (CPU).
+ * .load-bar-fill ist ausgenommen: der Ladebalken ist Statusanzeige, kein
+ * Schmuck — er wird in style.css stattdessen bewusst verlangsamt. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.load-bar-fill),
+  *:not(.load-bar-fill)::before,
+  *:not(.load-bar-fill)::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

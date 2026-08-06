@@ -40,9 +40,27 @@ export function openSwapPicker({ card, deckId, cards, onSwapped }) {
         </div>
       </div>
       <div class="swap-picker-body">
-        <p class="swap-hint">Karte suchen und auswählen — das Budget-Delta erscheint hier, bevor getauscht wird.</p>
+        <div class="swap-cards">
+          <figure class="swap-card swap-card-out">
+            <span class="swap-card-frame" data-side="out"></span>
+            <figcaption class="swap-card-caption">
+              <span class="swap-card-tag swap-tag-out">&minus; Raus</span>
+              <span class="swap-card-name">${escapeHtml(card.name)}</span>
+              <span class="swap-card-price">${formatPrice(card.price_eur)}</span>
+            </figcaption>
+          </figure>
+          <span class="swap-cards-arrow" aria-hidden="true">&rarr;</span>
+          <figure class="swap-card swap-card-in">
+            <span class="swap-card-frame swap-card-frame-empty" data-side="in"></span>
+            <figcaption class="swap-card-caption">
+              <span class="swap-card-tag swap-tag-in">+ Rein</span>
+              <span class="swap-card-name swap-in-name">Noch keine Karte gewählt</span>
+              <span class="swap-card-price swap-in-price"></span>
+            </figcaption>
+          </figure>
+        </div>
         ${card.proxy_image_uri ? '<p class="swap-proxy-warning">Diese Karte hat ein gewähltes Proxy-Artwork — es geht beim Tausch verloren (Rückgängig stellt es wieder her).</p>' : ''}
-        <div class="swap-selected" hidden></div>
+        <div class="swap-messages"></div>
       </div>
       <div class="swap-picker-footer">
         <div class="swap-budget" hidden></div>
@@ -93,13 +111,37 @@ export function openSwapPicker({ card, deckId, cards, onSwapped }) {
   const dialog = modal.querySelector('.swap-picker')
   const searchInput = modal.querySelector('.swap-search')
   const listEl = modal.querySelector('.swap-suggestion-list')
-  const bodyEl = modal.querySelector('.swap-picker-body')
-  const selectedEl = modal.querySelector('.swap-selected')
-  const hintEl = modal.querySelector('.swap-hint')
+  const outFrame = modal.querySelector('.swap-card-frame[data-side="out"]')
+  const inFrame = modal.querySelector('.swap-card-frame[data-side="in"]')
+  const inNameEl = modal.querySelector('.swap-in-name')
+  const inPriceEl = modal.querySelector('.swap-in-price')
+  const messagesEl = modal.querySelector('.swap-messages')
   const budgetEl = modal.querySelector('.swap-budget')
   const executeBtn = modal.querySelector('.swap-execute')
 
   dialog.focus()
+
+  // Karten-Frame befüllen: Artwork oder Namens-Fallback. Tote Bild-URL →
+  // Namens-Kasten, als echter Listener statt Inline-onerror (Lehre aus dem
+  // Bild-Fehler-Vertrag der Preisseite: Inline-Strings sind fragil).
+  function fillCardFrame(frameEl, image, name) {
+    frameEl.classList.remove('swap-card-frame-empty')
+    if (!image) {
+      frameEl.innerHTML = `<span class="swap-card-noimg">${escapeHtml(name)}</span>`
+      return
+    }
+    frameEl.innerHTML = `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" decoding="async" />`
+    frameEl.querySelector('img').addEventListener('error', function () {
+      this.remove()
+      if (!frameEl.querySelector('.swap-card-noimg')) {
+        frameEl.innerHTML = `<span class="swap-card-noimg">${escapeHtml(name)}</span>`
+      }
+    })
+  }
+
+  // Die rausgehende Karte zeigt ihr KURATIERTES Artwork, falls eins gewählt
+  // ist (proxy_image_uri) — genau das geht beim Tausch verloren
+  fillCardFrame(outFrame, card.proxy_image_uri || card.image_uri || null, card.name)
 
   // iOS-Tastatur: Sheet-Höhe an den sichtbaren Viewport koppeln — nur mit
   // Feature-Check, Fallback ist das 100dvh-Sheet + scrollIntoView (Plan-Critic)
@@ -123,24 +165,22 @@ export function openSwapPicker({ card, deckId, cards, onSwapped }) {
 
   function renderSelection() {
     if (!selected) {
-      selectedEl.hidden = true
+      inFrame.classList.add('swap-card-frame-empty')
+      inFrame.innerHTML = ''
+      inNameEl.textContent = 'Noch keine Karte gewählt'
+      inPriceEl.textContent = ''
+      messagesEl.innerHTML = ''
       budgetEl.hidden = true
-      hintEl.hidden = false
       executeBtn.disabled = true
       return
     }
-    hintEl.hidden = true
-    selectedEl.hidden = false
+
+    fillCardFrame(inFrame, selected.image || selected.thumb || null, selected.name)
+    inNameEl.textContent = selected.name
+    inPriceEl.textContent = selected.price != null ? formatPrice(selected.price) : 'Preis unbekannt'
 
     const duplicate = cards.some(c => c.name.toLowerCase() === selected.name.toLowerCase())
-    selectedEl.innerHTML = `
-      <div class="swap-pair">
-        <span class="swap-pair-out">− ${escapeHtml(card.name)} <em>${formatPrice(card.price_eur)}</em></span>
-        <span class="swap-pair-arrow">→</span>
-        <span class="swap-pair-in">+ ${escapeHtml(selected.name)} <em>${selected.price != null ? formatPrice(selected.price) : 'Preis unbekannt'}</em></span>
-      </div>
-      ${duplicate ? '<p class="swap-error">Diese Karte ist bereits im Deck.</p>' : ''}
-    `
+    messagesEl.innerHTML = duplicate ? '<p class="swap-error">Diese Karte ist bereits im Deck.</p>' : ''
 
     if (duplicate) {
       budgetEl.hidden = true

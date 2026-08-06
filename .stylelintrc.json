@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "declaration-property-value-allowed-list": [
+      {
+        "/^(transition|animation)$/": [
+          "/^(?!.*(?<![\\w.(-])\\d+(\\.\\d+)?m?s\\b(?![^()]*\\)))(?!.*(?<![-\\w])(ease|linear|steps?\\(|step-start|step-end|cubic-bezier\\())(?!.*var\\(--dur-[a-z-]+\\s*,)(?=.*var\\(--dur-)(?=.*var\\(--ease).*/i",
+          "/^none$/i"
+        ],
+        "/^(transition|animation)-duration$/": ["/var\\(--dur-/i", "/^0\\.01ms$/i"],
+        "/^(transition|animation)-timing-function$/": ["/var\\(--ease/i"],
+        "/^(transition|animation)-delay$/": ["/^calc\\(/i", "/var\\(--dur-/i", "/^0m?s$/i", "/^0$/"]
+      },
+      {
+        "message": "MOTION-GATE: transition/animation nur mit Tokens aus src/motion.css — JEDES Segment braucht var(--dur-*) + var(--ease*), keine Literal-Dauern/-Easings, keine var()-Fallback-Zeiten (Delays: calc() oder 0). Neue UI nutzt .anim-interactive / .anim-enter / .anim-skeleton (siehe .claude/skills/motion-system/SKILL.md)."
+      }
+    ]
+  }
+}

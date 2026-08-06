@@ -41,6 +41,8 @@ export function mapSuggestions(names, found, prices) {
     return {
       name: resolvedName,
       thumb: sc?.image_uris?.small || sc?.card_faces?.[0]?.image_uris?.small || null,
+      // normal-Auflösung für große Darstellungen (Swap-Picker-Kartenvergleich)
+      image: sc?.image_uris?.normal || sc?.card_faces?.[0]?.image_uris?.normal || null,
       mana: sc?.mana_cost || sc?.card_faces?.[0]?.mana_cost || '',
       price: price?.price ?? null,
       isFoil: !!price?.isFoil,

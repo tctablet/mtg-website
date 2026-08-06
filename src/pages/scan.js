@@ -6,9 +6,12 @@
 // Ein Klick auf eine Karte startet den Scan — über die Scryfall-ID, nie über
 // einen fehleranfälligen Namens-Lookup.
 //
-// Scan: EDHREC-Average-Deck + echte Decks, bepreist mit UNSEREN DB-Preisen
-// (scryfall_prices). Listen rendern im Deck-View-Look (Typ-Gruppen,
-// Karten-Preview-Overlay) — Anreicherung via Scryfall-Collection.
+// Scan: Commander-Klick → Deck-Übersicht als KACHEL-Grid (User-Ansage
+// 06.08.2026): eine Kachel fürs EDHREC-Average-Deck + eine pro echtem Deck
+// (Top 20). Unsere DB-Preise laden AUTOMATISCH und gebatcht (alle Previews
+// parallel, EIN Preis-Lookup über die Namens-Union) und werden in die
+// Kacheln gepatcht — kein Klick-pro-Deck mehr. Kachel-Klick → Detail im
+// Deck-View-Look (Typ-Gruppen, Sidebar-Preview, Stats).
 // Öffentlich; die Import-Brücke erscheint nur eingeloggt.
 
 import { getPlayer } from '../auth.js'
@@ -25,7 +28,7 @@ import {
   fetchTopCommanders, colorPageSlug, commanderImageUrl, isPartnerPairName,
 } from '../edhrec.js'
 import { formatPrice, escapeHtml } from '../utils.js'
-import { loadingHtml, updateLoadingLabel, refade } from '../components/loading.js'
+import { loadingHtml, refade } from '../components/loading.js'
 
 const REAL_DECKS_LIMIT = 20
 const LANDING_LIMIT = 20
@@ -65,11 +68,30 @@ function safeExternalUrl(url) {
   return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null
 }
 
+// Begrenzte Parallelität: N Worker ziehen Items von einem gemeinsamen Cursor.
+// Für die 20 Deck-Previews — parallel, aber ohne EDHREC mit 20 gleichzeitigen
+// Requests zu fluten.
+async function mapPool(items, size, worker) {
+  const results = new Array(items.length)
+  let next = 0
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await worker(items[i], i)
+    }
+  }))
+  return results
+}
+
 export async function renderScan(container) {
   // State pro Render zurücksetzen (kein Modul-Zombie)
   const state = {
     commander: null, partner: null, slug: null,
     period: 'week', colors: new Set(),
+    // screen: 'landing' | 'overview' | 'detail' — steuert den Back-Button
+    screen: 'landing',
+    scanToken: null,
+    overview: null,
   }
   // Race-Guards: je Fläche der jüngste Auslöser gewinnt (etabliertes Muster)
   const scanGuard = createLatestGuard()
@@ -119,7 +141,6 @@ export async function renderScan(container) {
       </div>
       <button class="btn-small scan-back" id="scan-back" hidden>&larr; Beliebte Commander</button>
       <div id="scan-result" hidden></div>
-      <div id="scan-real-decks" hidden></div>
     </div>
   `
 
@@ -133,7 +154,6 @@ export async function renderScan(container) {
   const landingGrid = document.getElementById('scan-landing-grid')
   const backBtn = document.getElementById('scan-back')
   const resultEl = document.getElementById('scan-result')
-  const realDecksEl = document.getElementById('scan-real-decks')
 
   const showSearchStatus = (msg, isError = false) => {
     searchStatus.hidden = !msg
@@ -318,19 +338,23 @@ export async function renderScan(container) {
   })
 
   const showLanding = () => {
+    state.screen = 'landing'
     landingEl.hidden = false
     backBtn.hidden = true
     resultEl.hidden = true
     resultEl.innerHTML = ''
-    realDecksEl.hidden = true
-    realDecksEl.innerHTML = ''
     scanGuard.begin() // laufende Scans verwerfen
   }
   const hideLanding = () => {
     landingEl.hidden = true
     backBtn.hidden = false
   }
-  backBtn.addEventListener('click', showLanding)
+  // Back-Navigation: Detail → Kachel-Übersicht (aus dem Speicher, kein
+  // Refetch) → Landing
+  backBtn.addEventListener('click', () => {
+    if (state.screen === 'detail' && state.overview) renderOverview()
+    else showLanding()
+  })
 
   // --- Commander-Auswahl (Grid-Klick via ID, Suche via Name) ---
 
@@ -394,78 +418,139 @@ export async function renderScan(container) {
     },
   })
 
-  // --- Scan: Average-Deck + echte Decks ---
+  // --- Scan: Kachel-Übersicht (Average-Deck + echte Decks) ---
 
   async function runScan() {
     if (!state.commander) return
     const scanToken = scanGuard.begin()
+    state.scanToken = scanToken
     state.slug = state.partner
       ? partnerSlug(state.commander.name, state.partner.name)
       : edhrecSlug(state.commander.name)
+    state.overview = {
+      avg: null, avgError: null,
+      decks: null, decksError: null,
+      // urlhash → { status: 'ok'|'incomplete'|'error', preview?, pricing?, qtySum? }
+      totals: new Map(),
+      pricesFailed: false,
+    }
 
     hideLanding()
-    realDecksEl.hidden = true
-    realDecksEl.innerHTML = ''
-    resultEl.hidden = false
-    resultEl.innerHTML = loadingHtml('Lade EDHREC-Average-Deck...')
+    renderOverview()
+    // Average und Deck-Tabelle sind unabhängig → beide parallel anstoßen,
+    // jede Fläche patcht ihre Kacheln selbst
+    loadAverage(scanToken)
+    loadRealDecks(scanToken)
+  }
 
-    let avg
+  // Average-Deck laden + bepreisen → Kachel patchen. Fehler landen IN der
+  // Kachel (Klick = Retry), nie als Vollflächen-Wipe der Übersicht.
+  async function loadAverage(token) {
     try {
-      avg = await fetchAverageDeck(state.slug)
-      if (!scanGuard.isCurrent(scanToken)) return
+      const avg = await fetchAverageDeck(state.slug)
+      if (!scanGuard.isCurrent(token)) return
+
+      // Commander gehören zum Deck: sie stehen in der Liste (eigene Sektion)
+      // und zählen in Wert + Kartenzahl — exakt wie in der Deck-Ansicht
+      const commanders = avg.commanders.length
+        ? avg.commanders
+        : [state.commander.name, state.partner?.name].filter(Boolean)
+      const fullList = [
+        ...commanders.map(n => ({ name: n, quantity: 1 })),
+        ...avg.cards.filter(c => !commanders.some(n => n.toLowerCase() === c.name.toLowerCase())),
+      ]
+
+      // Preise (Supabase) und Kartendetails (Scryfall-Collection) sind
+      // unabhängig → PARALLEL. Preise sind Pflicht (Fehler-Kachel),
+      // Collection ist optional (Detail lädt sonst selbst nach).
+      const [pricingRes, collectionRes] = await Promise.allSettled([
+        priceList(fullList),
+        fetchScanCollection(`scan:coll:${state.slug}`, fullList),
+      ])
+      if (!scanGuard.isCurrent(token)) return
+      if (pricingRes.status === 'rejected') throw pricingRes.reason
+
+      state.overview.avg = {
+        fullList,
+        commanders,
+        pricing: pricingRes.value,
+        collection: collectionRes.status === 'fulfilled' ? collectionRes.value : null,
+      }
+      state.overview.avgError = null
     } catch (err) {
-      if (!scanGuard.isCurrent(scanToken)) return
-      resultEl.innerHTML = `
-        <div class="scan-error-box">
-          <p>EDHREC-Average-Deck konnte nicht geladen werden (Slug: <code>${escapeHtml(state.slug)}</code>).</p>
-          <p class="scan-error-detail">${escapeHtml(err.message)}</p>
-          <div class="scan-error-actions">
-            <button class="btn btn-secondary" id="scan-retry">Nochmal versuchen</button>
-            <a class="btn-small" href="https://edhrec.com/average-decks/${escapeHtml(state.slug)}" target="_blank" rel="noopener">Auf EDHREC prüfen</a>
-          </div>
-        </div>
-      `
-      resultEl.querySelector('#scan-retry')?.addEventListener('click', runScan)
+      if (!scanGuard.isCurrent(token)) return
+      state.overview.avgError = err
+    }
+    refreshOverviewGrid()
+  }
+
+  // Deck-Tabelle → Kacheln sofort rendern → alle Previews parallel (Pool) →
+  // EIN gebatchter Preis-Lookup über die Namens-Union → Kacheln patchen.
+  // So sind unsere Preise für ALLE Decks da, ohne 20 Einzel-Klicks.
+  async function loadRealDecks(token) {
+    let decks
+    try {
+      decks = await fetchRealDecks(state.slug, REAL_DECKS_LIMIT)
+      if (!scanGuard.isCurrent(token)) return
+    } catch (err) {
+      if (!scanGuard.isCurrent(token)) return
+      state.overview.decksError = err
+      refreshOverviewGrid()
       return
     }
+    state.overview.decks = decks
+    state.overview.decksError = null
+    refreshOverviewGrid()
+    if (!decks.length) return
 
-    // Commander gehören zum Deck: sie stehen in der Liste (eigene Sektion)
-    // und zählen in Wert + Kartenzahl — exakt wie in der Deck-Ansicht
-    const commanders = avg.commanders.length
-      ? avg.commanders
-      : [state.commander.name, state.partner?.name].filter(Boolean)
-    const fullList = [
-      ...commanders.map(n => ({ name: n, quantity: 1 })),
-      ...avg.cards.filter(c => !commanders.some(n => n.toLowerCase() === c.name.toLowerCase())),
-    ]
+    // Previews parallel, aber gedrosselt (Pool 6) — fehlertolerant pro Deck
+    const previews = await mapPool(decks, 6, async (d) => {
+      try {
+        return await fetchDeckPreview(d.urlhash)
+      } catch {
+        return null
+      }
+    })
+    if (!scanGuard.isCurrent(token)) return
 
-    updateLoadingLabel(resultEl, 'Preise & Kartendetails laden...')
+    // Namens-Union der vollständigen Decks → ein Preis-Lookup für alles
+    const nameSet = new Set()
+    previews.forEach(p => {
+      if (p && p.cards.reduce((s, c) => s + c.quantity, 0) >= 90) {
+        p.cards.forEach(c => nameSet.add(c.name))
+      }
+    })
+    let priceCtx = null
+    try {
+      priceCtx = nameSet.size
+        ? await buildPriceLookup([...nameSet])
+        : { lookup: new Map(), frontLookup: new Map() }
+    } catch { /* DB down → Kacheln zeigen den Fehlerzustand */ }
+    if (!scanGuard.isCurrent(token)) return
 
-    // Preise (Supabase) und Kartendetails (Scryfall-Collection) sind
-    // unabhängig → PARALLEL statt Wasserfall (~0,5-1s gespart). Preise sind
-    // Pflicht (Fehler-UI), Collection ist optional (Liste fällt sonst auf
-    // die eigene Nachlade-Stufe zurück).
-    const [pricingRes, collectionRes] = await Promise.allSettled([
-      priceList(fullList),
-      fetchScanCollection(`scan:coll:${state.slug}`, fullList),
-    ])
-    if (!scanGuard.isCurrent(scanToken)) return
-    if (pricingRes.status === 'rejected') {
-      resultEl.innerHTML = `
-        <div class="scan-error-box">
-          <p>Preisdatenbank nicht erreichbar — Liste geladen, aber nicht bepreisbar.</p>
-          <p class="scan-error-detail">${escapeHtml(pricingRes.reason?.message || String(pricingRes.reason))}</p>
-          <div class="scan-error-actions"><button class="btn btn-secondary" id="scan-retry-prices">Nochmal versuchen</button></div>
-        </div>
-      `
-      resultEl.querySelector('#scan-retry-prices')?.addEventListener('click', runScan)
-      return
-    }
-    const pricing = pricingRes.value
-    const collection = collectionRes.status === 'fulfilled' ? collectionRes.value : null
-
-    renderAverage(fullList, commanders, pricing, scanToken, collection)
-    renderRealDecksSection()
+    state.overview.pricesFailed = !priceCtx
+    decks.forEach((d, i) => {
+      const p = previews[i]
+      if (!p) {
+        state.overview.totals.set(d.urlhash, { status: 'error' })
+        return
+      }
+      const qtySum = p.cards.reduce((s, c) => s + c.quantity, 0)
+      // EDHREC-Datenloch: manche Previews (private/kaputte Quell-Decks) haben
+      // nur 1-2 Zeilen — ehrlich kennzeichnen statt Schein-Preis zeigen
+      if (qtySum < 90) {
+        state.overview.totals.set(d.urlhash, { status: 'incomplete', qtySum, preview: p })
+        return
+      }
+      if (!priceCtx) {
+        state.overview.totals.set(d.urlhash, { status: 'error', preview: p })
+        return
+      }
+      state.overview.totals.set(d.urlhash, {
+        status: 'ok', preview: p, pricing: priceWithLookup(p.cards, priceCtx),
+      })
+    })
+    refreshOverviewGrid()
   }
 
   // Collection mit Session-Cache (30min, geslimmt): wiederholter Scan
@@ -486,11 +571,270 @@ export async function renderScan(container) {
     return slim
   }
 
-  // Average-Deck in EXAKT der Ansicht unserer gebauten Decks (User-Ansage):
-  // Commander-Art-Banner, Gesamtwert, Sortierung, Sidebar mit Preview + Stats,
-  // Commander-Sektion zuerst.
-  function renderAverage(fullList, commanders, pricing, scanToken, collection = null) {
-    const cardCount = fullList.reduce((s, c) => s + c.quantity, 0)
+  // --- Übersicht: Kachel-Grid rendern & aus dem State patchen ---
+
+  const formatSavedate = (savedate) => {
+    if (!savedate) return null
+    const d = new Date(savedate)
+    return Number.isNaN(d.getTime())
+      ? String(savedate)
+      : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
+  function renderOverview() {
+    state.screen = 'overview'
+    backBtn.textContent = '← Beliebte Commander'
+    resultEl.hidden = false
+    const artCrop = getCardArtCrop(state.commander.card)
+    const headerBg = artCrop
+      ? `background-image: linear-gradient(to bottom, rgba(15,15,20,0.3), rgba(15,15,20,0.95) 80%), url('${escapeHtml(artCrop)}')`
+      : ''
+    const names = [state.commander.name, state.partner?.name].filter(Boolean)
+    resultEl.innerHTML = `
+      <div class="deck-header-banner" style="${headerBg}">
+        <div class="deck-header">
+          <div>
+            <h2>${names.map(escapeHtml).join(' + ')}</h2>
+            <p class="deck-meta">Deck-Übersicht &middot; Durchschnittsdeck + Top ${REAL_DECKS_LIMIT} echte Decks, alle mit unserem Preis</p>
+          </div>
+        </div>
+      </div>
+      <div id="scan-deck-grid" class="scan-deck-grid">${overviewGridHtml()}</div>
+    `
+    refade(resultEl)
+
+    // EIN delegierter Listener auf dem Grid — überlebt jedes State-Patch-
+    // Rerender der Kacheln
+    resultEl.querySelector('#scan-deck-grid').addEventListener('click', (e) => {
+      const retry = e.target.closest('.scan-decks-retry')
+      if (retry) {
+        state.overview.decksError = null
+        state.overview.pricesFailed = false
+        // error-Einträge zurück auf „lädt" — damit verschwindet auch der
+        // Retry-Button bis zum Batch-Ende (blockt den Doppel-Klick, Critic)
+        for (const [hash, t] of [...state.overview.totals]) {
+          if (t.status === 'error') state.overview.totals.delete(hash)
+        }
+        refreshOverviewGrid()
+        loadRealDecks(state.scanToken)
+        return
+      }
+      const tile = e.target.closest('.scan-deck-tile')
+      if (!tile || tile.disabled) return
+      if (tile.dataset.kind === 'avg') {
+        if (state.overview.avgError) {
+          // Fehler-Kachel: Klick = Retry
+          state.overview.avgError = null
+          refreshOverviewGrid()
+          loadAverage(state.scanToken)
+        } else if (state.overview.avg) {
+          openAverage()
+        }
+        return
+      }
+      const hash = tile.dataset.hash
+      if (hash && state.overview.totals.get(hash)?.status === 'ok') openRealDeck(hash)
+    })
+  }
+
+  // Kacheln sind eine PURE Funktion des Overview-States — jedes Patch ist ein
+  // komplettes Grid-Rerender (billig, ~21 Kacheln), kein DOM-Gefummel
+  function refreshOverviewGrid() {
+    if (state.screen !== 'overview') return
+    const grid = resultEl.querySelector('#scan-deck-grid')
+    if (grid) grid.innerHTML = overviewGridHtml()
+  }
+
+  function overviewGridHtml() {
+    return avgTileHtml() + deckTilesHtml()
+  }
+
+  function avgTileHtml() {
+    const o = state.overview
+    const artCrop = getCardArtCrop(state.commander.card)
+    const artHtml = artCrop
+      ? `<span class="scan-deck-art" style="background-image:url('${escapeHtml(artCrop)}')"></span>`
+      : ''
+    let bodyHtml
+    let disabled = false
+    let ariaLabel = 'Durchschnittsdeck öffnen'
+    if (o.avgError) {
+      ariaLabel = 'Durchschnittsdeck nochmal laden'
+      bodyHtml = `
+        <span class="scan-deck-note scan-deck-error">Konnte nicht geladen werden — tippen zum Nochmal-Versuchen</span>
+        <span class="scan-deck-meta">${escapeHtml(o.avgError.message || 'Fehler')}</span>
+      `
+    } else if (!o.avg) {
+      disabled = true
+      bodyHtml = `
+        <span class="scan-deck-meta">~100 Karten</span>
+        <span class="scan-deck-price-row"><span class="scan-deck-price scan-deck-price-loading">Preis lädt…</span></span>
+      `
+    } else {
+      const count = o.avg.fullList.reduce((s, c) => s + c.quantity, 0)
+      const missing = o.avg.pricing.missing.length
+      bodyHtml = `
+        <span class="scan-deck-meta">${count} Karten${missing ? ` · ${missing} ohne Preis` : ''}</span>
+        <span class="scan-deck-price-row"><span class="scan-deck-price">${formatPrice(o.avg.pricing.total)}</span></span>
+      `
+    }
+    return `
+      <button class="scan-deck-tile scan-deck-tile-avg" data-kind="avg" ${disabled ? 'disabled' : ''}
+        aria-label="${ariaLabel}">
+        ${artHtml}
+        <span class="scan-deck-body">
+          <span class="scan-deck-badge">Durchschnittsdeck</span>
+          <span class="scan-deck-title">EDHREC Average</span>
+          ${bodyHtml}
+        </span>
+      </button>
+    `
+  }
+
+  function deckTileHtml(d, i) {
+    const t = state.overview.totals.get(d.urlhash)
+    const dateText = formatSavedate(d.savedate)
+    const metaBits = []
+    if (d.salt != null) metaBits.push(`Salt ${d.salt}`)
+    if (d.bracket != null) metaBits.push(`Bracket ${d.bracket}`)
+    const edhrecPrice = d.price != null ? `$${d.price.toLocaleString('de-DE')} lt. EDHREC` : ''
+    const rankHtml = `<span class="scan-deck-rank">#${i + 1}</span>`
+    const headHtml = `
+      <span class="scan-deck-title">${dateText ? `Deck vom ${escapeHtml(dateText)}` : 'EDHREC-Deck'}</span>
+      ${metaBits.length ? `<span class="scan-deck-meta">${metaBits.join(' · ')}</span>` : ''}
+    `
+
+    // Sackgassen-Fälle als STATISCHE Kachel (div statt button): der Original-
+    // Deck-Link bleibt als echtes <a> erreichbar, EDHREC-Preis bleibt sichtbar
+    // (Critic [HIGH]: preview.url lag im State, wurde aber nie gerendert)
+    if (t && t.status !== 'ok') {
+      // Fehlerursachen unterscheiden (Critic R2): ohne preview ist das DECK
+      // nicht ladbar, mit preview fehlt nur unser Preis
+      const note = t.status === 'incomplete'
+        ? `EDHREC liefert nur ${t.qtySum} von ~100 Karten — keine belastbare Bewertung`
+        : (t.preview ? 'Preis gerade nicht ladbar' : 'Deck konnte von EDHREC nicht geladen werden')
+      const originalUrl = safeExternalUrl(t.preview?.url)
+      return `
+        <div class="scan-deck-tile scan-deck-tile-static">
+          ${rankHtml}
+          <span class="scan-deck-body">
+            ${headHtml}
+            <span class="scan-deck-note">${note}</span>
+            ${edhrecPrice ? `<span class="scan-deck-price-sub">${edhrecPrice}</span>` : ''}
+            ${originalUrl ? `<a class="scan-deck-link" href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener">Original-Deck ansehen</a>` : ''}
+          </span>
+        </div>
+      `
+    }
+
+    const priceHtml = !t
+      ? '<span class="scan-deck-price scan-deck-price-loading">Preis lädt…</span>'
+      : `
+        <span class="scan-deck-price">${formatPrice(t.pricing.total)}</span>
+        ${edhrecPrice || t.pricing.missing.length ? `<span class="scan-deck-price-sub">${[edhrecPrice, t.pricing.missing.length ? `${t.pricing.missing.length} ohne Preis` : ''].filter(Boolean).join(' · ')}</span>` : ''}
+      `
+    return `
+      <button class="scan-deck-tile" data-hash="${escapeHtml(d.urlhash)}" ${t ? '' : 'disabled'}
+        aria-label="${dateText ? `Echtes Deck vom ${escapeHtml(dateText)} öffnen` : 'Echtes Deck öffnen'}">
+        ${rankHtml}
+        <span class="scan-deck-body">
+          ${headHtml}
+          <span class="scan-deck-price-row">${priceHtml}</span>
+        </span>
+      </button>
+    `
+  }
+
+  function deckTilesHtml() {
+    const o = state.overview
+    // Exklusive Fehlerbox NUR solange es noch keine Kacheln gibt — ein
+    // gescheiterter RETRY darf die bereits geladenen/bepreisten Kacheln nie
+    // aus der Anzeige wischen (Critic R2 [HIGH]: Fehlerzeile statt Wipe)
+    if (o.decksError && !o.decks) {
+      return `
+        <div class="scan-deck-status scan-error-box">
+          <p>Echte Decks konnten nicht geladen werden.</p>
+          <p class="scan-error-detail">${escapeHtml(o.decksError.message || 'Fehler')}</p>
+          <div class="scan-error-actions"><button class="btn btn-secondary scan-decks-retry">Nochmal versuchen</button></div>
+        </div>
+      `
+    }
+    if (!o.decks) {
+      // Tabelle lädt noch — Datenverbrauchs-Hinweis bleibt erhalten (Critic:
+      // der alte Opt-in-Button trug die WLAN-Warnung, die Last ist unverändert)
+      return Array.from({ length: 6 }, () => '<div class="scan-deck-tile scan-deck-skeleton" aria-hidden="true"></div>').join('')
+        + '<p class="scan-deck-status scan-deck-loadnote">Lade echte Decks — kann bei beliebten Commandern mehrere MB laden (WLAN empfohlen).</p>'
+    }
+    if (!o.decks.length) {
+      return '<p class="empty scan-deck-status">Keine echten Decks gefunden.</p>'
+    }
+    const tiles = o.decks.map((d, i) => deckTileHtml(d, i)).join('')
+    const anyError = o.decksError || o.pricesFailed
+      || (o.totals.size > 0 && o.decks.some(d => o.totals.get(d.urlhash)?.status === 'error'))
+    const retryHtml = anyError ? `
+      <div class="scan-deck-status">
+        <p class="scan-error-detail">${o.decksError
+          ? escapeHtml(o.decksError.message || 'Echte Decks konnten nicht neu geladen werden.')
+          : 'Einige Previews/Preise konnten nicht geladen werden.'}</p>
+        <button class="btn btn-secondary scan-decks-retry">Fehlende nochmal versuchen</button>
+        <p class="scan-deck-loadnote">Kann erneut mehrere MB laden (WLAN empfohlen).</p>
+      </div>
+    ` : ''
+    return tiles + retryHtml
+  }
+
+  // --- Detail-Screens (Average + echtes Deck) im Deck-View-Look ---
+
+  function openAverage() {
+    const a = state.overview.avg
+    if (!a) return
+    renderDeckScreen({
+      titleText: a.commanders.join(' + '),
+      metaBits: ['EDHREC Average Deck'],
+      cards: a.fullList,
+      commanders: a.commanders,
+      pricing: a.pricing,
+      importName: `${a.commanders.join(' + ')} (EDHREC Average)`,
+      loadCollection: async () => a.collection || fetchScanCollection(`scan:coll:${state.slug}`, a.fullList),
+    })
+  }
+
+  function openRealDeck(hash) {
+    const d = state.overview.decks?.find(x => x.urlhash === hash)
+    const t = state.overview.totals.get(hash)
+    if (!d || t?.status !== 'ok') return
+    const { preview, pricing } = t
+    const commanders = preview.commanders.length
+      ? preview.commanders
+      : [state.commander.name, state.partner?.name].filter(Boolean)
+    const dateText = formatSavedate(d.savedate)
+    // Nur typgeprüfte Zahlen (extractDeckTable/extractDeckPreview) — HTML-safe
+    const metaBits = ['Echtes EDHREC-Deck']
+    if (d.salt != null) metaBits.push(`Salt ${d.salt}`)
+    if (d.bracket != null) metaBits.push(`Bracket ${d.bracket}`)
+    if (preview.price != null) metaBits.push(`$${preview.price.toLocaleString('de-DE')} lt. EDHREC`)
+    const originalUrl = safeExternalUrl(preview.url)
+    renderDeckScreen({
+      titleText: dateText ? `Deck vom ${dateText}` : 'EDHREC-Deck',
+      metaBits,
+      cards: preview.cards,
+      commanders,
+      pricing,
+      importName: `${commanders.join(' + ') || state.commander.name} (EDHREC ${hash.slice(0, 6)})`,
+      extraActionsHtml: originalUrl
+        ? `<a class="btn-small scan-original-link" href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener">Original-Deck</a>`
+        : '',
+      loadCollection: () => fetchScanCollection(`scan:coll:deck:${hash}`, preview.cards),
+    })
+  }
+
+  // Gemeinsames Detail-Gerüst (User-Ansage: Deck-View-Look): Commander-Art-
+  // Banner, Gesamtwert, Sortierung, Sidebar mit Preview + Stats.
+  function renderDeckScreen({ titleText, metaBits, cards, commanders, pricing, importName, extraActionsHtml = '', loadCollection }) {
+    state.screen = 'detail'
+    backBtn.textContent = '← Deck-Übersicht'
+    const scanToken = state.scanToken
+    const cardCount = cards.reduce((s, c) => s + c.quantity, 0)
     const artCrop = getCardArtCrop(state.commander.card)
     const headerBg = artCrop
       ? `background-image: linear-gradient(to bottom, rgba(15,15,20,0.3), rgba(15,15,20,0.95) 80%), url('${escapeHtml(artCrop)}')`
@@ -501,9 +845,9 @@ export async function renderScan(container) {
       <div class="deck-header-banner" style="${headerBg}">
         <div class="deck-header">
           <div>
-            <h2>${commanders.map(escapeHtml).join(' + ')}</h2>
+            <h2>${escapeHtml(titleText)}</h2>
             <p class="deck-meta">
-              EDHREC Average Deck &middot; <strong>${cardCount}</strong> Karten
+              ${metaBits.join(' &middot; ')} &middot; <strong>${cardCount}</strong> Karten
               ${pricing.missing.length ? `&middot; ${pricing.missing.length} ohne Preis` : ''}
             </p>
           </div>
@@ -515,7 +859,8 @@ export async function renderScan(container) {
       </div>
       <div class="deck-actions">
         <div class="deck-actions-buttons">
-          ${getPlayer() ? `<button class="btn scan-import-btn" data-kind="avg">Als Deck importieren</button>` : ''}
+          ${getPlayer() ? `<button class="btn scan-import-btn">Als Deck importieren</button>` : ''}
+          ${extraActionsHtml}
           <div class="sort-controls">
             <label class="sort-label" for="scan-sort-select">Sortierung:</label>
             <select id="scan-sort-select" class="sort-select">
@@ -543,7 +888,7 @@ export async function renderScan(container) {
             <div id="deck-stats" class="deck-stats"></div>
           </div>
         </aside>
-        <div id="scan-avg-list" class="scan-card-list">${loadingHtml('Kartendetails laden...')}</div>
+        <div id="scan-deck-list" class="scan-card-list">${loadingHtml('Kartendetails laden...')}</div>
       </div>
     `
     // Fehler-Fallback (tote URL → Namens-Kasten) übernimmt die Komponente
@@ -553,190 +898,50 @@ export async function renderScan(container) {
 
     resultEl.querySelector('.scan-import-btn')?.addEventListener('click', () => {
       startImport({
-        name: `${commanders.join(' + ')} (EDHREC Average)`,
+        name: importName,
         commanders,
-        cards: fullList.filter(c => !commanders.some(n => n.toLowerCase() === c.name.toLowerCase())),
+        cards: cards.filter(c => !commanders.some(n => n.toLowerCase() === c.name.toLowerCase())),
       })
     })
 
-    state.avgSort = 'type'
-    state.avgEnriched = null
-    const listEl = resultEl.querySelector('#scan-avg-list')
+    const listEl = resultEl.querySelector('#scan-deck-list')
+    let sortMode = 'type'
+    let enriched = null
+    const rerenderList = () => {
+      renderReadonlyCardGroups(listEl, enriched, { commanders, sortMode, hoverSidebar: true })
+    }
     resultEl.querySelector('#scan-sort-select').addEventListener('change', (e) => {
-      state.avgSort = e.target.value
-      if (state.avgEnriched && listEl.isConnected) {
-        renderReadonlyCardGroups(listEl, state.avgEnriched, {
-          commanders, sortMode: state.avgSort, hoverSidebar: true,
-        })
-      }
+      sortMode = e.target.value
+      if (enriched && listEl.isConnected) rerenderList()
     })
 
-    renderDeckList(listEl, fullList, pricing, scanToken, commanders, collection)
-  }
-
-  // Liste im Deck-View-Look. Die Collection kommt normal schon parallel aus
-  // runScan (ggf. aus dem Session-Cache) — nur wenn das schiefging, lädt die
-  // Liste hier selbst nach; niemals Sackgasse.
-  async function renderDeckList(listEl, cards, pricing, scanToken, commanders, collection = null) {
-    const finish = (enriched) => {
-      state.avgEnriched = enriched
-      renderReadonlyCardGroups(listEl, enriched, {
-        commanders, sortMode: state.avgSort, hoverSidebar: true,
-      })
-      renderDeckStats(enriched)
-    }
-    if (collection) {
-      finish(enrichCards(cards, buildScryfallIndex(collection), pricing.priced))
-      return
-    }
-    try {
-      const { found } = await fetchCardCollection(cards.map(c => c.name))
-      if (!scanGuard.isCurrent(scanToken) || !listEl.isConnected) return
-      finish(enrichCards(cards, buildScryfallIndex(found), pricing.priced))
-    } catch (err) {
-      if (!scanGuard.isCurrent(scanToken) || !listEl.isConnected) return
-      // Fallback ohne Scryfall: flache Liste mit Preisen
-      finish(enrichCards(cards, new Map(), pricing.priced))
-    }
-  }
-
-  function renderRealDecksSection() {
-    realDecksEl.hidden = false
-    realDecksEl.innerHTML = `
-      <div class="scan-real-header">
-        <h3>Echte Decks</h3>
-        <button class="btn btn-secondary" id="scan-load-decks">
-          Echte Decks laden (Top ${REAL_DECKS_LIMIT})
-          <span class="scan-btn-subtext">kann bei beliebten Commandern mehrere MB laden — WLAN empfohlen</span>
-        </button>
-      </div>
-      <div id="scan-decks-table"></div>
-    `
-    document.getElementById('scan-load-decks').addEventListener('click', loadRealDecks)
-  }
-
-  async function loadRealDecks() {
-    const btn = document.getElementById('scan-load-decks')
-    const tableEl = document.getElementById('scan-decks-table')
-    btn.disabled = true
-    btn.textContent = 'Lade Deck-Tabelle…'
-    tableEl.innerHTML = loadingHtml('Lade Deck-Tabelle — kann bei beliebten Commandern mehrere MB wiegen...')
-    try {
-      const decks = await fetchRealDecks(state.slug, REAL_DECKS_LIMIT)
-      if (!decks.length) {
-        tableEl.innerHTML = '<p class="empty">Keine echten Decks gefunden.</p>'
-        btn.remove()
-        return
-      }
-      btn.remove()
-      // data-label + CSS: Desktop echte Tabelle, mobil gestapelte Karten
-      // (die 5-Spalten-Tabelle war der H-Scroll-Täter aus dem User-Screenshot)
-      tableEl.innerHTML = `
-        <table class="card-table scan-decks-table">
-          <thead>
-            <tr>
-              <th>Datum</th><th>EDHREC-Preis</th><th>Salt</th><th>Bracket</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${decks.map((d, i) => `
-              <tr class="scan-deck-row" data-hash="${escapeHtml(d.urlhash)}" data-idx="${i}">
-                <td data-label="Datum">${escapeHtml(d.savedate || '–')}</td>
-                <td data-label="EDHREC-Preis">${d.price != null ? `$${d.price.toLocaleString('de-DE')}` : '–'}</td>
-                <td data-label="Salt">${d.salt ?? '–'}</td>
-                <td data-label="Bracket">${d.bracket ?? '–'}</td>
-                <td class="scan-deck-action"><button class="btn-small scan-eval-btn">Mit unseren Preisen bewerten</button></td>
-              </tr>
-              <tr class="scan-deck-detail" data-detail="${escapeHtml(d.urlhash)}" hidden><td colspan="5"></td></tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `
-      refade(tableEl)
-      tableEl.querySelectorAll('.scan-eval-btn').forEach(evalBtn => {
-        evalBtn.addEventListener('click', () => evaluateDeck(evalBtn))
-      })
-    } catch (err) {
-      btn.disabled = false
-      btn.textContent = `Fehler — nochmal versuchen`
-      tableEl.innerHTML = `<p class="scan-error-detail">${escapeHtml(err.message)}</p>`
-    }
-  }
-
-  async function evaluateDeck(evalBtn) {
-    const row = evalBtn.closest('.scan-deck-row')
-    const hash = row.dataset.hash
-    const detailRow = realDecksEl.querySelector(`.scan-deck-detail[data-detail="${CSS.escape(hash)}"]`)
-    const cell = detailRow.querySelector('td')
-    detailRow.hidden = false
-    cell.innerHTML = loadingHtml('Lade Liste + Preise…')
-    evalBtn.disabled = true
-    try {
-      const preview = await fetchDeckPreview(hash)
-
-      // EDHREC-Datenloch: manche Previews (private/kaputte Quell-Decks) haben
-      // nur 1-2 Zeilen. Eine "Bewertung" über 4 € für ein $800-Deck wäre
-      // irreführend — ehrlich kennzeichnen statt Schein-Zahlen zeigen.
-      const qtySum = preview.cards.reduce((s, c) => s + c.quantity, 0)
-      const originalUrl = safeExternalUrl(preview.url)
-      if (qtySum < 90) {
-        cell.innerHTML = `
-          <div class="scan-deck-mini">
-            <span>EDHREC liefert für dieses Deck nur ${qtySum} von ~100 Karten — keine belastbare Bewertung möglich.</span>
-            ${originalUrl ? `<span class="scan-deck-links"><a href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener">Original-Deck ansehen</a></span>` : ''}
-          </div>
-        `
-        evalBtn.textContent = 'Unvollständig'
-        return
-      }
-
-      const pricing = await priceList(preview.cards)
-      cell.innerHTML = `
-        <div class="scan-deck-mini">
-          <span><strong>${formatPrice(pricing.total)}</strong> lt. unserer DB${preview.price != null ? ` · $${preview.price.toLocaleString('de-DE')} lt. EDHREC` : ''}</span>
-          ${pricing.missing.length ? `<span>${pricing.missing.length} ohne Preis</span>` : ''}
-          <span class="scan-deck-links">
-            ${originalUrl ? `<a href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener">Original-Deck</a>` : ''}
-            ${getPlayer() ? `<button class="btn-small scan-import-real">Als Deck importieren</button>` : ''}
-          </span>
-        </div>
-        <div class="scan-card-list scan-deck-cards">${loadingHtml('Kartendetails laden...')}</div>
-      `
-      cell.querySelector('.scan-import-real')?.addEventListener('click', () => {
-        startImport({
-          name: `${preview.commanders.join(' + ') || state.commander.name} (EDHREC ${hash.slice(0, 6)})`,
-          commanders: preview.commanders,
-          cards: preview.cards,
-        })
-      })
-      evalBtn.textContent = 'Bewertet'
-      refade(cell)
-
-      // Liste im Deck-View-Look, eigener Preview-Scope pro bewertetem Deck
-      const listEl = cell.querySelector('.scan-deck-cards')
-      const listOpts = { commanders: preview.commanders, sortMode: 'type' }
+    // Collection nachziehen (Overview hat sie fürs Average meist schon);
+    // Fehler → flache Liste nur mit Preisen, niemals Sackgasse
+    ;(async () => {
+      let collection = null
       try {
-        const coll = await fetchScanCollection(`scan:coll:deck:${hash}`, preview.cards)
-        if (!listEl.isConnected) return
-        renderReadonlyCardGroups(listEl, enrichCards(preview.cards, buildScryfallIndex(coll), pricing.priced), listOpts)
-      } catch {
-        if (!listEl.isConnected) return
-        renderReadonlyCardGroups(listEl, enrichCards(preview.cards, new Map(), pricing.priced), listOpts)
-      }
-    } catch (err) {
-      cell.innerHTML = `<p class="scan-error-detail">${escapeHtml(err.message)}</p>`
-      evalBtn.disabled = false
-    }
+        collection = await loadCollection()
+      } catch { /* Fallback unten */ }
+      if (!scanGuard.isCurrent(scanToken) || !listEl.isConnected) return
+      enriched = enrichCards(cards, buildScryfallIndex(collection || []), pricing.priced)
+      rerenderList()
+      renderDeckStats(enriched)
+    })()
   }
 
   // Preis-Pipeline: exakte Namen → DFC-Front-Face-Fallback → missing-Liste.
   // throwOnError: DB-Ausfall ist ein eigener Fehlerzustand, nicht "alles 0 €".
-  async function priceList(cards) {
-    const names = cards.map(c => c.name)
-    const lookup = await fetchCheapestPrices(names, { throwOnError: true })
-    const misses = [...new Set(names.filter(n => !lookup.has(n)))]
+  // Lookup (DB-Runde) und Auswertung (pure Rechnung) sind getrennt, damit die
+  // Deck-Übersicht EINEN gebatchten Lookup über alle 20 Decks fahren kann.
+  async function buildPriceLookup(names) {
+    const unique = [...new Set(names)]
+    const lookup = await fetchCheapestPrices(unique, { throwOnError: true })
+    const misses = unique.filter(n => !lookup.has(n))
     const frontLookup = misses.length ? await fetchPricesByFrontFace(misses) : new Map()
+    return { lookup, frontLookup }
+  }
 
+  function priceWithLookup(cards, { lookup, frontLookup }) {
     const priced = []
     const missing = []
     let total = 0
@@ -752,6 +957,10 @@ export async function renderScan(container) {
       }
     }
     return { priced, missing, total: Math.round(total * 100) / 100 }
+  }
+
+  async function priceList(cards) {
+    return priceWithLookup(cards, await buildPriceLookup(cards.map(c => c.name)))
   }
 
   function startImport({ name, commanders, cards }) {

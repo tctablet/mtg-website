@@ -1,3 +1,4 @@
+import './motion.css'
 import './style.css'
 import { registerRoute, startRouter } from './router.js'
 import { renderNav } from './components/nav.js'

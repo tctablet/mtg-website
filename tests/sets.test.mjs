@@ -68,7 +68,7 @@ test('filterSets: Sortierung released desc, ohne Datum zuletzt', () => {
   assert.deepEqual(filterSets(sets, { showAll: true }).map(s => s.code), ['neu', 'mitte', 'alt', 'ohne'])
 })
 
-test('groupSetsByYear: Jahre absteigend, INNERHALB des Jahres chronologisch (Jan→Dez)', () => {
+test('groupSetsByYear: Jahre absteigend, INNERHALB des Jahres released desc — neustes Set ganz oben', () => {
   const sorted = filterSets([
     mk({ code: 'a26', released: '2026-03-01' }),
     mk({ code: 'b26', released: '2026-01-01' }),
@@ -77,8 +77,8 @@ test('groupSetsByYear: Jahre absteigend, INNERHALB des Jahres chronologisch (Jan
   ], { showAll: true })
   const groups = groupSetsByYear(sorted)
   assert.deepEqual(groups.map(g => g.year), ['2026', '2024', 'Ohne Datum'])
-  // chronologisch im Jahr: Januar vor März (User-Ansage)
-  assert.deepEqual(groups[0].sets.map(s => s.code), ['b26', 'a26'])
+  // neustes zuerst: März vor Januar (User-Ansage 06.08.2026)
+  assert.deepEqual(groups[0].sets.map(s => s.code), ['a26', 'b26'])
   assert.deepEqual(groupSetsByYear([]), [])
 })
 

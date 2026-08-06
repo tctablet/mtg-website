@@ -952,7 +952,7 @@ async function openArtworkPicker(card, cardEl, allCards) {
           // Nur die ersten Reihen staffeln — sonst warten spaete Optionen sichtbar
           opt.style.setProperty('--stagger', String(Math.min(i, 8)))
         } else {
-          opt.style.animation = 'none'
+          opt.classList.add('no-anim')
         }
         opt.addEventListener('click', async () => {
           if (opt.classList.contains('artwork-picking')) return

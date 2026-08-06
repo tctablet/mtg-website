@@ -52,6 +52,7 @@ export function dismissToast() {
   cleanup()
   el.classList.remove('visible')
   el.classList.add('closing')
-  // Timer statt transitionend: feuert auch bei reduced motion zuverlässig
-  setTimeout(() => el.remove(), 250)
+  // Timer statt transitionend: feuert auch bei reduced motion zuverlässig.
+  // 300 = var(--dur-slow) aus motion.css — Timer muss >= CSS-Dauer bleiben
+  setTimeout(() => el.remove(), 300)
 }
