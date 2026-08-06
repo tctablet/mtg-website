@@ -2,6 +2,7 @@ import { navigate } from '../router.js'
 import { getResterampeDecks, getDeckCards } from '../supabase.js'
 import { formatPrice, formatTotalPrice, getDeckColors, renderLoadError, escapeHtml, applyPrintingPrices } from '../utils.js'
 import { fetchPrintingPricesCached } from '../printing-prices.js'
+import { refade } from '../components/loading.js'
 
 export async function renderResterampe(container) {
   container.innerHTML = '<p class="loading">Lade Resterampe...</p>'
@@ -47,23 +48,38 @@ export async function renderResterampe(container) {
   // Beide Sektionen parallel laden statt Deck fuer Deck nacheinander
   const fill = async (decks, grid, exactPrintings = false) => {
     const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+    // Schlug die Schwester-Sektion fehl, hat renderLoadError den Container
+    // ersetzt — dann nicht mehr in den losgelösten Grid-Knoten rendern
+    if (!grid.isConnected) return
+    const frag = document.createDocumentFragment()
+    const cardEls = decks.map((deck, i) => {
+      const el = createResterampeCard(deck, cardLists[i], i)
+      frag.appendChild(el)
+      return el
+    })
+    grid.appendChild(frag)
+
     // Precons werden mit den EXAKTEN Printing-Preisen bewertet (live von
-    // Scryfall, Session-Cache) — nicht mit dem günstigsten Print irgendeines
-    // Sets (User-Ansage 06.08.2026). Scryfall down → Fallback bleibt stehen.
+    // Scryfall, Session-Cache) — aber ERST NACH dem Render nachgezogen:
+    // die Sektion wartet nicht auf den Scryfall-Roundtrip (User-Feedback
+    // 06.08.2026: „erst nach langem Laden"). Bis dahin steht der günstigste
+    // Namens-Preis, der bei Fehlern auch ehrlich stehen bleibt.
     if (exactPrintings) {
       try {
         const prices = await fetchPrintingPricesCached(
           cardLists.flat().map(c => c.scryfall_id)
         )
-        cardLists.forEach(cards => applyPrintingPrices(cards, prices))
+        if (!grid.isConnected) return
+        decks.forEach((deck, i) => {
+          if (applyPrintingPrices(cardLists[i], prices) === 0) return
+          const valueEl = cardEls[i].querySelector('.resterampe-price-value')
+          if (valueEl) {
+            valueEl.textContent = formatTotalPrice(cardLists[i])
+            refade(valueEl)
+          }
+        })
       } catch { /* günstigste Namens-Preise als ehrlicher Fallback */ }
     }
-    // Schlug die Schwester-Sektion fehl, hat renderLoadError den Container
-    // ersetzt — dann nicht mehr in den losgelösten Grid-Knoten rendern
-    if (!grid.isConnected) return
-    const frag = document.createDocumentFragment()
-    decks.forEach((deck, i) => frag.appendChild(createResterampeCard(deck, cardLists[i], i)))
-    grid.appendChild(frag)
   }
 
   try {
