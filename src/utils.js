@@ -107,6 +107,36 @@ export function formatManaCost(manaCost) {
 
 // --- Preis-Formatierung ---
 
+// Exakte Printing-Preise über Deck-Karten legen (Resterampe-Precons):
+// überschreibt price_eur NUR in-memory und NUR wo die Map einen Preis für
+// das Printing (scryfall_id) kennt — der Rest behält den günstigsten
+// Namens-Preis als ehrlichen Fallback. Pure + node-testbar.
+export function applyPrintingPrices(cards, priceMap) {
+  let applied = 0
+  for (const c of cards || []) {
+    const price = c.scryfall_id ? priceMap?.get?.(c.scryfall_id) : undefined
+    if (price == null) continue
+    // Showcase-Guard (Critic [HIGH]): zeigt eine nie verifizierte scryfall_id
+    // auf eine Sammler-Variante (602-€-Sol-Ring-Klasse), waere der "exakte"
+    // Preis absurd — dann lieber der ehrliche Cheapest-Fallback. Heuristik:
+    // mehr als 10x UND mehr als 15 € ueber dem Fallback = nicht plausibel
+    // fuer ein Precon-Printing. OHNE Vergleichsbasis (price_eur null/0 —
+    // kein Sync-Treffer) gilt ein absoluter Deckel: Precon-Singles ueber
+    // 30 € ohne jeden Namens-Preis sind mit hoher Sicherheit eine falsch
+    // verdrahtete Sammler-Variante (Critic R2: das Guard-Loch waren genau
+    // die Karten ohne Vergleichspreis).
+    const fallback = parseFloat(c.price_eur)
+    if (Number.isFinite(fallback) && fallback > 0) {
+      if (price > fallback * 10 && price - fallback > 15) continue
+    } else if (price > 30) {
+      continue
+    }
+    c.price_eur = price
+    applied++
+  }
+  return applied
+}
+
 export function formatPrice(eur) {
   if (eur == null) return 'N/A'
   return `${parseFloat(eur).toFixed(2)} \u20AC`

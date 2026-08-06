@@ -1,6 +1,7 @@
 import { navigate } from '../router.js'
 import { getResterampeDecks, getDeckCards } from '../supabase.js'
-import { formatPrice, formatTotalPrice, getDeckColors, renderLoadError, escapeHtml } from '../utils.js'
+import { formatPrice, formatTotalPrice, getDeckColors, renderLoadError, escapeHtml, applyPrintingPrices } from '../utils.js'
+import { fetchPrintingPricesCached } from '../printing-prices.js'
 
 export async function renderResterampe(container) {
   container.innerHTML = '<p class="loading">Lade Resterampe...</p>'
@@ -44,8 +45,19 @@ export async function renderResterampe(container) {
   const preconGrid = document.getElementById('grid-precon')
 
   // Beide Sektionen parallel laden statt Deck fuer Deck nacheinander
-  const fill = async (decks, grid) => {
+  const fill = async (decks, grid, exactPrintings = false) => {
     const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
+    // Precons werden mit den EXAKTEN Printing-Preisen bewertet (live von
+    // Scryfall, Session-Cache) — nicht mit dem günstigsten Print irgendeines
+    // Sets (User-Ansage 06.08.2026). Scryfall down → Fallback bleibt stehen.
+    if (exactPrintings) {
+      try {
+        const prices = await fetchPrintingPricesCached(
+          cardLists.flat().map(c => c.scryfall_id)
+        )
+        cardLists.forEach(cards => applyPrintingPrices(cards, prices))
+      } catch { /* günstigste Namens-Preise als ehrlicher Fallback */ }
+    }
     // Schlug die Schwester-Sektion fehl, hat renderLoadError den Container
     // ersetzt — dann nicht mehr in den losgelösten Grid-Knoten rendern
     if (!grid.isConnected) return
@@ -61,7 +73,7 @@ export async function renderResterampe(container) {
         : fill(customDecks, customGrid),
       preconDecks.length === 0
         ? Promise.resolve(document.getElementById('section-precon').remove())
-        : fill(preconDecks, preconGrid),
+        : fill(preconDecks, preconGrid, true),
     ])
   } catch (err) {
     renderLoadError(container, err, () => renderResterampe(container))

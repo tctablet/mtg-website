@@ -1,6 +1,7 @@
 import { getDeck, getDeckCards, updateCardPrices, updateDeck, updateCardProxyImage, insertCardsReturning, fetchCheapestPrices, fetchPrintingsFromDB } from '../supabase.js'
 import { fetchCardCollection, fetchCardByName, getCardArtCrop, getPartnerType, extractTokenRefs, fetchTokenDetails, fetchCardPrintings, fetchPrintingsBulk, autocompleteCard } from '../scryfall.js'
-import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory, renderLoadError, escapeHtml } from '../utils.js'
+import { groupCardsByType, formatPrice, formatTotalPrice, isPriceStale, getTypeCategory, renderLoadError, escapeHtml, applyPrintingPrices } from '../utils.js'
+import { fetchPrintingPricesCached } from '../printing-prices.js'
 import { createCardRow, setEditMode, isEditMode } from '../components/card-row.js'
 import { renderCardGroups, matchCommander, updateGroupHeader, addCardToGroups } from '../components/card-list.js'
 import { buildCardInsertRow, applyLocalDelete, undoSwap } from '../deck-mutations.js'
@@ -48,6 +49,18 @@ export async function renderDeckView(container, params) {
     navigate('/login')
     return
   }
+
+  // Resterampe-Precons rechnen mit den EXAKTEN Printing-Preisen (live von
+  // Scryfall, Session-Cache) — Zeilen, Summen und Banner konsistent, nur
+  // in-memory, die DB behält die günstigsten Namens-Preise (Sync-Quelle)
+  if (deck.for_sale && deck.deck_type === 'precon') {
+    try {
+      const prices = await fetchPrintingPricesCached(cards.map(c => c.scryfall_id))
+      if (isStale()) return
+      applyPrintingPrices(cards, prices)
+    } catch { /* Scryfall down → günstigste Preise als Fallback */ }
+  }
+
   const isOwner = player && player.id === deck.player_id
   const stale = cards.some(c => isPriceStale(c.price_updated_at))
   const totalPrice = formatTotalPrice(cards)

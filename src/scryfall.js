@@ -61,6 +61,31 @@ export async function fetchCardCollection(cardNames) {
   return { found, notFound }
 }
 
+// Live-EUR für EXAKTE Printings (Resterampe-Precons, User-Ansage 06.08.2026):
+// Scryfall-Collection per scryfall_id, 75er-Chunks. Map id -> EUR | null.
+// null = Scryfall kennt keinen EUR/USD-Preis für dieses Printing.
+export async function fetchPrintingPricesByIds(ids) {
+  const unique = [...new Set(ids.filter(Boolean))]
+  const prices = new Map()
+  for (let i = 0; i < unique.length; i += 75) {
+    if (i > 0) await delay(100)
+    const identifiers = unique.slice(i, i + 75).map(id => ({ id }))
+    // fetchWithTimeout statt nacktem fetch (Critic [HIGH]): ein haengender
+    // Request wuerde sonst Deck-View/Resterampe ohne Fehlerpfad einfrieren
+    const res = await fetchWithTimeout(`${API_BASE}/cards/collection`, 15000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiers }),
+    })
+    if (!res.ok) throw new Error(`Scryfall API Fehler: ${res.status}`)
+    const data = await res.json()
+    for (const card of data.data || []) {
+      prices.set(card.id, pickPrice(card.prices).price)
+    }
+  }
+  return prices
+}
+
 export async function autocompleteCard(query) {
   if (!query || query.length < 2) return []
   const res = await fetch(`${API_BASE}/cards/autocomplete?q=${encodeURIComponent(query)}`)
