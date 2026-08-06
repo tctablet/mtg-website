@@ -40,7 +40,13 @@ export async function renderMyDecks(container) {
       // schiebt sich die Liste beim Scrollen Karte fuer Karte auseinander
       const cardLists = await Promise.all(decks.map(d => getDeckCards(d.id)))
       const frag = document.createDocumentFragment()
-      decks.forEach((deck, i) => frag.appendChild(createDeckCard(deck, cardLists[i], true)))
+      decks.forEach((deck, i) => {
+        const el = createDeckCard(deck, cardLists[i], true)
+        // Gestaffelter Einflug wie auf der Resterampe (Motion-Sweep);
+        // Deckelung, damit spaete Karten nicht sichtbar nachhinken
+        el.style.setProperty('--stagger', String(Math.min(i, 8)))
+        frag.appendChild(el)
+      })
       grid.appendChild(frag)
     } catch (err) {
       renderLoadError(container, err, () => renderMyDecks(container))
@@ -81,22 +87,29 @@ export function createDeckCard(deck, cards, showDelete = false) {
       e.stopPropagation()
       if (!confirm(`Deck "${deck.name}" wirklich löschen?`)) return
       delBtn.disabled = true
-      card.style.opacity = '0.5'
+      // Busy-State per Klasse statt Inline-Style — Inline-opacity wuerde
+      // spaeter den .deck-card-leave-Fade ueberstimmen (Critic)
+      card.classList.add('deck-card-busy')
       try {
         await deleteDeck(deck.id)
       } catch (err) {
         delBtn.disabled = false
-        card.style.opacity = ''
+        card.classList.remove('deck-card-busy')
         alert(`Löschen fehlgeschlagen: ${err.message}`)
         return
       }
-      card.remove()
-      // Letztes Deck weg → Leerzustand wiederherstellen (entsteht sonst nur
-      // beim initialen Render)
-      const grid = document.getElementById('deck-grid')
-      if (grid && !grid.querySelector('.deck-card')) {
-        grid.innerHTML = '<p class="empty">Noch keine Decks. Importiere dein erstes!</p>'
-      }
+      // Exit-Fade statt Hartschnitt; 220 = var(--dur-base) (Motion-Sweep)
+      card.classList.remove('deck-card-busy')
+      card.classList.add('deck-card-leave')
+      setTimeout(() => {
+        card.remove()
+        // Letztes Deck weg → Leerzustand wiederherstellen (entsteht sonst nur
+        // beim initialen Render)
+        const grid = document.getElementById('deck-grid')
+        if (grid && !grid.querySelector('.deck-card')) {
+          grid.innerHTML = '<p class="empty">Noch keine Decks. Importiere dein erstes!</p>'
+        }
+      }, 220)
     })
   }
 

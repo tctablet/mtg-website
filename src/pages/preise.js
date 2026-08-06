@@ -20,6 +20,7 @@ import { buildScryfallIndex } from '../components/readonly-card-list.js'
 import { createLatestGuard } from '../components/autocomplete.js'
 import { formatPrice, isPriceStale, escapeHtml, parseSortValue, renderLoadError } from '../utils.js'
 import { loadingHtml, refade } from '../components/loading.js'
+import { attachSwipe } from '../components/swipe.js'
 
 const PAGE_SIZE = 50
 
@@ -385,6 +386,8 @@ function initSetsView(root) {
       frag.appendChild(tile)
     }
     gridEl.replaceChildren(frag)
+    // Sortier-Wechsel + Preis-Nachsortierung faden (Motion-Sweep)
+    refade(gridEl)
 
     const remaining = Math.max(0, state.totalCards - state.cards.length)
     moreWrap.innerHTML = state.nextPage
@@ -424,12 +427,16 @@ function initSetsView(root) {
     if (state.setSort === 'price-desc' || state.setSort === 'price-asc') renderCards()
   }
 
-  // Kartenklick → Lightbox (Bild liegt schon vor)
+  // Kartenklick → Lightbox mit Blätter-Kontext in ANZEIGE-Reihenfolge
+  // (aktuelle Sortierung) — Swipe/Pfeile gehen durchs ganze Set
   detailEl.addEventListener('click', (e) => {
     const tile = e.target.closest('.card-tile')
     if (!tile) return
-    const c = state.cards[Number(tile.dataset.idx)]
-    if (c) openCardLightbox({ name: c.name, image: c.image, price: c.ourPrice, isFoil: c.isFoil })
+    const entries = sortedSetCards()
+    const pos = entries.findIndex(([, idx]) => idx === Number(tile.dataset.idx))
+    if (pos === -1) return
+    const items = entries.map(([c]) => ({ name: c.name, image: c.image, price: c.ourPrice, isFoil: c.isFoil }))
+    openCardLightbox(items[pos], { items, index: pos })
   })
 
   // Sets laden (Index ODER Deep-Link-Detail)
@@ -691,19 +698,20 @@ async function initListeView(root) {
 
   loadMoreBtn.addEventListener('click', () => loadPage(state.page + 1, { append: true }))
 
-  // Kachel-Klick → Lightbox (aufgelöstes CDN-Bild; ungelöst → Lightbox-eigene
-  // Stufen-Auflösung übernimmt)
+  // Kachel-Klick → Lightbox mit Blätter-Kontext über die aktuelle Trefferliste
+  // (ungelöste Bilder holt die Lightbox-eigene Stufen-Auflösung nach)
   gridEl.addEventListener('click', (e) => {
     const tile = e.target.closest('.price-card-tile')
     if (!tile) return
-    const row = state.rows[Number(tile.dataset.idx)]
-    if (!row) return
-    openCardLightbox({
-      name: row.name,
-      image: cachedCardImage(row.name) || null,
-      price: row.cheapest_eur,
-      isFoil: !!row.is_foil,
-    })
+    const idx = Number(tile.dataset.idx)
+    if (!state.rows[idx]) return
+    const items = state.rows.map(r => ({
+      name: r.name,
+      image: cachedCardImage(r.name) || null,
+      price: r.cheapest_eur,
+      isFoil: !!r.is_foil,
+    }))
+    openCardLightbox(items[idx], { items, index: idx })
   })
 
   syncControls()
@@ -716,28 +724,36 @@ async function initListeView(root) {
 // ---------------------------------------------------------------------------
 // Karten-Lightbox: NUR großes Bild + Preis (User-Ansage — keine Printings-
 // Liste, kein Cache-Hinweis). Content-hugging auf Mobile statt Vollbild-Sheet.
+// Mit nav = { items, index } blättert die Lightbox durch die aktuelle Liste
+// (Anzeige-Reihenfolge!) — per ‹ ›-Buttons, Pfeiltasten und Touch-Swipe
+// (Big-Picture-Swipe, User-Ansage 06.08.2026).
 // ---------------------------------------------------------------------------
 
 let closeActiveLightbox = null
 
-export function openCardLightbox({ name, image, price, isFoil }) {
+export function openCardLightbox(card, nav = null) {
   if (closeActiveLightbox) closeActiveLightbox()
   document.getElementById('card-lightbox')?.remove()
+
+  const items = nav?.items?.length ? nav.items : [card]
+  let index = nav?.items?.length
+    ? Math.min(Math.max(nav.index ?? 0, 0), items.length - 1)
+    : 0
 
   const overlay = document.createElement('div')
   overlay.id = 'card-lightbox'
   overlay.className = 'card-lightbox-overlay'
   overlay.innerHTML = `
-    <div class="card-lightbox" role="dialog" aria-modal="true" aria-label="${escapeHtml(name)}" tabindex="-1">
+    <div class="card-lightbox" role="dialog" aria-modal="true" aria-label="${escapeHtml(card.name)}" tabindex="-1">
       <button class="card-lightbox-close" aria-label="Schließen">&times;</button>
-      <div class="card-lightbox-frame">
-        ${image
-          ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" />`
-          : '<p class="loading">Lade Bild...</p>'}
-      </div>
+      <div class="card-lightbox-frame"></div>
       <div class="card-lightbox-caption">
-        <span class="card-lightbox-name">${escapeHtml(name)}</span>
-        <span class="card-lightbox-price">${isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(price)}</span>
+        <span class="card-lightbox-name"></span>
+        <span class="card-lightbox-price"></span>
+      </div>
+      <div class="card-lightbox-nav" ${items.length < 2 ? 'hidden' : ''}>
+        <button class="mobile-nav-btn" data-dir="-1" aria-label="Vorherige Karte">&#8249;</button>
+        <button class="mobile-nav-btn" data-dir="1" aria-label="Nächste Karte">&#8250;</button>
       </div>
     </div>
   `
@@ -745,9 +761,19 @@ export function openCardLightbox({ name, image, price, isFoil }) {
   document.body.classList.add('modal-open')
   requestAnimationFrame(() => overlay.classList.add('visible'))
 
+  const dialog = overlay.querySelector('.card-lightbox')
+  const frameEl = overlay.querySelector('.card-lightbox-frame')
+  const nameEl = overlay.querySelector('.card-lightbox-name')
+  const priceEl = overlay.querySelector('.card-lightbox-price')
+  const navBtns = [...overlay.querySelectorAll('.card-lightbox-nav .mobile-nav-btn')]
+
   let closing = false
   function onRouteChange() { close() }
-  function onKeyDown(e) { if (e.key === 'Escape') close() }
+  function onKeyDown(e) {
+    if (e.key === 'Escape') close()
+    else if (e.key === 'ArrowLeft') step(-1)
+    else if (e.key === 'ArrowRight') step(1)
+  }
   function close() {
     if (closing) return
     closing = true
@@ -765,41 +791,77 @@ export function openCardLightbox({ name, image, price, isFoil }) {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
   window.addEventListener('route-change', onRouteChange)
   document.addEventListener('keydown', onKeyDown)
-  overlay.querySelector('.card-lightbox').focus()
+  navBtns.forEach(b => b.addEventListener('click', () => step(Number(b.dataset.dir))))
+  // Big-Picture-Swipe: wischen blättert wie die Pfeile
+  attachSwipe(overlay, step)
+  dialog.focus()
 
   // Tote Bild-URL → Text-Fallback; Listener statt Inline-String (Critic R8:
   // der Inline-onerror hier war durch Quote-Escaping totes JS)
-  const frameEl = overlay.querySelector('.card-lightbox-frame')
   const bindLightboxImgFallback = () => {
     frameEl.querySelector('img')?.addEventListener('error', () => {
       frameEl.innerHTML = '<p class="card-lightbox-noimg">Kein Bild verfügbar</p>'
     })
   }
-  bindLightboxImgFallback()
+
+  // Blättern während einer laufenden Bild-Auflösung: nur der jüngste Stand
+  // darf den Frame patchen (latest-wins, etabliertes Muster)
+  let resolveToken = 0
+
+  // dir: 0 = Erst-Render (Fade), ±1 = Richtungs-Einflug
+  function show(i, dir) {
+    index = i
+    const item = items[index]
+    dialog.setAttribute('aria-label', item.name)
+    nameEl.textContent = item.name
+    priceEl.innerHTML = `${item.isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(item.price)}`
+    navBtns.forEach(b => {
+      const target = index + Number(b.dataset.dir)
+      b.disabled = target < 0 || target >= items.length
+    })
+
+    const stepClass = dir ? (dir > 0 ? 'card-step-next' : 'card-step-prev') : ''
+    if (item.image) {
+      resolveToken++ // laufende Auflösung einer anderen Karte invalidieren
+      frameEl.innerHTML = `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}"${stepClass ? ` class="${stepClass}"` : ''} />`
+      bindLightboxImgFallback()
+    } else {
+      frameEl.innerHTML = '<p class="loading">Lade Bild...</p>'
+      resolveImage(item, ++resolveToken, stepClass)
+    }
+  }
+
+  function step(dir) {
+    const target = index + dir
+    if (target < 0 || target >= items.length) return
+    show(target, dir)
+  }
 
   // Bild fehlt (Listen-View) → gestaffelt auflösen: card_printings-Cache →
   // Scryfall exakt → DFC-Front-Face (deckt auch die alten "A // A"-Geister-
   // Rows ab, bis der gefixte Preis-Sync sie weggeräumt hat)
-  if (!image) {
-    ;(async () => {
-      const frame = overlay.querySelector('.card-lightbox-frame')
-      let resolved = null
+  async function resolveImage(item, token, stepClass) {
+    let resolved = null
+    try {
+      const map = await fetchPrintingsFromDB([item.name])
+      resolved = map?.get(item.name.toLowerCase())?.[0]?.image_normal || null
+    } catch { /* Cache optional */ }
+    if (!resolved) {
       try {
-        const map = await fetchPrintingsFromDB([name])
-        resolved = map?.get(name.toLowerCase())?.[0]?.image_normal || null
-      } catch { /* Cache optional */ }
-      if (!resolved) {
-        try {
-          let card = await fetchCardByName(name)
-          if (!card && name.includes(' // ')) card = await fetchCardByName(name.split(' // ')[0])
-          resolved = card ? getCardNormalImage(card) : null
-        } catch { /* Scryfall optional */ }
-      }
-      if (!overlay.isConnected) return
-      frame.innerHTML = resolved
-        ? `<img src="${escapeHtml(resolved)}" alt="${escapeHtml(name)}" />`
-        : '<p class="card-lightbox-noimg">Kein Bild verfügbar</p>'
-      bindLightboxImgFallback()
-    })()
+        let sc = await fetchCardByName(item.name)
+        if (!sc && item.name.includes(' // ')) sc = await fetchCardByName(item.name.split(' // ')[0])
+        resolved = sc ? getCardNormalImage(sc) : null
+      } catch { /* Scryfall optional */ }
+    }
+    // Am Item cachen BEVOR der Token-Guard greift — auch eine überblätterte
+    // Auflösung bleibt nutzbar, Zurückblättern wiederholt den Request nicht
+    if (resolved) item.image = resolved
+    if (!overlay.isConnected || token !== resolveToken) return
+    frameEl.innerHTML = resolved
+      ? `<img src="${escapeHtml(resolved)}" alt="${escapeHtml(item.name)}"${stepClass ? ` class="${stepClass}"` : ''} />`
+      : '<p class="card-lightbox-noimg">Kein Bild verfügbar</p>'
+    bindLightboxImgFallback()
   }
+
+  show(index, 0)
 }

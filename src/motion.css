@@ -68,6 +68,32 @@
   animation: anim-pulse var(--dur-pulse) var(--ease-in-out) infinite;
 }
 
+/* Generische Einblendung fuer den Motion-Sweep: CSS-Animationen feuern
+ * sowohl beim NEU-Einfuegen als auch beim hidden→sichtbar-Toggle (Element
+ * betritt den Render-Tree neu) — damit deckt EINE Regel beide Faelle ab.
+ * Anwendung: style.css gruppiert die dynamischen Klassen auf anim-in. */
+@keyframes anim-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+/* Richtungs-Einflug fuers Blaettern/Swipen in Karten-Overlays:
+ * -next = Inhalt kommt von rechts (vorwaerts), -prev = von links */
+@keyframes anim-step-next {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes anim-step-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
 /* Einmal-Animation gezielt abschalten (z.B. Rerender ohne Re-Einflug) —
  * statt el.style.animation='none' (ESLint blockt Inline-Motion in JS) */
 .no-anim {

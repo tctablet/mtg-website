@@ -161,8 +161,10 @@ function showDeleteConfirm(tr, card, onChanged) {
   tr.querySelector('.btn-confirm-delete').addEventListener('click', async (e) => {
     e.stopPropagation()
     clearTimeout(timer)
-    const confirmBtn = tr.querySelector('.btn-confirm-delete')
-    confirmBtn.disabled = true
+    // BEIDE Buttons sperren: ein Abbrechen waehrend des laufenden Deletes
+    // wuerde die Zeile restaurieren, obwohl die DB-Row gleich weg ist
+    // (Critic R2 — Datenmodell und Anzeige liefen auseinander)
+    tr.querySelectorAll('button').forEach(b => { b.disabled = true })
     try {
       await deleteCard(card.id)
     } catch {
@@ -172,8 +174,15 @@ function showDeleteConfirm(tr, card, onChanged) {
     }
     // Section VOR dem Entfernen greifen — danach ist tr.closest() tot
     const section = tr.closest('.card-group')
-    tr.remove()
+    // Datenmodell + Header SOFORT mutieren, nur das DOM-Entfernen wartet auf
+    // den Exit-Fade — sonst baut ein Sort-/Edit-Rerender im 220ms-Fenster die
+    // Karte wieder ein (Critic [HIGH]: Zombie-Zeile). tr._card = null nimmt
+    // die Zeile sofort aus der updateGroupHeader-Zaehlung.
+    tr._card = null
+    tr.classList.add('card-row-leave')
     if (onChanged) onChanged(card, section, { removed: true })
+    // 220 = var(--dur-base) (Motion-Sweep)
+    setTimeout(() => tr.remove(), 220)
   })
 }
 

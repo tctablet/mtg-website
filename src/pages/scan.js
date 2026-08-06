@@ -642,7 +642,10 @@ export async function renderScan(container) {
   function refreshOverviewGrid() {
     if (state.screen !== 'overview') return
     const grid = resultEl.querySelector('#scan-deck-grid')
-    if (grid) grid.innerHTML = overviewGridHtml()
+    if (!grid) return
+    grid.innerHTML = overviewGridHtml()
+    // Jeder State-Patch (Preise da, Average da, Retry) faded statt zu blinken
+    refade(grid)
   }
 
   function overviewGridHtml() {
@@ -909,6 +912,8 @@ export async function renderScan(container) {
     let enriched = null
     const rerenderList = () => {
       renderReadonlyCardGroups(listEl, enriched, { commanders, sortMode, hoverSidebar: true })
+      // Sortier-Wechsel + Collection-Eintreffen faden (Motion-Sweep)
+      refade(listEl)
     }
     resultEl.querySelector('#scan-sort-select').addEventListener('change', (e) => {
       sortMode = e.target.value

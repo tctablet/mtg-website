@@ -1,5 +1,6 @@
 import { getPlayer, logout } from '../auth.js'
 import { navigate, routeHref } from '../router.js'
+import { refade } from './loading.js'
 
 export function renderNav() {
   const nav = document.getElementById('nav')
@@ -44,6 +45,9 @@ export function renderNav() {
   document.getElementById('logout-btn').addEventListener('click', () => {
     logout()
     renderNav()
+    // Nav haengt ausserhalb von #content — der Router-Fade deckt sie beim
+    // Logout-Rerender nicht ab, deshalb eigener Fade (Motion-Sweep)
+    refade(nav)
     navigate('/resterampe')
   })
 }

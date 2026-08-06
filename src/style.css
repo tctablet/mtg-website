@@ -106,7 +106,7 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--dur-base) var(--ease);
+  transition: background var(--dur-base) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -239,8 +239,21 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  transition: border-color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+  transition: border-color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease), opacity var(--dur-base) var(--ease);
   position: relative;
+  /* Entrance mit Stagger (--stagger setzt my-decks.js) — wie Resterampe.
+     fill backwards, NIE both: fill-both wuerde nach Animationsende dauerhaft
+     Hover-transform und Exit-opacity ueberstimmen (Critic, empirisch) */
+  animation: proxy-card-in var(--dur-slow) var(--ease-out) calc(var(--stagger, 0) * 30ms) backwards;
+}
+.deck-card-busy { opacity: 0.5; }
+/* :hover mitselektieren — sonst gewinnt .deck-card:hover (0,2,0) das transform
+   und die Karte fadet „angehoben" statt schrumpfend aus (Critic R2) */
+.deck-card.deck-card-leave,
+.deck-card.deck-card-leave:hover {
+  opacity: 0;
+  transform: scale(0.97);
+  animation: none;
 }
 @media (hover: hover) {
   .deck-card:hover {
@@ -405,14 +418,8 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 12px;
 }
 
-.partner-section {
-  animation: fadeIn var(--dur-base) var(--ease);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* .partner-section/fadeIn waren tote CSS (Motion-Audit) — die Einblendung
+   des Partner-Pickers laeuft jetzt ueber die anim-in-Sammelregel unten */
 
 /* Doppeltipp-Zoom deaktivieren (touch-action erbt nicht — daher universal).
    Pan/Scroll bleiben erlaubt; iOS lässt Pinch aus Accessibility-Gründen
@@ -601,9 +608,19 @@ a { color: var(--accent); text-decoration: none; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
+.card-row {
+  transition: background var(--dur-fast) var(--ease), opacity var(--dur-base) var(--ease);
+}
 .card-row:hover {
   background: var(--bg-card);
 }
+/* Entrance fuer einzeln eingefuegte Zeilen (Add/Swap/Undo) + Exit beim Delete.
+   fill backwards (nie both!): eine BEENDETE fill-both-Animation gewinnt in der
+   Kaskade sonst dauerhaft gegen spaetere opacity-Regeln (Critic, empirisch —
+   gleiches dokumentiertes Muster wie bei .artwork-picking). Der Exit setzt
+   zusaetzlich animation:none, falls die Entrance noch laeuft. */
+.card-row-enter { animation: row-fade-in var(--dur-slow) var(--ease) backwards; }
+.card-row-leave { opacity: 0; animation: none; }
 
 .card-qty { width: 30px; color: var(--text-dim); }
 .card-name { color: var(--text-bright); cursor: default; }
@@ -1781,6 +1798,7 @@ body.modal-open { overflow: hidden; }
   border-radius: var(--radius);
   color: var(--text-bright);
   outline: none;
+  transition: border-color var(--dur-fast) var(--ease);
 }
 .code-input:focus { border-color: var(--accent); }
 
@@ -1932,8 +1950,19 @@ body.modal-open { overflow: hidden; }
   to { opacity: 1; transform: none; }
 }
 
-.mobile-card-content img.card-swap {
-  animation: card-swap-in var(--dur-base) var(--ease) both;
+/* fill backwards statt both — Systemregel gegen die Fill-Kaskaden-Falle */
+.mobile-card-content img.card-swap,
+#deck-card-preview img.card-swap {
+  animation: card-swap-in var(--dur-base) var(--ease) backwards;
+}
+/* Richtungs-Einflug beim Blaettern/Swipen (Overlay + Preise-Lightbox) */
+.mobile-card-content img.card-step-next,
+.card-lightbox-frame img.card-step-next {
+  animation: anim-step-next var(--dur-base) var(--ease-out) backwards;
+}
+.mobile-card-content img.card-step-prev,
+.card-lightbox-frame img.card-step-prev {
+  animation: anim-step-prev var(--dur-base) var(--ease-out) backwards;
 }
 
 /* ===== Flip Button (DFC) ===== */
@@ -2377,7 +2406,10 @@ body.modal-open { overflow: hidden; }
 /* Gleiche Entrance wie .proxy-card — die Karten kommen seit dem parallelen
    Laden in einem Rutsch und faecheln kurz auf */
 .resterampe-card {
-  animation: proxy-card-in var(--dur-slow) var(--ease-out) calc(var(--stagger, 0) * 40ms) both;
+  /* fill backwards, NIE both — die spätere Regel gewinnt die Kaskade gegen
+     .deck-card und würde mit both dauerhaft den Hover-Lift überstimmen
+     (Critic R2, deterministisch) */
+  animation: proxy-card-in var(--dur-slow) var(--ease-out) calc(var(--stagger, 0) * 40ms) backwards;
 }
 .resterampe-card {
   display: flex;
@@ -3494,6 +3526,7 @@ body.modal-open { overflow: hidden; }
   min-height: 32px;
   border-radius: calc(var(--radius) - 3px);
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
 .view-toggle-btn.view-toggle-active {
   background: var(--accent);
@@ -3719,9 +3752,20 @@ body.modal-open { overflow: hidden; }
   object-fit: contain;
   border-radius: 4.75% / 3.5%;
   display: block;
+  /* nachträglich aufgelöstes Bild („Lade Bild…" → Karte) faded ein */
+  animation: card-img-in var(--dur-base) var(--ease);
 }
 .card-lightbox-frame .loading { text-align: center; padding: 40px 0; }
 .card-lightbox-noimg { color: var(--text-dim); text-align: center; padding: 40px 0; }
+/* Blaettern-Leiste in der Lightbox (nutzt die mobilen Nav-Buttons) */
+.card-lightbox-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 10px;
+}
+.card-lightbox-nav[hidden] { display: none; }
 .card-lightbox-caption {
   display: flex;
   align-items: baseline;
@@ -3787,6 +3831,7 @@ body.modal-open { overflow: hidden; }
   min-height: 32px;
   border-radius: calc(var(--radius) - 3px);
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 .scan-period-btn.scan-period-active { background: var(--accent); color: #fff; }
 .scan-period-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -3803,6 +3848,7 @@ body.modal-open { overflow: hidden; }
   border-radius: 50%;
   cursor: pointer;
   font-size: 20px;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
   opacity: 0.45;
 }
 .scan-color-btn.scan-color-active {
@@ -4052,3 +4098,69 @@ body.modal-open { overflow: hidden; }
   text-align: center;
 }
 .mobile-card-content .overlay-noimg[hidden] { display: none; }
+
+/* ===== Motion-Sweep: Einblend-Kontrakt (Audit 06.08.2026) =====
+   Alles, was dynamisch ERSCHEINT — per hidden-Toggle ODER frischem Einfügen —
+   faded über anim-in (motion.css) ein. CSS-Animationen feuern in beiden
+   Fällen neu, deshalb reicht diese eine Sammelregel ohne JS-Änderungen.
+   Neue dynamische UI: Klasse hier ergänzen oder .anim-enter nutzen. */
+.autocomplete-list,
+.swap-budget,
+.swap-error,
+.swap-proxy-warning,
+.import-status,
+#import-errors,
+#commander-picker,
+#partner-picker,
+.cmdr-selection,
+.cmdr-empty,
+.error,
+.empty,
+.load-error,
+.scan-error-box,
+.scan-search-status,
+.scan-back,
+#scan-landing,
+#scan-partner-wrap,
+#preise-sets-view,
+#preise-liste-view,
+#sets-index,
+#set-detail,
+.sets-controls,
+.add-card-bar,
+.add-card-status,
+.meta-editor,
+.token-gallery,
+.artwork-picker-error,
+.artwork-set-select,
+.proxy-custom-badge,
+.price-load-more,
+.scan-deck-status,
+.price-pagination,
+.wizard-refresh-note,
+.mobile-card-nav {
+  animation: anim-in var(--dur-base) var(--ease-out);
+}
+/* [hidden] muss trotz Animations-Regel unsichtbar bleiben */
+.autocomplete-list[hidden],
+.swap-budget[hidden],
+.import-status[hidden],
+#import-errors[hidden],
+#commander-picker[hidden],
+#partner-picker[hidden],
+.cmdr-selection[hidden],
+.error[hidden],
+.scan-search-status[hidden],
+.scan-back[hidden],
+#scan-landing[hidden],
+#scan-partner-wrap[hidden],
+#preise-sets-view[hidden],
+#preise-liste-view[hidden],
+#sets-index[hidden],
+#set-detail[hidden],
+.sets-controls[hidden],
+.add-card-bar[hidden],
+.artwork-set-select[hidden],
+.price-load-more[hidden] {
+  display: none;
+}

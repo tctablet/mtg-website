@@ -147,6 +147,8 @@ export function addCardToGroups(card, { sortMode, onChanged }) {
   }
 
   const tr = createCardRow(card, onChanged)
+  // Einzeln eingefuegte Zeilen (Add/Swap/Undo) faden ein (Motion-Sweep)
+  tr.classList.add('card-row-enter')
   const tbody = section.querySelector('tbody')
   tbody.insertBefore(tr, insertBeforeRow)
   updateGroupHeader(section)

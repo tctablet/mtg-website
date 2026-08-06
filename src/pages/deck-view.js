@@ -9,6 +9,7 @@ import { showToast } from '../components/toast.js'
 import { attachCardAutocomplete } from '../components/autocomplete.js'
 import { setDefaultPreview } from '../components/card-preview.js'
 import { renderDeckStats } from '../components/deck-stats.js'
+import { refade } from '../components/loading.js'
 import { getPlayer } from '../auth.js'
 import { navigate, refreshRoute, routeHref } from '../router.js'
 
@@ -162,13 +163,17 @@ export async function renderDeckView(container, params) {
   }
 
   let currentSort = 'type'
-  const rerender = () => renderCardGroups({
-    cards,
-    commander: deck.commander,
-    commander2: deck.commander2,
-    sortMode: currentSort,
-    onChanged: onCardChanged,
-  })
+  const rerender = () => {
+    renderCardGroups({
+      cards,
+      commander: deck.commander,
+      commander2: deck.commander2,
+      sortMode: currentSort,
+      onChanged: onCardChanged,
+    })
+    // Sortier-/Edit-Modus-Rerender faded statt zu blinken (Motion-Sweep)
+    refade(document.getElementById('card-groups'))
+  }
   rerender()
 
   // In-Place-Update nach einem Swap: gleiche Typ-Gruppe → Zeile ersetzen

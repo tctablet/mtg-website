@@ -1,5 +1,6 @@
 import { getAllDecksWithPlayers, getDeckCards, getAllPlayers } from '../supabase.js'
 import { formatPrice, renderLoadError } from '../utils.js'
+import { refade } from '../components/loading.js'
 import { navigate, routeHref } from '../router.js'
 import { getPlayer } from '../auth.js'
 
@@ -71,4 +72,6 @@ export async function renderOverview(container) {
       `).join('')}
     </div>
   `
+  // Daten kommen NACH dem Router-Fade — der Content-Swap faded selbst
+  refade(container)
 }

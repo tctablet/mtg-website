@@ -1,4 +1,13 @@
 import { fetchCardBackImage } from '../scryfall.js'
+import { attachSwipe } from './swipe.js'
+
+// Karten-Wechsel-Animation auf einem BESTEHENDEN <img> neu anstossen —
+// src-Wechsel allein re-triggert CSS-Animationen nicht (Motion-Sweep)
+function retriggerCardAnim(img, cls = 'card-swap') {
+  img.classList.remove('card-swap', 'card-step-next', 'card-step-prev')
+  void img.offsetWidth
+  img.classList.add(cls)
+}
 
 let defaultImage = null
 let currentDfc = null // { frontUri, scryfallId, showingBack }
@@ -90,12 +99,12 @@ function showFlipButton(previewEl) {
     btn.addEventListener('click', handleFlip)
     previewEl.appendChild(btn)
   }
-  btn.style.display = ''
+  btn.hidden = false
 }
 
 function hideFlipButton() {
   const btn = document.querySelector('#deck-card-preview .flip-btn')
-  if (btn) btn.style.display = 'none'
+  if (btn) btn.hidden = true
 }
 
 async function handleFlip() {
@@ -108,11 +117,13 @@ async function handleFlip() {
   if (currentDfc.showingBack) {
     img.src = currentDfc.frontUri
     currentDfc.showingBack = false
+    retriggerCardAnim(img)
   } else {
     const backUri = await fetchCardBackImage(currentDfc.scryfallId)
     if (backUri) {
       img.src = backUri
       currentDfc.showingBack = true
+      retriggerCardAnim(img)
     }
   }
 }
@@ -185,7 +196,8 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     noimgEl.hidden = true
   })
 
-  function render(data, animate) {
+  // dir: 0 = kein Uebergang (Erst-Render), 1 = vorwaerts, -1 = rueckwaerts
+  function render(data, dir) {
     current = data
     showingBack = false
     img.src = data.imageUri
@@ -204,11 +216,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     // Blaettern nur zeigen, wenn es ueberhaupt Nachbarn gibt
     overlay.querySelector('.mobile-card-nav').hidden = rows.length < 2 || i < 0
 
-    if (animate) {
-      img.classList.remove('card-swap')
-      void img.offsetWidth
-      img.classList.add('card-swap')
-    }
+    if (dir) retriggerCardAnim(img, dir > 0 ? 'card-step-next' : 'card-step-prev')
   }
 
   function step(dir) {
@@ -216,8 +224,11 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     const i = rows.indexOf(current.row)
     const next = rows[i + dir]
     if (!next?._cardPreview) return
-    render({ ...next._cardPreview, row: next }, true)
+    render({ ...next._cardPreview, row: next }, dir)
   }
+
+  // Big-Picture-Swipe (User-Ansage): wischen blaettert wie die Pfeile
+  attachSwipe(overlay, step)
 
   overlay.addEventListener('click', (e) => {
     if (e.target.closest('.flip-btn') || e.target.closest('.mobile-card-nav')) return
@@ -231,6 +242,7 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     if (showingBack) {
       img.src = current.imageUri
       showingBack = false
+      retriggerCardAnim(img)
       return
     }
     const backUri = await fetchCardBackImage(current.dfcInfo.scryfallId)
@@ -238,10 +250,11 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     if (backUri && current.dfcInfo?.scryfallId) {
       img.src = backUri
       showingBack = true
+      retriggerCardAnim(img)
     }
   })
 
-  render(current, false)
+  render(current, 0)
   document.body.appendChild(overlay)
   overlay.offsetHeight
   overlay.classList.add('visible')

@@ -10,6 +10,7 @@
 // Screen mit Fortschrittszeile + sticky Budget-Bar sobald Picks existieren.
 
 import { escapeHtml, formatPrice } from '../utils.js'
+import { refade } from '../components/loading.js'
 import { fetchCheapestPrices } from '../supabase.js'
 import { budgetGate, BUDGET_LIMIT_EUR } from '../../scripts/optimizer/lib/budget.mjs'
 import { preflightSwapRules } from '../../scripts/optimizer/lib/preflight.mjs'
@@ -256,6 +257,8 @@ export async function renderWizard({ container, deck, cards, onDeckChanged }) {
       </div>
     `
     wire()
+    // Jede Wizard-Interaktion baut den Container neu — fade statt Blinken
+    refade(container)
   }
 
   const wire = () => {
