@@ -66,6 +66,23 @@ const skeletonTiles = (n) => Array.from({ length: n }, () =>
   '<div class="card-tile"><span class="card-tile-frame card-tile-frame-loading"></span></div>'
 ).join('')
 
+// Tote Bild-URL → Namens-Kachel. Als echter Listener statt Inline-onerror-
+// String (Critic R8: ein Quote-Escaping-Fehler im Inline-Handler der Lightbox
+// warf live einen SyntaxError — Strings sind fragil, Listener nicht).
+function attachTileFallback(imgEl, name) {
+  imgEl?.addEventListener('error', function () {
+    const frame = this.closest('.card-tile-frame')
+    this.remove()
+    if (frame && !frame.querySelector('.card-tile-noimg')) {
+      frame.classList.remove('card-tile-frame-loading')
+      const span = document.createElement('span')
+      span.className = 'card-tile-noimg'
+      span.textContent = name
+      frame.appendChild(span)
+    }
+  })
+}
+
 export async function renderPreise(container) {
   const params = new URLSearchParams(location.search)
   // Back-Compat (Critic): geteilte Such-Links (?q=…) implizieren die Liste
@@ -364,6 +381,7 @@ function initSetsView(root) {
           ? `${c.isFoil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(c.ourPrice)}`
           : (c.priceResolved ? '<span class="card-tile-noprice">–</span>' : '…')}</span>
       `
+      attachTileFallback(tile.querySelector('img'), c.name)
       frag.appendChild(tile)
     }
     gridEl.replaceChildren(frag)
@@ -553,6 +571,9 @@ async function initListeView(root) {
           <span class="card-tile-price">${r.is_foil ? '<span class="foil-badge" role="img" aria-label="Nur als Foil verfügbar" title="Nur als Foil verfügbar">✦</span>' : ''}${formatPrice(r.cheapest_eur)}</span>
         </button>
       `}).join('')
+      gridEl.querySelectorAll('.price-card-tile').forEach(t => {
+        attachTileFallback(t.querySelector('img'), state.rows[Number(t.dataset.idx)]?.name || '')
+      })
       refade(gridEl)
       hydrateImages()
     }
@@ -594,6 +615,7 @@ async function initListeView(root) {
       frame.innerHTML = img
         ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(r.name)}" loading="lazy" decoding="async" />`
         : `<span class="card-tile-noimg">${escapeHtml(r.name)}</span>`
+      attachTileFallback(frame.querySelector('img'), r.name)
     })
   }
 
@@ -710,8 +732,7 @@ export function openCardLightbox({ name, image, price, isFoil }) {
       <button class="card-lightbox-close" aria-label="Schließen">&times;</button>
       <div class="card-lightbox-frame">
         ${image
-          ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}"
-              onerror="this.closest('.card-lightbox-frame').innerHTML='<p class=\'card-lightbox-noimg\'>Kein Bild verfügbar</p>'" />`
+          ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" />`
           : '<p class="loading">Lade Bild...</p>'}
       </div>
       <div class="card-lightbox-caption">
@@ -745,6 +766,16 @@ export function openCardLightbox({ name, image, price, isFoil }) {
   document.addEventListener('keydown', onKeyDown)
   overlay.querySelector('.card-lightbox').focus()
 
+  // Tote Bild-URL → Text-Fallback; Listener statt Inline-String (Critic R8:
+  // der Inline-onerror hier war durch Quote-Escaping totes JS)
+  const frameEl = overlay.querySelector('.card-lightbox-frame')
+  const bindLightboxImgFallback = () => {
+    frameEl.querySelector('img')?.addEventListener('error', () => {
+      frameEl.innerHTML = '<p class="card-lightbox-noimg">Kein Bild verfügbar</p>'
+    })
+  }
+  bindLightboxImgFallback()
+
   // Bild fehlt (Listen-View) → gestaffelt auflösen: card_printings-Cache →
   // Scryfall exakt → DFC-Front-Face (deckt auch die alten "A // A"-Geister-
   // Rows ab, bis der gefixte Preis-Sync sie weggeräumt hat)
@@ -767,6 +798,7 @@ export function openCardLightbox({ name, image, price, isFoil }) {
       frame.innerHTML = resolved
         ? `<img src="${escapeHtml(resolved)}" alt="${escapeHtml(name)}" />`
         : '<p class="card-lightbox-noimg">Kein Bild verfügbar</p>'
+      bindLightboxImgFallback()
     })()
   }
 }
