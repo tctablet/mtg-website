@@ -757,7 +757,9 @@ function renderProxyArtworks(cards, isOwner) {
       div.dataset.cardName = c.name
       div.innerHTML = `
         <div class="proxy-card-img-wrap">
-          <img src="${imgSrc || ''}" alt="${c.name}" loading="lazy" />
+          ${imgSrc
+            ? `<img src="${imgSrc}" alt="${c.name}" loading="lazy" />`
+            : `<span class="card-tile-noimg">${c.name}</span>`}
           ${c.proxy_image_uri ? '<span class="proxy-custom-badge">Custom</span>' : ''}
         </div>
         <div class="proxy-card-info">

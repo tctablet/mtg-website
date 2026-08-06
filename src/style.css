@@ -2955,7 +2955,7 @@ body.modal-open { overflow: hidden; }
   height: 100%;
   object-fit: cover;
   display: block;
-  animation: card-img-in var(--dur-slow) var(--ease);
+  /* Einblenden uebernimmt der zentrale Bild-Lade-Vertrag (motion-img.js) */
 }
 .swap-card-frame-empty {
   background: transparent;
@@ -3691,15 +3691,11 @@ body.modal-open { overflow: hidden; }
 .set-load-more { width: 100%; margin-top: 14px; min-height: 44px; }
 #set-more-wrap { margin-bottom: 24px; }
 
-/* Bild lädt → sanft einblenden statt aufpoppen; das Frame hält per
-   aspect-ratio ohnehin die Höhe (kein Layout-Shift) */
-.card-tile-frame img, .cmdr-frame img {
-  animation: card-img-in var(--dur-slow) var(--ease);
-}
-@keyframes card-img-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+/* Bild-Einblendung laeuft zentral ueber den Bild-Lade-Vertrag
+   (motion-img.js + img-fade in motion.css): faded NUR wenn wirklich geladen
+   wird, Cache-Hits erscheinen instant — die alte pauschale card-img-in-
+   Animation hier kollidierte damit (Critic, empirisch: Cache-Hits fadeten
+   trotzdem) und ist entfernt. */
 
 /* Alle-Karten-Grid: noimg-Fallback nur zeigen, wenn das img (onerror) weg ist */
 .card-tile-frame img ~ .card-tile-noimg { display: none; }
@@ -3752,8 +3748,7 @@ body.modal-open { overflow: hidden; }
   object-fit: contain;
   border-radius: 4.75% / 3.5%;
   display: block;
-  /* nachträglich aufgelöstes Bild („Lade Bild…" → Karte) faded ein */
-  animation: card-img-in var(--dur-base) var(--ease);
+  /* Einblenden uebernimmt der zentrale Bild-Lade-Vertrag (motion-img.js) */
 }
 .card-lightbox-frame .loading { text-align: center; padding: 40px 0; }
 .card-lightbox-noimg { color: var(--text-dim); text-align: center; padding: 40px 0; }
@@ -4078,7 +4073,7 @@ body.modal-open { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .load-bar-fill { animation-duration: calc(var(--dur-pulse) * 2); }
-  .fade-in, .card-tile-frame img, .cmdr-frame img { animation: none; }
+  .fade-in { animation: none; }
   .cmdr-frame-pair img { transition: none; }
 }
 
@@ -4141,6 +4136,30 @@ body.modal-open { overflow: hidden; }
 .mobile-card-nav {
   animation: anim-in var(--dur-base) var(--ease-out);
 }
+/* Rahmen pulsen, solange ihr Bild noch laedt (Bild-Lade-Vertrag,
+   motion-img.js) — gleiche Optik wie die Skeleton-Frames. NICHT auf
+   .mobile-card-content (enthaelt die Nav-Buttons, die sollen nicht pulsen). */
+.cmdr-frame:has(> img.img-fade:not(.img-ready)),
+.card-tile-frame:has(> img.img-fade:not(.img-ready)),
+.swap-card-frame:has(> img.img-fade:not(.img-ready)),
+.card-lightbox-frame:has(> img.img-fade:not(.img-ready)),
+.proxy-card-img-wrap:has(> img.img-fade:not(.img-ready)) {
+  animation: anim-pulse var(--dur-pulse) var(--ease-in-out) infinite;
+}
+/* Big-Picture-Overlay: waehrend das Bild laedt, haelt ein pulsierender
+   Karten-Platzhalter den Platz (das ladende img ist eingeklappt — sonst
+   staende leerer Raum ODER das alte Bild zum neuen Namen) */
+.mobile-card-content > img.img-fade:not(.img-ready) { display: none; }
+.mobile-card-content:has(> img.img-fade:not(.img-ready))::before {
+  content: '';
+  display: block;
+  width: min(80vw, 300px);
+  aspect-ratio: 63 / 88;
+  border-radius: 12px;
+  background: var(--bg-card);
+  animation: anim-pulse var(--dur-pulse) var(--ease-in-out) infinite;
+}
+
 /* [hidden] muss trotz Animations-Regel unsichtbar bleiben */
 .autocomplete-list[hidden],
 .swap-budget[hidden],

@@ -1,5 +1,6 @@
 import './motion.css'
 import './style.css'
+import { startImageFades } from './components/motion-img.js'
 import { registerRoute, startRouter } from './router.js'
 import { renderNav } from './components/nav.js'
 import { renderLogin } from './pages/login.js'
@@ -29,4 +30,7 @@ registerRoute('/scan', renderScan)
 renderNav()
 
 // Router starten
+// VOR dem Router starten: der Observer muss die Bilder des ersten Renders
+// schon sehen (Bild-Lade-Vertrag, motion-img.js)
+startImageFades()
 startRouter()

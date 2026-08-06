@@ -100,6 +100,17 @@
   animation: none !important;
 }
 
+/* Bild-Lade-Vertrag (components/motion-img.js verkabelt JEDES <img>):
+ * unsichtbar bis wirklich geladen, dann Fade — kein hartes Einploppen bei
+ * langsamem Netz. error setzt ebenfalls ready (Fallbacks uebernehmen). */
+img.img-fade {
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease);
+}
+img.img-fade.img-ready {
+  opacity: 1;
+}
+
 /* Reduced Motion: global auf quasi-0 — 0.01ms statt 0, damit transitionend-
  * Listener weiter feuern. iteration-count 1 stoppt Endlos-Pulse (CPU).
  * .load-bar-fill ist ausgenommen: der Ladebalken ist Statusanzeige, kein

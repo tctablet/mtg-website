@@ -1,5 +1,6 @@
 import { fetchCardBackImage } from '../scryfall.js'
 import { attachSwipe } from './swipe.js'
+import { rearmImgFade } from './motion-img.js'
 
 // Karten-Wechsel-Animation auf einem BESTEHENDEN <img> neu anstossen —
 // src-Wechsel allein re-triggert CSS-Animationen nicht (Motion-Sweep)
@@ -119,8 +120,11 @@ async function handleFlip() {
     currentDfc.showingBack = false
     retriggerCardAnim(img)
   } else {
-    const backUri = await fetchCardBackImage(currentDfc.scryfallId)
-    if (backUri) {
+    // Identitaets-Guard: waehrend des Fetches kann die Sidebar-Karte
+    // gewechselt haben (Hover) — dann gehoert das Backface nicht mehr hierher
+    const flipId = currentDfc.scryfallId
+    const backUri = await fetchCardBackImage(flipId)
+    if (backUri && currentDfc?.scryfallId === flipId) {
       img.src = backUri
       currentDfc.showingBack = true
       retriggerCardAnim(img)
@@ -200,6 +204,11 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
   function render(data, dir) {
     current = data
     showingBack = false
+    // Fallback-Zustand der VORHERIGEN Karte zuruecksetzen — sonst steht der
+    // Namens-Kasten von Karte A neben Skeleton und Namen von Karte B
+    // (Critic R2 [HIGH]); load/error setzen den Endzustand neu
+    img.hidden = false
+    noimgEl.hidden = true
     img.src = data.imageUri
     img.alt = data.cardName || ''
     label.textContent = data.cardName || ''
@@ -216,7 +225,12 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     // Blaettern nur zeigen, wenn es ueberhaupt Nachbarn gibt
     overlay.querySelector('.mobile-card-nav').hidden = rows.length < 2 || i < 0
 
-    if (dir) retriggerCardAnim(img, dir > 0 ? 'card-step-next' : 'card-step-prev')
+    if (dir) {
+      // src-Wechsel auf demselben img: altes Bild raus, Skeleton bis das neue
+      // da ist — sonst stuende Karte A zum Namen von Karte B (Critic)
+      rearmImgFade(img)
+      retriggerCardAnim(img, dir > 0 ? 'card-step-next' : 'card-step-prev')
+    }
   }
 
   function step(dir) {
@@ -242,14 +256,18 @@ export function showMobilePreview(imageUri, cardName, dfcInfo, bracketCat, rowEl
     if (showingBack) {
       img.src = current.imageUri
       showingBack = false
+      rearmImgFade(img)
       retriggerCardAnim(img)
       return
     }
-    const backUri = await fetchCardBackImage(current.dfcInfo.scryfallId)
-    // Waehrend des Ladens kann weitergeblaettert worden sein
-    if (backUri && current.dfcInfo?.scryfallId) {
+    // Identitaets-Guard statt Existenz-Check: waehrend des Fetches kann zu
+    // einer ANDEREN DFC geblaettert worden sein (Critic R2)
+    const flipId = current.dfcInfo.scryfallId
+    const backUri = await fetchCardBackImage(flipId)
+    if (backUri && current.dfcInfo?.scryfallId === flipId) {
       img.src = backUri
       showingBack = true
+      rearmImgFade(img)
       retriggerCardAnim(img)
     }
   })
