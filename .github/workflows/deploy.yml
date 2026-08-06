@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # Manueller Ausloeser als Ausweg, wenn GitHub Push-Events verschluckt
+  # (Partial Outage 06.08.2026 lieferte fuer 2 Pushes keinen Run)
+  workflow_dispatch:
 
 permissions:
   contents: read
