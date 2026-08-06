@@ -40,3 +40,6 @@ foil-*.png
 # Lokales Pool-Asset (Prod kommt aus dem Supabase-Storage-Bucket, Workflow build-pool-asset)
 public/pool-slim.json
 public/pool-slim.json.gz
+
+# Review-Artefakte (Screenshot-Suiten der Abnahme-Loops)
+prodshots/
