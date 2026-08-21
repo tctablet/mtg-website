@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-04T21:27:08.820Z",
+  "generatedAt": "2026-08-20T12:49:18.750Z",
   "pool": {
-    "fetchedAt": "2026-08-04T19:47:54.170Z",
-    "cardCount": 38542
+    "fetchedAt": "2026-08-20T12:11:11.395Z",
+    "cardCount": 38626
   },
   "criteria": {
     "INTERACTION_FLOOR": {
@@ -22,6 +22,35 @@
   },
   "decks": [
     {
+      "id": "0153ab61-2659-44fd-868d-6210dd9e6295",
+      "name": "The Notary Hobbits",
+      "player": "Philip",
+      "commander": "The Notary Hobbits",
+      "archetypeHint": null,
+      "gcCount": 3,
+      "bracketBand": "mid",
+      "interaction": {
+        "count": 11,
+        "nonland": 64,
+        "density": 0.172,
+        "instantSpeed": 4
+      },
+      "keepRate": 0.954,
+      "clocks": {
+        "combat": {
+          "median": 9,
+          "ceiling": 8,
+          "hitRate": 0.436
+        },
+        "mill": {
+          "median": null,
+          "ceiling": null,
+          "hitRate": 0
+        }
+      },
+      "speed": 9
+    },
+    {
       "id": "121c767d-c913-4fc7-9663-3c5cbfa47bde",
       "name": "Y'shtola, Night's Blessed",
       "player": "Jan B.",
@@ -30,10 +59,10 @@
       "gcCount": 3,
       "bracketBand": "mid",
       "interaction": {
-        "count": 15,
+        "count": 18,
         "nonland": 63,
-        "density": 0.238,
-        "instantSpeed": 13
+        "density": 0.286,
+        "instantSpeed": 14
       },
       "keepRate": 0.96,
       "clocks": {
@@ -59,9 +88,9 @@
       "gcCount": 5,
       "bracketBand": "high",
       "interaction": {
-        "count": 11,
+        "count": 12,
         "nonland": 66,
-        "density": 0.167,
+        "density": 0.182,
         "instantSpeed": 5
       },
       "keepRate": 0.918,
@@ -88,9 +117,9 @@
       "gcCount": 0,
       "bracketBand": "low",
       "interaction": {
-        "count": 7,
+        "count": 8,
         "nonland": 60,
-        "density": 0.117,
+        "density": 0.133,
         "instantSpeed": 4
       },
       "keepRate": 0.97,
@@ -320,9 +349,9 @@
       "gcCount": 0,
       "bracketBand": "low",
       "interaction": {
-        "count": 7,
+        "count": 8,
         "nonland": 61,
-        "density": 0.115,
+        "density": 0.131,
         "instantSpeed": 3
       },
       "keepRate": 0.96,
@@ -349,9 +378,9 @@
       "gcCount": 2,
       "bracketBand": "mid",
       "interaction": {
-        "count": 13,
+        "count": 14,
         "nonland": 68,
-        "density": 0.191,
+        "density": 0.206,
         "instantSpeed": 11
       },
       "keepRate": 0.924,
@@ -378,17 +407,17 @@
       "gcCount": 10,
       "bracketBand": "high",
       "interaction": {
-        "count": 17,
+        "count": 19,
         "nonland": 63,
-        "density": 0.27,
-        "instantSpeed": 13
+        "density": 0.302,
+        "instantSpeed": 15
       },
-      "keepRate": 0.956,
+      "keepRate": 0.966,
       "clocks": {
         "combat": {
           "median": 10,
           "ceiling": 8,
-          "hitRate": 0.088
+          "hitRate": 0.078
         },
         "mill": {
           "median": null,
@@ -407,10 +436,10 @@
       "gcCount": 6,
       "bracketBand": "high",
       "interaction": {
-        "count": 11,
+        "count": 12,
         "nonland": 66,
-        "density": 0.167,
-        "instantSpeed": 7
+        "density": 0.182,
+        "instantSpeed": 8
       },
       "keepRate": 0.934,
       "clocks": {
@@ -436,10 +465,10 @@
       "gcCount": 5,
       "bracketBand": "high",
       "interaction": {
-        "count": 19,
+        "count": 22,
         "nonland": 61,
-        "density": 0.311,
-        "instantSpeed": 17
+        "density": 0.361,
+        "instantSpeed": 19
       },
       "keepRate": 0.968,
       "clocks": {
@@ -515,25 +544,25 @@
       "speed": 9
     },
     {
-      "id": "c9925aec-a820-4b83-bb46-cd3313975c78",
-      "name": "Flash",
-      "player": "Philip",
-      "commander": "Chromium, the Mutable",
+      "id": "ce7d885c-1a9a-48d3-b9a6-14ae9edb39a1",
+      "name": "Sheoldred T4",
+      "player": "Björn",
+      "commander": "Sheoldred, the Apocalypse",
       "archetypeHint": null,
-      "gcCount": 9,
+      "gcCount": 8,
       "bracketBand": "high",
       "interaction": {
-        "count": 16,
-        "nonland": 63,
-        "density": 0.254,
-        "instantSpeed": 13
+        "count": 11,
+        "nonland": 66,
+        "density": 0.167,
+        "instantSpeed": 1
       },
-      "keepRate": 0.946,
+      "keepRate": 0.94,
       "clocks": {
         "combat": {
           "median": 9,
-          "ceiling": 8,
-          "hitRate": 0.466
+          "ceiling": 7,
+          "hitRate": 0.674
         },
         "mill": {
           "median": null,
@@ -610,10 +639,10 @@
       "gcCount": 1,
       "bracketBand": "mid",
       "interaction": {
-        "count": 6,
+        "count": 7,
         "nonland": 65,
-        "density": 0.092,
-        "instantSpeed": 1
+        "density": 0.108,
+        "instantSpeed": 2
       },
       "keepRate": 0.938,
       "clocks": {

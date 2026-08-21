@@ -15,7 +15,7 @@
 // Wizards backt Rollen zur Build-Zeit ein — ändert sich die Heuristik, MUSS
 // diese Zahl hochgezählt werden, damit der Client den Drift erkennt und ein
 // Warnbanner zeigt (Plan M5, rolesVersion-Vertrag). Test erzwingt Konsistenz.
-export const ROLES_VERSION = 2
+export const ROLES_VERSION = 3
 
 const RE = {
   // Ramp: Mana-Artefakte/-Kreaturen ("{T}: Add …") oder Land-Ramp
@@ -24,7 +24,15 @@ const RE = {
   anyAdd: /\badd (?:\{|one mana|two mana|x mana|an amount of mana)/,
   landRamp: /search (?:your|their) library for .{0,40}land .{0,80}(?:onto the battlefield|battlefield)/,
   putLandFromHand: /put (?:a|up to \w+) land cards? from your hand onto the battlefield/,
-  treasure: /create .{0,40}treasure token/,
+  // Nur Eigenproduktion ("create …"): die 3.-Person-Form "creates" ist fast
+  // immer ein anderer Spieler (Gonti-Klasse: "that player creates a Treasure").
+  treasure: /create [^.\n]{0,40}treasure token/,
+  // Replacement-Modifikator (Bilbo-Klasse: "If you WOULD create a Food token,
+  // instead create … and a Treasure token") — modifiziert ein fremdes Event,
+  // keine eigene Manaproduktion. Eigene bedingte Eskalationen ("If you rolled
+  // 6 or higher, instead create that token and a Treasure token" — Mr. House)
+  // haben kein "would create" und bleiben Ramp. Satzweise geprüft (classifyCard).
+  treasureReplacement: /would create [^.\n]{0,80}instead[^.\n]{0,80}treasure token/,
 
   draw: /draws? (?:a|an additional|two|three|four|five|six|seven|x|that many) cards?|draws? cards equal to/,
   // Gegner-Draw-Filter, zweistufig (Critic-Regression Runde 2 beachtet):
@@ -45,6 +53,15 @@ const RE = {
   // Removal-Slot, aber "exile target creature … search for a basic land"
   // (Path to Exile) sehr wohl.
   destroyTarget: /(?:destroy|exile)s? (?:up to \w+ )?target (?!land\b)/,
+  // Selbst-Ziel (Conjurer's-Closet-Blink): "you control" muss das direkt vom
+  // Verb getroffene Ziel-Nomen modifizieren (Verb-Anker + max. 2 Zwischen-
+  // wörter). Relativsätze/Präpositionen ("target creature that's attacking …
+  // a planeswalker you control", "target Aura attached to a creature you
+  // control") und spätere target-Referenzen im selben Satz (Calix-Klasse:
+  // "… until target enchantment you control leaves") bleiben Removal.
+  // "you don't control" matcht den String "you control" nicht.
+  // Satzweise geprüft (classifyCard), analog zur Bounce-Regel.
+  selfTarget: /(?:destroy|exile)s? (?:up to \w+ )?target (?:[a-z']+ ){0,2}(?:creature|permanent|artifact|enchantment|planeswalker|aura|token|card)s? you control\b/,
   damageTarget: /deals? (?:\d+|x) damage to (?:target|any target|each of up to)|damage divided (?:as you choose )?among/,
   fightBite: /fights? (?:up to one )?target|deals damage equal to its power to target/,
   sacrificeEdict: /(?:each|target) (?:other )?(?:opponent|player) sacrifices? (?:a|an|one|two) /,
@@ -89,7 +106,12 @@ export function classifyCard(record) {
   const isMana =
     (RE.manaAbility.test(text) || RE.anyAdd.test(text)) &&
     !type.includes('land')
-  if (isMana || RE.landRamp.test(text) || RE.putLandFromHand.test(text) || RE.treasure.test(text)) {
+  // Treasure satzweise: nur Sätze ohne "would create … instead"-Replacement
+  // (Bilbo-Klasse) zählen als eigene Manaproduktion.
+  const treasureRamp = RE.treasure.test(text) &&
+    (text.match(/[^.\n]*create [^.\n]*treasure token[^.\n]*/g) || [])
+      .some(s => RE.treasure.test(s) && !RE.treasureReplacement.test(s))
+  if (isMana || RE.landRamp.test(text) || RE.putLandFromHand.test(text) || treasureRamp) {
     roles.add('ramp')
   }
   // Gegner-Draw-Sätze entfernen, bevor der Draw-Match läuft (Baleful-Mastery-
@@ -100,8 +122,13 @@ export function classifyCard(record) {
   let ownText = text.replace(RE.opponentDraw, (m) => (/\byou (?:may )?draw/.test(m) ? m : ''))
   if (RE.removalContext.test(text)) ownText = ownText.replace(RE.victimDraw, '')
   if (RE.draw.test(ownText)) roles.add('draw')
+  // destroyTarget satzweise: Sätze, deren Ziel ein Selbst-Permanent ist
+  // ("exile target creature you control" — Blink), zählen nicht.
+  const destroyRemoval = RE.destroyTarget.test(text) &&
+    (text.match(/[^.\n]*(?:destroy|exile)[^.\n]*/g) || [])
+      .some(s => RE.destroyTarget.test(s) && !RE.selfTarget.test(s))
   if (
-    RE.destroyTarget.test(text) || RE.damageTarget.test(text) ||
+    destroyRemoval || RE.damageTarget.test(text) ||
     RE.fightBite.test(text) || RE.sacrificeEdict.test(text) || RE.minusTarget.test(text)
   ) {
     roles.add('removal')

@@ -37,6 +37,44 @@ test('roles: Removal inkl. Path-to-Exile-Fall, aber nicht Land Destruction', () 
   assert.ok(!stripMine.includes('removal'), 'Land Destruction ist kein Removal-Slot')
 })
 
+test('roles: Selbst-Ziele sind kein Removal, "you don\'t control" schon (Critic-Fund 21.08.)', () => {
+  const closet = classifyCard(rec('Conjurer\'s Closet', 'Artifact',
+    'At the beginning of your end step, you may exile target creature you control, then return that card to the battlefield under your control.'))
+  assert.ok(!closet.includes('removal'), 'Selbst-Blink (you control) ist kein Removal')
+  const swords = classifyCard(rec('Exil-Effekt', 'Instant', 'Exile target creature you don\'t control.'))
+  assert.ok(swords.includes('removal'), '"you don\'t control" bleibt Removal')
+  const duplicant = classifyCard(rec('Duplicant', 'Artifact Creature — Shapeshifter',
+    'Imprint — When this creature enters, you may exile target nontoken creature.'))
+  assert.ok(duplicant.includes('removal'), 'Exil ohne Selbst-Bezug bleibt Removal')
+  // "you control" in Relativsatz/Präposition bezieht sich NICHT aufs Ziel
+  // (Critic-Corpus-Fund 21.08.): das bleibt Removal.
+  const soulSnare = classifyCard(rec('Soul Snare', 'Enchantment',
+    '{W}, Sacrifice this enchantment: Exile target creature that\'s attacking you or a planeswalker you control.'))
+  assert.ok(soulSnare.includes('removal'), 'Ziel ist die gegnerische Angreifer-Kreatur')
+  const miracleWorker = classifyCard(rec('Miracle Worker', 'Creature — Human Cleric',
+    '{T}: Destroy target Aura attached to a creature you control.'))
+  assert.ok(miracleWorker.includes('removal'), 'Ziel ist die gegnerische Aura, nicht die eigene Kreatur')
+  // O-Ring-Duration-Anker ("until target enchantment you control leaves")
+  // ist nicht das Exil-Ziel — bleibt Removal (Calix-Klasse).
+  const calix = classifyCard(rec('Calix, Destiny\'s Hand', 'Legendary Planeswalker — Calix',
+    '−3: Exile target creature or enchantment you don\'t control until target enchantment you control leaves the battlefield.'))
+  assert.ok(calix.includes('removal'), 'Duration-Anker macht O-Ring-Exil nicht zum Selbst-Ziel')
+})
+
+test('roles: Replacement-Modifikator ("instead create … Treasure") ist kein Ramp (Bilbo-Klasse)', () => {
+  const bilbo = classifyCard(rec('Bilbo, Fellow Conspirator', 'Legendary Creature — Halfling Citizen',
+    'If you would create a Food token, instead create a Food token and a Treasure token.'))
+  assert.ok(!bilbo.includes('ramp'), 'passiver Food→Treasure-Modifikator produziert selbst kein Mana')
+  const innkeeper = classifyCard(rec('Prosperous Innkeeper', 'Creature — Halfling Citizen',
+    'When this creature enters, create a Treasure token.\nWhenever another creature you control enters, you gain 1 life.'))
+  assert.ok(innkeeper.includes('ramp'), 'aktiver Treasure-Maker bleibt Ramp')
+  // Eigene bedingte Eskalation ("instead" OHNE "would create") ist echte
+  // Treasure-Quelle (Mr.-House-Klasse, Critic-Corpus-Fund 21.08.).
+  const mrHouse = classifyCard(rec('Mr. House, President and CEO', 'Legendary Creature — Human',
+    'Whenever you roll a 4 or higher, create a 3/3 colorless Robot artifact creature token. If you rolled 6 or higher, instead create that token and a Treasure token.'))
+  assert.ok(mrHouse.includes('ramp'), 'bedingte Eskalation der eigenen Fähigkeit bleibt Ramp')
+})
+
 test('roles: Wipe eng gefasst — Anthem matcht nicht', () => {
   assert.ok(classifyCard(rec('Wrath of God', 'Sorcery', 'Destroy all creatures. They can\'t be regenerated.')).includes('wipe'))
   assert.ok(classifyCard(rec('Blasphemous Act', 'Sorcery', 'This spell costs {1} less to cast for each creature on the battlefield.\nBlasphemous Act deals 13 damage to each creature.')).includes('wipe'))
