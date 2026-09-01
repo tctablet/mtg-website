@@ -3,6 +3,9 @@ import { formatPrice, renderLoadError } from '../utils.js'
 import { refade } from '../components/loading.js'
 import { navigate, routeHref } from '../router.js'
 import { getPlayer } from '../auth.js'
+// Dieselbe Schwelle, die das Optimizer-Gate fährt — nicht neu hinschreiben,
+// sonst driften Anzeige und Gate auseinander.
+import { BUDGET_LIMIT_EUR } from '../../scripts/optimizer/lib/budget.mjs'
 
 export async function renderOverview(container) {
   if (!getPlayer()) { navigate('/login'); return }
@@ -53,17 +56,20 @@ export async function renderOverview(container) {
           </div>
           ${p.decks.length ? `
             <div class="overview-deck-grid">
-              ${p.decks.map(d => `
-                <a href="${routeHref(`/deck/${d.id}`)}" class="deck-tile" ${d.commander_image ? `style="background-image: linear-gradient(to bottom, rgba(15,15,20,0.1) 0%, rgba(15,15,20,0.85) 70%), url('${d.commander_image}'); background-size: cover; background-position: center top;"` : ''}>
+              ${p.decks.map(d => {
+                const over = d.value - BUDGET_LIMIT_EUR
+                return `
+                <a href="${routeHref(`/deck/${d.id}`)}" class="deck-tile${over > 0 ? ' deck-tile-over-budget' : ''}" ${d.commander_image ? `style="background-image: linear-gradient(to bottom, rgba(15,15,20,0.1) 0%, rgba(15,15,20,0.85) 70%), url('${d.commander_image}'); background-size: cover; background-position: center top;"` : ''}>
                   <div class="deck-tile-bottom">
                     <span class="deck-tile-name">${d.name}</span>
                     <span class="deck-tile-commander">${d.commander}</span>
                     <div class="deck-tile-meta">
                       <span class="deck-tile-value">${formatPrice(d.value)}</span>
+                      ${over > 0 ? `<span class="deck-tile-over" title="${formatPrice(over)} über dem ${BUDGET_LIMIT_EUR}-€-Limit">+${formatPrice(over)}</span>` : ''}
                     </div>
                   </div>
                 </a>
-              `).join('')}
+              `}).join('')}
             </div>
           ` : `
             <p class="player-no-decks">Noch keine Decks</p>

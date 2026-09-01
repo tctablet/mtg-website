@@ -10,6 +10,7 @@
   --accent: #7c5cbf;
   --accent-hover: #9470d6;
   --accent-dim: rgba(124, 92, 191, 0.15);
+  --error-dim: rgba(231, 76, 60, 0.15);
   --border: #2a2a38;
   --success: #4caf50;
   --error: #e74c3c;
@@ -1368,6 +1369,62 @@ body.modal-open { overflow: hidden; }
   font-size: 16px;
   font-weight: 700;
   color: var(--accent);
+}
+
+/* Decks über dem Budget-Limit: dezent rot, damit sie beim Scrollen auffallen,
+   ohne die Kachel zu dominieren — roter Rand statt Fläche, Wert in Rot, und
+   rechts daneben wieviel drüber. Schwelle kommt aus BUDGET_LIMIT_EUR
+   (scripts/optimizer/lib/budget.mjs), damit Anzeige und Optimizer-Gate nie
+   auseinanderlaufen. */
+.deck-tile-over-budget {
+  position: relative;
+  border-color: rgba(231, 76, 60, 0.45);
+}
+
+/* Dezenter roter Verlauf von UNTEN: die Kachel ist auf einen Blick als
+   "über Limit" lesbar, ohne dass das Artwork zugefärbt wird — die obere Hälfte
+   bleibt komplett frei, das Rot setzt erst unterhalb der Mitte ein und legt
+   sich hinter den Textblock. pointer-events:none, damit der Link darunter
+   unangetastet bleibt. */
+.deck-tile-over-budget::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(231, 76, 60, 0) 50%,
+    rgba(231, 76, 60, 0.12) 72%,
+    rgba(231, 76, 60, 0.32) 100%
+  );
+  pointer-events: none;
+}
+
+/* Textblock über den Verlauf heben — sonst legt sich das Rot auch über Name,
+   Commander und Wert und frisst deren Kontrast. */
+.deck-tile-over-budget .deck-tile-bottom {
+  position: relative;
+  z-index: 1;
+}
+
+/* Nach .deck-tile:hover platziert (gleiche Spezifität) — sonst überschriebe
+   der Accent-Hover die rote Markierung genau dann, wenn man draufzeigt. */
+.deck-tile-over-budget:hover {
+  border-color: var(--error);
+}
+
+.deck-tile-over-budget .deck-tile-value {
+  color: var(--error);
+}
+
+.deck-tile-over {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--error);
+  background: var(--error-dim);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
 }
 
 /* ===== Commander Autocomplete ===== */
