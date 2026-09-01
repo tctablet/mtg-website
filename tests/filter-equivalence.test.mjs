@@ -20,6 +20,12 @@ const FIXTURES = [
   { name: 'promo-set', c: { id: 'x', name: 'A', set_type: 'promo', image_uris: img } },
   { name: 'treasure_chest', c: { id: 'x', name: 'A', set_type: 'treasure_chest', image_uris: img } },
   { name: 'token', c: { id: 'x', name: 'A', set_type: 'token', image_uris: img } },
+  { name: 'memorabilia', c: { id: 'x', name: 'A', set_type: 'memorabilia', image_uris: img } },
+  // Art Cards: set_type memorabilia, Name doppelt, Bild nur im card_face.
+  // Genau dieser Fixture-Typ drückte Legolas's Quick Reflexes auf 0,40 €.
+  { name: 'art_series', c: { id: 'x', name: 'A // A', layout: 'art_series', set_type: 'memorabilia', finishes: ['nonfoil', 'foil'], card_faces: [{ image_uris: img }] } },
+  // Oversized Commander / World Championship: gleicher set_type, normales Layout
+  { name: 'oversized', c: { id: 'x', name: 'A', layout: 'normal', set_type: 'memorabilia', finishes: ['nonfoil'], image_uris: img } },
   { name: 'ohne Bild', c: { id: 'x', name: 'A', set_type: 'expansion' } },
   { name: 'nur small', c: { id: 'x', name: 'A', set_type: 'expansion', image_uris: { small: 's' } } },
   { name: 'DFC', c: { id: 'x', name: 'A // B', set_type: 'expansion', card_faces: [{ image_uris: img }, { image_uris: { normal: 'back' } }] } },

@@ -19,7 +19,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm # wie test.yml — ein Registry-Haenger darf den Cron nicht kippen
+      # `npm ci`, obwohl die beiden Guard-Suiten heute ohne node_modules
+      # liefen: sobald jemand in src/scryfall.js einen npm-Import ergaenzt
+      # (supabase-js liegt daneben), wuerde der Guard mit ERR_MODULE_NOT_FOUND
+      # brechen und der Sync-Step nie starten — stiller Cron-Stillstand, den
+      # dieses Repo schon zweimal hatte. Kostet Sekunden.
+      - run: npm ci --no-audit --no-fund
+
+      # Gezielt NUR die zwei Suiten, die genau diesen Code-Pfad absichern.
+      # Bewusst nicht `npm test`: die volle Suite an den taeglichen Preis-Cron
+      # zu koppeln wuerde ihn bei jedem unrelated roten Test still stilllegen.
+      - name: Guard the price/printing filters
+        run: node --test tests/sync-prices.test.mjs tests/filter-equivalence.test.mjs
+
       - name: Sync prices from Scryfall bulk data
         env:
           SUPABASE_URL: https://jcbdjlqxmlsfqfenltws.supabase.co

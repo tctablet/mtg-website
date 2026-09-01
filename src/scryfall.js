@@ -246,9 +246,13 @@ export async function fetchTokenDetails(tokenMap) {
   return tokens
 }
 
+// HINWEIS: derzeit ohne Aufrufer im Repo — die App liest Preise aus
+// scryfall_prices (fetchCheapestPrices, Plural). Die set_type-Klausel steht
+// hier trotzdem, damit ein wiederbelebter Live-Pfad nicht erneut die
+// memorabilia-Prints einrechnet, die den Cron-Preis verfälscht haben.
 export async function fetchCheapestPrice(cardName) {
   const name = cardName.includes(' // ') ? cardName.split(' // ')[0] : cardName
-  const q = `!"${name}" -is:digital`
+  const q = `!"${name}" -is:digital -st:memorabilia`
   const url = `${API_BASE}/cards/search?q=${encodeURIComponent(q)}&unique=prints&order=eur&dir=asc`
   let res = await fetch(url)
   // Retry once on rate limit (429)
@@ -307,7 +311,14 @@ export async function fetchCardPrintings(cardName, retries = 2) {
   return (data.data || []).filter(keepPrinting).map(toPrinting)
 }
 
-const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
+// Spiegel von scripts/sync-prices.mjs — tests/filter-equivalence.test.mjs
+// erzwingt, dass beide Seiten identisch entscheiden. 'memorabilia' deckt Art
+// Series, Oversized Commander, Heroes of the Realm, World Championship Decks
+// und 30th Anniversary ab: alles Prints, die im Artwork-Picker nichts zu
+// suchen haben (die Art Card ist ein Bild ohne Textbox).
+// ACHTUNG: die PREIS-Filterliste in sync-prices.mjs ist bewusst eine andere —
+// Promos fliegen hier raus, zählen dort aber als günstigster Kaufweg.
+const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token', 'memorabilia']
 
 export function keepPrinting(c) {
   if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false

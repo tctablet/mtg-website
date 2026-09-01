@@ -16,6 +16,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY
 const USD_TO_EUR = 0.92
 
+// Untergrenze fuer einen plausiblen Lauf (ein gesunder Lauf liefert ~33.500
+// Namen). Exportiert, damit scripts/price-sync-dryrun.mjs dieselbe Schwelle
+// prueft statt eine eigene zu erfinden.
+export const MIN_EXPECTED_NAMES = 20000
+
 // Scryfall requires a custom User-Agent and an Accept header on every request,
 // otherwise it returns HTTP 400 (https://scryfall.com/docs/api).
 const SCRYFALL_HEADERS = {
@@ -55,7 +60,7 @@ async function supabaseRpc(path, { method = 'GET', body, headers = {} } = {}) {
  * Lines that are just an array bracket or carry a trailing comma are tolerated,
  * so a plain JSON array with one object per line parses too.
  */
-async function* streamScryfallCards(url) {
+export async function* streamScryfallCards(url) {
   const res = await fetch(url, { headers: SCRYFALL_HEADERS })
   if (!res.ok) {
     throw new Error(`Scryfall bulk download failed: ${res.status}`)
@@ -104,7 +109,7 @@ async function* streamScryfallCards(url) {
 // Der Artwork-Picker filtert Printings clientseitig (src/scryfall.js). Dieselbe
 // Logik hier beim Befüllen, damit die Tabelle exakt das enthält, was der Picker
 // zeigen würde. Beide Stellen synchron halten!
-const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token']
+const EXCLUDED_SET_TYPES = ['promo', 'treasure_chest', 'token', 'memorabilia']
 
 export function keepPrinting(c) {
   if (c.finishes && c.finishes.length === 1 && c.finishes[0] !== 'nonfoil') return false
@@ -128,6 +133,93 @@ export function canonicalPriceName(c) {
   const parts = name.split(' // ')
   if (parts.length === 2 && parts[0] === parts[1]) return parts[0]
   return name
+}
+
+// ---- Preis-Filter (scryfall_prices) ----
+// BEWUSST NICHT dieselbe Liste wie EXCLUDED_SET_TYPES oben. Der Picker-Filter
+// ist eine Optik-Entscheidung ("zeig normale Prints"), hier lautet die Frage
+// "was kostet die Karte im Laden". Die beiden dürfen auseinanderlaufen — was
+// sie unterscheidet, steht hier, damit es niemand versehentlich angleicht:
+//
+//   memorabilia RAUS — Art Cards, Oversized Commander, Heroes of the Realm,
+//     World Championship Decks, 30th Anniversary sind keine kaufbaren
+//     Spiel-Prints. Genau das drückte "Legolas's Quick Reflexes" auf 0,40 €
+//     statt 31,81 €: der Art-Series-Print ALTC #3 heißt "A // A", wurde von
+//     canonicalPriceName auf den Namen der echten Karte gefaltet und gewann
+//     mit 0.43 USD × 0.92 den Min-Merge (Befund 01.09.2026).
+//   token/treasure_chest RAUS — heute ohne messbare Wirkung (0 Deck-Karten),
+//     kommen als Schutz gegen dieselbe Bug-Klasse mit: ein gleichnamiger
+//     Token-Print darf den Min-Merge nie gewinnen.
+//   promo BLEIBT DRIN — ein Promo-Print ist eine echte, kaufbare Karte und oft
+//     der günstigste Weg an sie heranzukommen. Gemessen 01.09.2026 über alle
+//     2063 Deck-Kartennamen: Promos auszuschließen macht 163 Karten um
+//     zusammen 138 € TEURER (Portal to Phyrexia PBRO #240p 30,86 € statt
+//     41,75 €) — das 500-€-Gate würde Decks fälschlich blockieren.
+const EXCLUDED_PRICE_SET_TYPES = ['memorabilia', 'token', 'treasure_chest']
+
+export function isPriceEligible(c) {
+  if (c.digital) return false
+  return !EXCLUDED_PRICE_SET_TYPES.includes(c.set_type)
+}
+
+// EUR-Kaskade eines einzelnen Printings: non-foil EUR → USD umgerechnet →
+// Foil. null = Scryfall kennt für dieses Printing keinen Preis.
+export function priceOf(c) {
+  const p = c.prices || {}
+  if (p.eur) return { eur: parseFloat(p.eur), isFoil: false }
+  if (p.usd) return { eur: parseFloat(p.usd) * USD_TO_EUR, isFoil: false }
+  if (p.eur_foil) return { eur: parseFloat(p.eur_foil), isFoil: true }
+  if (p.usd_foil) return { eur: parseFloat(p.usd_foil) * USD_TO_EUR, isFoil: true }
+  return null
+}
+
+// Frischer Akkumulator für einen Bulk-Durchlauf.
+export function newBulkContext({ deckNames = null, runStamp = null, printingRows = [] } = {}) {
+  return {
+    priceMap: new Map(), // kanonischer Name -> { eur, is_foil }
+    printingRows,
+    deckNames,
+    runStamp,
+    stats: { cards: 0, reversible: 0, skippedSetType: 0 },
+  }
+}
+
+/**
+ * Der KOMPLETTE Schleifenkörper des Bulk-Streams als pure Funktion.
+ * main() ruft nur noch das hier auf, und Tests wie der Dry-Run
+ * (scripts/price-sync-dryrun.mjs) nutzen exakt dieselbe Funktion — sonst kann
+ * ein grüner Test neben einer abweichenden Produktionsschleife stehen.
+ */
+export function processBulkCard(card, ctx) {
+  const { priceMap, printingRows, deckNames, runStamp, stats } = ctx
+  stats.cards++
+
+  // Reversible-Printings laufen unter ihrem kanonischen Namen mit — sowohl
+  // in den Preis-Min-Merge als auch als Printing des kanonischen Deck-Namens.
+  const name = canonicalPriceName(card)
+  if (name !== card.name) stats.reversible++
+
+  if (deckNames && keepPrinting(card)) {
+    // Sowohl kanonischer als auch roher Bulk-Name können als Deck-Name
+    // gespeichert sein — die Row trägt die Variante, die das Deck nutzt
+    const deckVariant = deckNames.has(name) ? name : (deckNames.has(card.name) ? card.name : null)
+    if (deckVariant) printingRows.push(toPrintingRow(card, runStamp, deckVariant))
+  }
+
+  if (!isPriceEligible(card)) {
+    // digital war schon immer draußen und ist kein Signal — nur die neu
+    // gefilterten set_types zählen, damit die Log-Zeile aussagekräftig bleibt.
+    if (!card.digital) stats.skippedSetType++
+    return
+  }
+
+  const price = priceOf(card)
+  if (!price || isNaN(price.eur)) return
+
+  const existing = priceMap.get(name)
+  if (!existing || price.eur < existing.eur) {
+    priceMap.set(name, { eur: Math.round(price.eur * 100) / 100, is_foil: price.isFoil })
+  }
 }
 
 // nameOverride: Deck-Karten werden über ihren GESPEICHERTEN Namen nachgeschlagen
@@ -215,8 +307,8 @@ export function staleCapFor(upsertedCount) {
 // Deutlich strengeres Cap für scryfall_prices (Critic R1 [HIGH]): die Tabelle
 // ist die EINZIGE Preisquelle der App, und ein Tages-Teilausfall bei Scryfall
 // (Stream-Abriss, Preislücken) darf nie tausende legitime Namen fressen.
-// 2 % von ~38k ≈ 760 — die 397 Reversible-Geister passen durch, ein
-// 1000-Namen-Loch NICHT (dann fail-closed + ::error).
+// 2 % der Referenzmenge bei MIN_EXPECTED_NAMES (~33.500) ≈ 670 — die 397
+// Reversible-Geister passen durch, ein 1000-Namen-Loch NICHT (fail-closed).
 export function stalePriceCapFor(upsertedCount) {
   return Math.max(500, Math.round(upsertedCount * 0.02))
 }
@@ -350,54 +442,23 @@ async function main() {
 
   // 2. Download and parse (streamed — the file is too large for res.json()).
   // 3. Find cheapest price per card name while streaming.
-  const priceMap = new Map() // name -> { eur, is_foil }
-  let cardCount = 0
-  let reversibleCount = 0
-
+  // Der Schleifenkörper lebt in processBulkCard — dieselbe Funktion, die Tests
+  // und scripts/price-sync-dryrun.mjs aufrufen.
+  const ctx = newBulkContext({ deckNames, runStamp, printingRows })
   for await (const card of streamScryfallCards(downloadUrl)) {
-    cardCount++
-
-    // Reversible-Printings laufen unter ihrem kanonischen Namen mit — sowohl
-    // in den Preis-Min-Merge als auch als Printing des kanonischen Deck-Namens.
-    const name = canonicalPriceName(card)
-    if (name !== card.name) reversibleCount++
-
-    if (deckNames && keepPrinting(card)) {
-      // Sowohl kanonischer als auch roher Bulk-Name können als Deck-Name
-      // gespeichert sein — die Row trägt die Variante, die das Deck nutzt
-      const deckVariant = deckNames.has(name) ? name : (deckNames.has(card.name) ? card.name : null)
-      if (deckVariant) printingRows.push(toPrintingRow(card, runStamp, deckVariant))
-    }
-
-    if (card.digital) continue
-
-    const p = card.prices || {}
-
-    // Try non-foil EUR first, then USD converted, then foil
-    let eur = null
-    let isFoil = false
-
-    if (p.eur) {
-      eur = parseFloat(p.eur)
-    } else if (p.usd) {
-      eur = parseFloat(p.usd) * USD_TO_EUR
-    } else if (p.eur_foil) {
-      eur = parseFloat(p.eur_foil)
-      isFoil = true
-    } else if (p.usd_foil) {
-      eur = parseFloat(p.usd_foil) * USD_TO_EUR
-      isFoil = true
-    }
-
-    if (eur === null || isNaN(eur)) continue
-
-    const existing = priceMap.get(name)
-    if (!existing || eur < existing.eur) {
-      priceMap.set(name, { eur: Math.round(eur * 100) / 100, is_foil: isFoil })
-    }
+    processBulkCard(card, ctx)
   }
+  const { priceMap } = ctx
+  const cardCount = ctx.stats.cards
+  const reversibleCount = ctx.stats.reversible
 
   console.log(`Streamed ${cardCount} card objects`)
+  // Sichtbares Signal, falls Scryfall die set_type-Konvention ändert: kippt
+  // diese Zahl auf 0 oder explodiert sie, stimmt der Preis-Filter nicht mehr.
+  console.log(
+    `Skipped ${ctx.stats.skippedSetType} printings by set_type ` +
+    `(${EXCLUDED_PRICE_SET_TYPES.join(', ')})`
+  )
   console.log(`Found cheapest prices for ${priceMap.size} unique cards`)
   // Sichtbares Signal statt stiller Drift: taucht hier plötzlich 0 oder eine
   // Explosion auf, hat Scryfall die Reversible-Namenskonvention geändert.
@@ -406,8 +467,7 @@ async function main() {
   // Nichts schreiben, wenn die Ausbeute unplausibel klein ist. Ein leeres oder
   // halb übertragenes Bulk-File würde sonst als grüner Lauf durchgehen und die
   // Preise still einfrieren — genau der Ausfall, der hier gerade behoben wurde.
-  // Referenz: ein gesunder Lauf liefert ~38.000 Namen aus ~116.000 Objekten.
-  const MIN_EXPECTED_NAMES = 20000
+  // Referenzwert steht bei MIN_EXPECTED_NAMES ganz oben (eine Zahl, nicht zwei).
   if (priceMap.size < MIN_EXPECTED_NAMES) {
     throw new Error(
       `Nur ${priceMap.size} Preise aus ${cardCount} Objekten — erwartet mindestens ${MIN_EXPECTED_NAMES}. ` +

@@ -625,7 +625,9 @@ const BASIC_LANDS = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 
 
 // --- Printings Cache ---
 // v4: image_small ergänzt, Ablage in localStorage statt sessionStorage
-const PRINTS_CACHE_VER = 'v4'
+// v5: memorabilia-Prints (Art Series, Oversized, World Championship, 30A)
+//     fliegen aus keepPrinting — ohne Bump zeigt der Picker sie 7 Tage weiter.
+const PRINTS_CACHE_VER = 'v5'
 const PRINTS_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const printingsCache = new Map()
 let prefetchInFlight = false
